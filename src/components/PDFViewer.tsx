@@ -284,7 +284,8 @@ export default function PDFViewer({ pdfUrl }: PDFViewerProps) {
     }
   };
 
-  const handleResizeStart = () => {
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
     setIsResizing(true);
   };
 
@@ -305,9 +306,13 @@ export default function PDFViewer({ pdfUrl }: PDFViewerProps) {
 
   useEffect(() => {
     if (isResizing) {
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'col-resize';
       document.addEventListener('mousemove', handleResizeMove);
       document.addEventListener('mouseup', handleResizeEnd);
       return () => {
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
         document.removeEventListener('mousemove', handleResizeMove);
         document.removeEventListener('mouseup', handleResizeEnd);
       };
@@ -315,7 +320,7 @@ export default function PDFViewer({ pdfUrl }: PDFViewerProps) {
   }, [isResizing]);
 
   return (
-    <div className="pdf-viewer-container">
+    <div className={`pdf-viewer-container ${isResizing ? 'resizing' : ''}`}>
       {/* Table of Contents Sidebar */}
       {showToc && outline.length > 0 && (
         <>
