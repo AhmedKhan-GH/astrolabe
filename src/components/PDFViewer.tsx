@@ -99,6 +99,8 @@ export default function PDFViewer({ pdfUrl }: PDFViewerProps) {
   useEffect(() => {
     if (!pdfDoc || !canvasRef.current || !containerRef.current || !fitToPageScale) return;
 
+    let renderTask: any = null;
+
     const renderPage = async () => {
       try {
         const page: PDFPageProxy = await pdfDoc.getPage(currentPage);
@@ -120,6 +122,9 @@ export default function PDFViewer({ pdfUrl }: PDFViewerProps) {
         const context = canvas.getContext('2d');
         if (!context) return;
 
+        // Clear canvas before rendering
+        context.clearRect(0, 0, canvas.width, canvas.height);
+
         // Set canvas dimensions to match viewport (maintains aspect ratio)
         canvas.height = viewport.height;
         canvas.width = viewport.width;
@@ -140,14 +145,26 @@ export default function PDFViewer({ pdfUrl }: PDFViewerProps) {
           transform: transform as any,
         };
 
-        await page.render(renderContext).promise;
+        renderTask = page.render(renderContext);
+        await renderTask.promise;
       } catch (err) {
+        // Ignore cancellation errors
+        if (err instanceof Error && err.message.includes('cancelled')) {
+          return;
+        }
         console.error('Error rendering page:', err);
         setError(`Error rendering page: ${err instanceof Error ? err.message : 'Unknown error'}`);
       }
     };
 
     renderPage();
+
+    // Cleanup function to cancel ongoing render
+    return () => {
+      if (renderTask) {
+        renderTask.cancel();
+      }
+    };
   }, [pdfDoc, currentPage, scale, fitToPageScale]);
 
   // Navigate to destination from TOC

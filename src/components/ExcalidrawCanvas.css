@@ -1,0 +1,68 @@
+.excalidraw-canvas {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #525659;
+}
+
+.canvas-header {
+  padding: 10px 20px;
+  border-bottom: 1px solid #ccc;
+  background-color: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+}
+
+.canvas-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+  color: #2a2a2a;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.back-button {
+  padding: 6px 12px;
+  background-color: #2a2a2a;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.back-button:hover {
+  background-color: #444444;
+}
+
+.header-spacer {
+  width: 80px;
+}
+
+.canvas-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.placeholder-message {
+  text-align: center;
+}
+
+.placeholder-message p {
+  margin: 0;
+  color: white;
+  font-size: 16px;
+}
+
+.placeholder-hint {
+  font-size: 14px;
+  margin-top: 8px;
+  color: #ccc;
+}

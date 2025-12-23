@@ -53,84 +53,54 @@ body {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  overflow-x: auto;
+  overflow: hidden;
+  background-color: #525659;
 }
 
-.upload-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justifyContent: center;
+.viewer-container {
   height: 100vh;
-  gap: 20px;
-  padding: 20px;
-}
-
-.upload-box {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 15px;
-  padding: 40px;
-  border: 2px dashed #ccc;
-  border-radius: 8px;
-  background-color: #f9f9f9;
+  background-color: #525659;
 }
 
-.upload-label {
-  padding: 12px 24px;
-  font-size: 16px;
-  background-color: #2a2a2a;
-  color: white;
-  border-radius: 4px;
-  cursor: pointer;
-  border: none;
-}
-
-.upload-label:hover {
-  background-color: #444444;
-}
-
-.upload-input {
-  display: none;
-}
-
-.upload-text {
-  margin: 0;
-  color: #666;
-  font-size: 14px;
-}
-
-.file-header {
+.viewer-header {
   padding: 10px 20px;
   border-bottom: 1px solid #ccc;
   background-color: #fff;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 16px;
 }
 
-.file-header h2 {
+.viewer-header h2 {
   margin: 0;
   font-size: 18px;
+  font-weight: 500;
   color: #2a2a2a;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   flex: 1;
   min-width: 0;
+  text-align: center;
 }
 
-.file-header button {
-  padding: 8px 16px;
+.back-button,
+.notes-button {
+  padding: 6px 12px;
   background-color: #2a2a2a;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
+  transition: all 0.2s;
+  white-space: nowrap;
 }
 
-.file-header button:hover {
+.back-button:hover,
+.notes-button:hover {
   background-color: #444444;
 }
