@@ -112,6 +112,7 @@ body {
 .file-header h2 {
   margin: 0;
   font-size: 18px;
+  color: #646cff;
 }
 
 .file-header button {

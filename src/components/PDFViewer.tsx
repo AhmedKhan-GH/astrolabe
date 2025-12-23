@@ -141,6 +141,11 @@ export default function PDFViewer({ pdfUrl }: PDFViewerProps) {
     });
   };
 
+  // Collapse all nodes
+  const collapseAll = () => {
+    setExpandedNodes(new Set());
+  };
+
   // Render outline tree
   const renderOutlineItems = (items: OutlineNode[], level = 0, parentPath = '') => {
     return (
@@ -207,7 +212,10 @@ export default function PDFViewer({ pdfUrl }: PDFViewerProps) {
         <div className="toc-sidebar">
           <div className="toc-header">
             <h3>Table of Contents</h3>
-            <button onClick={() => setShowToc(false)} className="toc-close-btn">✕</button>
+            <div className="toc-header-buttons">
+              <button onClick={collapseAll} className="toc-collapse-btn">Collapse All</button>
+              <button onClick={() => setShowToc(false)} className="toc-close-btn">✕</button>
+            </div>
           </div>
           {renderOutlineItems(outline)}
         </div>
