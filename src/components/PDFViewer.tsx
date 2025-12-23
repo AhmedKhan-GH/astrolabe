@@ -21,6 +21,7 @@ interface PDFViewerProps {
 
 export default function PDFViewer({ pdfUrl }: PDFViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
@@ -30,6 +31,15 @@ export default function PDFViewer({ pdfUrl }: PDFViewerProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const [fitToPageScale, setFitToPageScale] = useState<number | null>(null);
+  const [pageInput, setPageInput] = useState<string>('1');
+  const [tocWidth, setTocWidth] = useState<number>(300);
+  const [isResizing, setIsResizing] = useState<boolean>(false);
+
+  // Update page input when current page changes
+  useEffect(() => {
+    setPageInput(currentPage.toString());
+  }, [currentPage]);
 
   // Load PDF document
   useEffect(() => {
@@ -63,14 +73,45 @@ export default function PDFViewer({ pdfUrl }: PDFViewerProps) {
     loadPdf();
   }, [pdfUrl]);
 
+  // Calculate fit-to-page scale based on first page (only once when PDF loads)
+  useEffect(() => {
+    if (!pdfDoc || !containerRef.current || fitToPageScale !== null) return;
+
+    const calculateFitScale = async () => {
+      try {
+        const page: PDFPageProxy = await pdfDoc.getPage(1);
+        const viewport = page.getViewport({ scale: 1 });
+
+        const containerHeight = containerRef.current!.clientHeight - 40; // Subtract padding
+        const scaleToFit = containerHeight / viewport.height;
+        setFitToPageScale(scaleToFit);
+        setScale(scaleToFit);
+      } catch (err) {
+        console.error('Error calculating fit scale:', err);
+      }
+    };
+
+    calculateFitScale();
+  }, [pdfDoc, fitToPageScale]);
+
   // Render current page
   useEffect(() => {
-    if (!pdfDoc || !canvasRef.current) return;
+    if (!pdfDoc || !canvasRef.current || !containerRef.current || !fitToPageScale) return;
 
     const renderPage = async () => {
       try {
         const page: PDFPageProxy = await pdfDoc.getPage(currentPage);
-        const viewport = page.getViewport({ scale });
+
+        // Calculate the target height based on the fit scale and first page
+        const firstPage: PDFPageProxy = await pdfDoc.getPage(1);
+        const firstPageViewport = firstPage.getViewport({ scale: 1 });
+        const targetHeight = firstPageViewport.height * fitToPageScale;
+
+        // Calculate scale for current page to match target height
+        const currentPageViewport = page.getViewport({ scale: 1 });
+        const pageScale = (targetHeight / currentPageViewport.height) * (scale / fitToPageScale);
+
+        const viewport = page.getViewport({ scale: pageScale });
 
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -106,7 +147,7 @@ export default function PDFViewer({ pdfUrl }: PDFViewerProps) {
     };
 
     renderPage();
-  }, [pdfDoc, currentPage, scale]);
+  }, [pdfDoc, currentPage, scale, fitToPageScale]);
 
   // Navigate to destination from TOC
   const navigateToDestination = async (dest: any) => {
@@ -198,27 +239,96 @@ export default function PDFViewer({ pdfUrl }: PDFViewerProps) {
   };
 
   const handleZoomIn = () => {
-    setScale((prev) => Math.min(prev + 0.25, 3));
+    if (fitToPageScale) {
+      setScale((prev) => Math.min(prev + (fitToPageScale * 0.25), fitToPageScale * 3));
+    }
   };
 
   const handleZoomOut = () => {
-    setScale((prev) => Math.max(prev - 0.25, 0.5));
+    if (fitToPageScale) {
+      setScale((prev) => Math.max(prev - (fitToPageScale * 0.25), fitToPageScale * 0.25));
+    }
   };
+
+  const handleFitToPage = () => {
+    if (fitToPageScale) {
+      setScale(fitToPageScale);
+    }
+  };
+
+  const getZoomPercentage = () => {
+    if (!fitToPageScale) return 100;
+    return Math.round((scale / fitToPageScale) * 100);
+  };
+
+  const handlePageInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPageInput(e.target.value);
+  };
+
+  const handlePageInputSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const pageNum = parseInt(pageInput, 10);
+    if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= totalPages) {
+      setCurrentPage(pageNum);
+    } else {
+      // Reset to current page if invalid
+      setPageInput(currentPage.toString());
+    }
+  };
+
+  const handlePageInputBlur = () => {
+    const pageNum = parseInt(pageInput, 10);
+    if (isNaN(pageNum) || pageNum < 1 || pageNum > totalPages) {
+      // Reset to current page if invalid
+      setPageInput(currentPage.toString());
+    }
+  };
+
+  const handleResizeStart = () => {
+    setIsResizing(true);
+  };
+
+  const handleResizeMove = (e: MouseEvent) => {
+    if (isResizing) {
+      const newWidth = e.clientX;
+      if (newWidth >= 240 && newWidth <= 600) {
+        setTocWidth(newWidth);
+      }
+    }
+  };
+
+  const handleResizeEnd = () => {
+    setIsResizing(false);
+  };
+
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener('mousemove', handleResizeMove);
+      document.addEventListener('mouseup', handleResizeEnd);
+      return () => {
+        document.removeEventListener('mousemove', handleResizeMove);
+        document.removeEventListener('mouseup', handleResizeEnd);
+      };
+    }
+  }, [isResizing]);
 
   return (
     <div className="pdf-viewer-container">
       {/* Table of Contents Sidebar */}
       {showToc && outline.length > 0 && (
-        <div className="toc-sidebar">
-          <div className="toc-header">
-            <h3>Table of Contents</h3>
-            <div className="toc-header-buttons">
+        <>
+          <div className="toc-sidebar" style={{ width: `${tocWidth}px` }}>
+            <div className="toc-toolbar">
               <button onClick={collapseAll} className="toc-collapse-btn">Collapse All</button>
-              <button onClick={() => setShowToc(false)} className="toc-close-btn">✕</button>
+              <button onClick={() => setShowToc(false)} className="toc-close-btn">X</button>
+            </div>
+            <div className="toc-content">
+              <h3>Table of Contents</h3>
+              {renderOutlineItems(outline)}
             </div>
           </div>
-          {renderOutlineItems(outline)}
-        </div>
+          <div className="toc-resize-handle" onMouseDown={handleResizeStart}></div>
+        </>
       )}
 
       {/* Main PDF Viewer */}
@@ -232,27 +342,42 @@ export default function PDFViewer({ pdfUrl }: PDFViewerProps) {
             <button onClick={handlePrevPage} disabled={currentPage <= 1}>
               Previous
             </button>
-            <span>
-              Page {currentPage} of {totalPages}
-            </span>
             <button onClick={handleNextPage} disabled={currentPage >= totalPages}>
               Next
             </button>
           </div>
 
+          <div className="pdf-toolbar-center">
+            <form onSubmit={handlePageInputSubmit} className="page-input-form">
+              <span>Page </span>
+              <input
+                type="text"
+                value={pageInput}
+                onChange={handlePageInputChange}
+                onBlur={handlePageInputBlur}
+                className="page-input"
+              />
+              <span> of {totalPages}</span>
+            </form>
+            <span className="toolbar-separator">|</span>
+            <span>{getZoomPercentage()}%</span>
+          </div>
+
           <div className="pdf-toolbar-right">
-            <button onClick={handleZoomOut} disabled={scale <= 0.5}>
+            <button onClick={handleZoomOut} disabled={!fitToPageScale || scale <= fitToPageScale * 0.25}>
               −
             </button>
-            <span>{Math.round(scale * 100)}%</span>
-            <button onClick={handleZoomIn} disabled={scale >= 3}>
+            <button onClick={handleZoomIn} disabled={!fitToPageScale || scale >= fitToPageScale * 3}>
               +
+            </button>
+            <button onClick={handleFitToPage} disabled={!fitToPageScale}>
+              Fit
             </button>
           </div>
         </div>
 
         {/* PDF Canvas */}
-        <div className="pdf-canvas-container">
+        <div ref={containerRef} className="pdf-canvas-container">
           {loading && <div className="pdf-loading">Loading PDF...</div>}
           {error && <div className="pdf-error">{error}</div>}
           {!loading && !error && pdfDoc && (

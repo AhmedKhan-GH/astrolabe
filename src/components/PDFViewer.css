@@ -5,23 +5,42 @@
 }
 
 .toc-sidebar {
-  width: 300px;
-  border-right: 1px solid #ccc;
-  padding: 20px;
-  overflow-y: auto;
+  min-width: 240px;
+  max-width: 600px;
   background-color: #f9f9f9;
+  display: flex;
+  flex-direction: column;
 }
 
-.toc-header {
+.toc-resize-handle {
+  width: 4px;
+  background-color: #ccc;
+  cursor: col-resize;
+  transition: background-color 0.2s;
+}
+
+.toc-resize-handle:hover {
+  background-color: #999;
+}
+
+.toc-toolbar {
+  padding: 10px 20px;
+  border-bottom: 1px solid #ccc;
+  background-color: #fff;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
 }
 
-.toc-header h3 {
-  margin: 0;
-  color: #646cff;
+.toc-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.toc-content h3 {
+  margin: 0 0 15px 0;
+  color: #2a2a2a;
 }
 
 .toc-header-buttons {
@@ -32,29 +51,30 @@
 
 .toc-collapse-btn {
   cursor: pointer;
-  background: none;
+  background-color: #2a2a2a;
+  color: white;
   border: none;
+  border-radius: 4px;
   font-size: 12px;
-  padding: 4px 8px;
-  color: #646cff;
-  text-decoration: none;
+  padding: 6px 12px;
 }
 
 .toc-collapse-btn:hover {
-  text-decoration: underline;
+  background-color: #444444;
 }
 
 .toc-close-btn {
   cursor: pointer;
-  background: none;
+  background-color: #2a2a2a;
+  color: white;
   border: none;
-  font-size: 18px;
-  padding: 4px 8px;
-  color: #666;
+  border-radius: 4px;
+  font-size: 12px;
+  padding: 6px 12px;
 }
 
 .toc-close-btn:hover {
-  color: #000;
+  background-color: #444444;
 }
 
 .toc-list {
@@ -101,7 +121,7 @@
 .toc-link-btn {
   background: none;
   border: none;
-  color: #646cff;
+  color: #2a2a2a;
   cursor: pointer;
   text-align: left;
   padding: 2px 0;
@@ -126,19 +146,57 @@
   justify-content: space-between;
   align-items: center;
   background-color: #fff;
+  position: relative;
 }
 
 .pdf-toolbar-left,
+.pdf-toolbar-center,
 .pdf-toolbar-right {
   display: flex;
   gap: 10px;
   align-items: center;
 }
 
+.pdf-toolbar-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-weight: 500;
+  color: #525659;
+}
+
+.page-input-form {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.page-input {
+  width: 50px;
+  padding: 2px 6px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 500;
+  background-color: #fff;
+  color: #525659;
+}
+
+.page-input:focus {
+  outline: none;
+  border-color: #525659;
+}
+
+.toolbar-separator {
+  color: #ccc;
+  margin: 0 5px;
+}
+
 .pdf-toolbar button {
   padding: 6px 12px;
   cursor: pointer;
-  background-color: #646cff;
+  background-color: #525659;
   color: white;
   border: none;
   border-radius: 4px;
@@ -146,18 +204,19 @@
 }
 
 .pdf-toolbar button:hover:not(:disabled) {
-  background-color: #535bf2;
+  background-color: #656b6e;
 }
 
 .pdf-toolbar button:disabled {
   background-color: #ccc;
+  color: #888;
   cursor: not-allowed;
 }
 
 .pdf-toolbar-toc-btn {
   background-color: #fff !important;
-  color: #646cff !important;
-  border: 1px solid #646cff !important;
+  color: #525659 !important;
+  border: 1px solid #525659 !important;
 }
 
 .pdf-toolbar-toc-btn:hover {
@@ -166,7 +225,7 @@
 
 .pdf-canvas-container {
   flex: 1;
-  overflow-y: auto;
+  overflow: auto;
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -177,7 +236,6 @@
 .pdf-canvas {
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
   background-color: white;
-  max-width: 100%;
   height: auto;
 }
 
