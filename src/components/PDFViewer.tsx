@@ -35,6 +35,7 @@ export default function PDFViewer({ pdfUrl }: PDFViewerProps) {
   const [pageInput, setPageInput] = useState<string>('1');
   const [tocWidth, setTocWidth] = useState<number>(300);
   const [isResizing, setIsResizing] = useState<boolean>(false);
+  const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
 
   // Update page input when current page changes
   useEffect(() => {
@@ -187,10 +188,49 @@ export default function PDFViewer({ pdfUrl }: PDFViewerProps) {
     setExpandedNodes(new Set());
   };
 
+  // Get all descendant node paths recursively
+  const getAllDescendantPaths = (items: OutlineNode[], parentPath: string): string[] => {
+    const paths: string[] = [];
+    items.forEach((item, index) => {
+      const nodePath = `${parentPath}/${index}`;
+      paths.push(nodePath);
+      if (item.items && item.items.length > 0) {
+        paths.push(...getAllDescendantPaths(item.items, nodePath));
+      }
+    });
+    return paths;
+  };
+
+  // Toggle node selection with cascading to children
+  const toggleNodeSelection = (nodePath: string, items: OutlineNode[], e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+
+    setSelectedNodes(prev => {
+      const newSet = new Set(prev);
+      const isChecked = e.target.checked;
+
+      if (isChecked) {
+        // Add the node
+        newSet.add(nodePath);
+        // Add all descendants
+        const descendants = getAllDescendantPaths(items, nodePath);
+        descendants.forEach(path => newSet.add(path));
+      } else {
+        // Remove the node
+        newSet.delete(nodePath);
+        // Remove all descendants
+        const descendants = getAllDescendantPaths(items, nodePath);
+        descendants.forEach(path => newSet.delete(path));
+      }
+
+      return newSet;
+    });
+  };
+
   // Render outline tree
   const renderOutlineItems = (items: OutlineNode[], level = 0, parentPath = '') => {
     return (
-      <ul className={level === 0 ? 'toc-list' : 'toc-list-nested'} style={{ marginLeft: level * 15 }}>
+      <ul className={level === 0 ? 'toc-list' : 'toc-list-nested'} style={{ marginLeft: level * 30 }}>
         {items.map((item, index) => {
           const nodePath = `${parentPath}/${index}`;
           const hasChildren = item.items && item.items.length > 0;
@@ -199,6 +239,13 @@ export default function PDFViewer({ pdfUrl }: PDFViewerProps) {
           return (
             <li key={index} className="toc-item">
               <div className="toc-item-content">
+                <input
+                  type="checkbox"
+                  className="toc-checkbox"
+                  checked={selectedNodes.has(nodePath)}
+                  onChange={(e) => toggleNodeSelection(nodePath, item.items || [], e)}
+                  onClick={(e) => e.stopPropagation()}
+                />
                 {hasChildren && (
                   <button
                     onClick={() => toggleNode(nodePath)}
