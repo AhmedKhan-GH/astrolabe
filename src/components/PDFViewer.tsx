@@ -291,7 +291,9 @@ export default function PDFViewer({ pdfUrl }: PDFViewerProps) {
   const handleResizeMove = (e: MouseEvent) => {
     if (isResizing) {
       const newWidth = e.clientX;
-      if (newWidth >= 240 && newWidth <= 600) {
+      const minToolbarWidth = 650;
+      const maxTocWidth = window.innerWidth - minToolbarWidth - 12; // 12px for resize handle
+      if (newWidth >= 240 && newWidth <= maxTocWidth) {
         setTocWidth(newWidth);
       }
     }
@@ -319,8 +321,8 @@ export default function PDFViewer({ pdfUrl }: PDFViewerProps) {
         <>
           <div className="toc-sidebar" style={{ width: `${tocWidth}px` }}>
             <div className="toc-toolbar">
-              <button onClick={collapseAll} className="toc-collapse-btn">Collapse All</button>
               <button onClick={() => setShowToc(false)} className="toc-close-btn">X</button>
+              <button onClick={collapseAll} className="toc-collapse-btn">Collapse All</button>
             </div>
             <div className="toc-content">
               <h3>Table of Contents</h3>
@@ -337,7 +339,7 @@ export default function PDFViewer({ pdfUrl }: PDFViewerProps) {
         <div className="pdf-toolbar">
           <div className="pdf-toolbar-left">
             {!showToc && outline.length > 0 && (
-              <button onClick={() => setShowToc(true)} className="pdf-toolbar-toc-btn">☰ TOC</button>
+              <button onClick={() => setShowToc(true)} className="pdf-toolbar-toc-btn">TOC</button>
             )}
             <button onClick={handlePrevPage} disabled={currentPage <= 1}>
               Previous
