@@ -35,6 +35,9 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
   const [pageInput, setPageInput] = useState<string>('1');
   const [tocWidth, setTocWidth] = useState<number>(300);
   const [isResizing, setIsResizing] = useState<boolean>(false);
+  const [showRightSidebar, setShowRightSidebar] = useState(true);
+  const [rightSidebarWidth, setRightSidebarWidth] = useState<number>(300);
+  const [isResizingRight, setIsResizingRight] = useState<boolean>(false);
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [treeDropdownOpen, setTreeDropdownOpen] = useState<boolean>(false);
   const [sidebarTab, setSidebarTab] = useState<'toc' | 'pages' | 'canvas'>('toc');
@@ -745,6 +748,26 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
     setIsResizing(false);
   };
 
+  const handleRightResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizingRight(true);
+  };
+
+  const handleRightResizeMove = (e: MouseEvent) => {
+    if (isResizingRight) {
+      const newWidth = window.innerWidth - e.clientX;
+      const minToolbarWidth = 650;
+      const maxRightWidth = window.innerWidth - minToolbarWidth - 12;
+      if (newWidth >= 340 && newWidth <= maxRightWidth) {
+        setRightSidebarWidth(newWidth);
+      }
+    }
+  };
+
+  const handleRightResizeEnd = () => {
+    setIsResizingRight(false);
+  };
+
   useEffect(() => {
     if (isResizing) {
       document.body.style.userSelect = 'none';
@@ -760,8 +783,23 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
     }
   }, [isResizing]);
 
+  useEffect(() => {
+    if (isResizingRight) {
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'col-resize';
+      document.addEventListener('mousemove', handleRightResizeMove);
+      document.addEventListener('mouseup', handleRightResizeEnd);
+      return () => {
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
+        document.removeEventListener('mousemove', handleRightResizeMove);
+        document.removeEventListener('mouseup', handleRightResizeEnd);
+      };
+    }
+  }, [isResizingRight]);
+
   return (
-    <div className={`pdf-viewer-container ${isResizing ? 'resizing' : ''}`}>
+    <div className={`pdf-viewer-container ${isResizing || isResizingRight ? 'resizing' : ''}`}>
       {/* Table of Contents Sidebar */}
       {showToc && (
         <>
@@ -955,6 +993,11 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
             <button onClick={handleFitToPage} disabled={!fitToPageScale}>
               Fit
             </button>
+            {!showRightSidebar && (
+              <button onClick={() => setShowRightSidebar(true)} className="pdf-toolbar-toc-btn">
+                ☰
+              </button>
+            )}
           </div>
         </div>
 
@@ -972,6 +1015,25 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
           )}
         </div>
       </div>
+
+      {/* Right Sidebar */}
+      {showRightSidebar && (
+        <>
+          <div className="toc-resize-handle" onMouseDown={handleRightResizeStart}></div>
+          <div className="toc-sidebar right-sidebar" style={{ width: `${rightSidebarWidth}px` }}>
+            <div className="toc-toolbar">
+              <div className="toc-toolbar-top">
+                <button onClick={() => setShowRightSidebar(false)} className="toc-close-btn right-close-btn">☰</button>
+              </div>
+            </div>
+            <div className="toc-content">
+              <p style={{ padding: '20px', color: '#888', textAlign: 'center' }}>
+                Right sidebar content
+              </p>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
