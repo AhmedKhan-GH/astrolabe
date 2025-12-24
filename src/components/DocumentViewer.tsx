@@ -468,8 +468,16 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
   // Update Canvas thumbnail sizes when switching tabs or zoom changes
   useEffect(() => {
     if (sidebarTab === 'canvas' && canvasGridRef.current) {
-      // Calculate available width (sidebar width minus padding) - same as Pages
-      const availableWidth = canvasGridRef.current.clientWidth - 8; // Account for grid padding
+      // Force reflow by reading layout property
+      void canvasGridRef.current.offsetHeight;
+
+      // Force grid to recalculate by updating the CSS variable
+      const availableWidth = canvasGridRef.current.clientWidth - 8;
+      const effectiveGridSize = Math.min(canvasZoom, availableWidth + 4);
+      canvasGridRef.current.style.setProperty('--canvas-zoom', `${effectiveGridSize}px`);
+
+      // Force another reflow after style update
+      void canvasGridRef.current.offsetHeight;
 
       mainThumbnailRefs.forEach((canvas, pageNum) => {
         const dims = canvasDimensions.get(pageNum);
@@ -489,6 +497,9 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
   // Update Pages thumbnail sizes when switching tabs or zoom changes
   useEffect(() => {
     if (sidebarTab === 'pages' && pagesSliderRef.current) {
+      // Force reflow by reading layout property
+      void pagesSliderRef.current.offsetHeight;
+
       // Calculate available width (sidebar width minus padding and margins)
       const availableWidth = pagesSliderRef.current.clientWidth - 48; // 24px left padding + 6px right padding + some margin
 
@@ -880,24 +891,20 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
               )}
             </div>
             <div className="toc-content">
-              {sidebarTab === 'toc' && outline.length > 0 && (
-                <>
+              {outline.length > 0 && (
+                <div className={`toc-tab-panel ${sidebarTab === 'toc' ? 'active' : ''}`}>
                   <h3>Table of Contents</h3>
                   {renderOutlineItems(outline)}
-                </>
+                </div>
               )}
-              {sidebarTab === 'pages' && (
-                <>
-                  <h3>Pages ({totalPages} total)</h3>
-                  {totalPages > 0 && renderPagesView()}
-                </>
-              )}
-              {sidebarTab === 'canvas' && (
-                <>
-                  <h3>Canvas ({totalPages} total)</h3>
-                  {totalPages > 0 && renderCanvasView()}
-                </>
-              )}
+              <div className={`toc-tab-panel ${sidebarTab === 'pages' ? 'active' : ''}`}>
+                <h3>Pages ({totalPages} total)</h3>
+                {totalPages > 0 && renderPagesView()}
+              </div>
+              <div className={`toc-tab-panel ${sidebarTab === 'canvas' ? 'active' : ''}`}>
+                <h3>Canvas ({totalPages} total)</h3>
+                {totalPages > 0 && renderCanvasView()}
+              </div>
             </div>
           </div>
           <div className="toc-resize-handle" onMouseDown={handleResizeStart}></div>

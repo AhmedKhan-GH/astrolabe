@@ -251,11 +251,22 @@
   flex: 1;
   overflow-y: auto;
   padding: 20px;
+  position: relative;
 }
 
 .toc-content h3 {
   margin: 0 0 15px 0;
   color: #2a2a2a;
+}
+
+.toc-tab-panel {
+  display: none;
+  width: 100%;
+  height: 100%;
+}
+
+.toc-tab-panel.active {
+  display: block;
 }
 
 .sidebar-tabs {
