@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
 import './DocumentViewer.css';
@@ -56,6 +56,33 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
   const [pagesZoom, setPagesZoom] = useState<number>(120); // 120px width
   const tocDropdownRef = useRef<HTMLDivElement>(null);
   const pagesDropdownRef = useRef<HTMLDivElement>(null);
+  const [visibleThumbnails, setVisibleThumbnails] = useState<Set<number>>(new Set());
+  const thumbnailObserverRef = useRef<IntersectionObserver | null>(null);
+
+  // Initialize intersection observer for lazy thumbnail loading
+  useEffect(() => {
+    thumbnailObserverRef.current = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const pageNum = parseInt(entry.target.getAttribute('data-page') || '0', 10);
+          if (entry.isIntersecting && pageNum > 0) {
+            setVisibleThumbnails(prev => new Set(prev).add(pageNum));
+          }
+        });
+      },
+      {
+        root: null,
+        rootMargin: '200px', // Load thumbnails 200px before they come into view
+        threshold: 0.01
+      }
+    );
+
+    return () => {
+      if (thumbnailObserverRef.current) {
+        thumbnailObserverRef.current.disconnect();
+      }
+    };
+  }, []);
 
   // Update page input when current page changes
   useEffect(() => {
@@ -405,15 +432,19 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
   };
 
   // Render thumbnail for a page with configurable scale and display size
-  const renderPageThumbnail = async (pageNum: number, canvas: HTMLCanvasElement, renderScale: number = 0.25, displayScale: number = 1) => {
+  const renderPageThumbnail = useCallback(async (pageNum: number, canvas: HTMLCanvasElement, renderScale: number = 0.25, displayScale: number = 1) => {
     if (!pdfDoc || !canvas) return;
+
+    // Only render if visible or within a small range of current page
+    const shouldRender = visibleThumbnails.has(pageNum) || Math.abs(pageNum - currentPage) <= 3;
+    if (!shouldRender && sidebarTab !== 'toc') return;
 
     try {
       const page: PDFPageProxy = await pdfDoc.getPage(pageNum);
       // Render at low resolution for efficiency
       const viewport = page.getViewport({ scale: renderScale });
 
-      const context = canvas.getContext('2d');
+      const context = canvas.getContext('2d', { alpha: false });
       if (!context) return;
 
       // Render at low res
@@ -442,7 +473,7 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
     } catch (err) {
       console.error(`Error rendering thumbnail for page ${pageNum}:`, err);
     }
-  };
+  }, [pdfDoc, visibleThumbnails, currentPage, sidebarTab]);
 
   // Set canvas ref and render thumbnail
   const setThumbnailRef = (pageNum: number) => (canvas: HTMLCanvasElement | null) => {
@@ -450,6 +481,14 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
       const existingCanvas = thumbnailRefs.get(pageNum);
       if (existingCanvas !== canvas) {
         setThumbnailRefs(prev => new Map(prev).set(pageNum, canvas));
+
+        // Observe the canvas parent for lazy loading
+        const parent = canvas.parentElement;
+        if (parent && thumbnailObserverRef.current) {
+          parent.setAttribute('data-page', pageNum.toString());
+          thumbnailObserverRef.current.observe(parent);
+        }
+
         // Render at 0.25 scale (4:1 reduction), CSS will handle display size
         renderPageThumbnail(pageNum, canvas, 0.25, 1);
       }
@@ -462,6 +501,14 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
       const existingCanvas = mainThumbnailRefs.get(pageNum);
       if (existingCanvas !== canvas) {
         setMainThumbnailRefs(prev => new Map(prev).set(pageNum, canvas));
+
+        // Observe the canvas parent for lazy loading
+        const parent = canvas.parentElement;
+        if (parent && thumbnailObserverRef.current) {
+          parent.setAttribute('data-page', pageNum.toString());
+          thumbnailObserverRef.current.observe(parent);
+        }
+
         // Render at 0.25 scale (4:1 reduction), CSS will handle display size
         renderPageThumbnail(pageNum, canvas, 0.25, 1);
       }
@@ -903,7 +950,7 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
                   <input
                     id="canvas-zoom"
                     type="range"
-                    min="25"
+                    min="50"
                     max="500"
                     value={canvasZoom}
                     onChange={(e) => setCanvasZoom(Number(e.target.value))}
@@ -918,7 +965,7 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
                   <input
                     id="pages-zoom"
                     type="range"
-                    min="25"
+                    min="50"
                     max="500"
                     value={pagesZoom}
                     onChange={(e) => setPagesZoom(Number(e.target.value))}
