@@ -24,8 +24,43 @@
   transform: translateX(-50%);
 }
 
+.workspace-name-input {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 18px;
+  font-weight: 500;
+  color: #2a2a2a;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 6px 24px;
+  text-align: center;
+  outline: none;
+  background-color: white;
+  transition: border-color 0.2s, box-shadow 0.2s, width 0.15s ease;
+}
+
+.workspace-name-input:hover {
+  border-color: #999;
+}
+
+.workspace-name-input:focus {
+  border-color: #2a2a2a;
+  box-shadow: 0 0 0 2px rgba(42, 42, 42, 0.1);
+}
+
+.workspace-name-measure {
+  position: absolute;
+  visibility: hidden;
+  white-space: pre;
+  font-size: 18px;
+  font-weight: 500;
+  pointer-events: none;
+  user-select: none;
+}
+
 .action-button {
-  padding: 6px 12px;
+  padding: 8px 16px;
   background-color: #2a2a2a;
   color: white;
   border: none;
@@ -33,10 +68,65 @@
   cursor: pointer;
   font-size: 14px;
   transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
 }
 
 .action-button:hover {
   background-color: #444444;
+}
+
+.header-left-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.workspace-dropdown {
+  position: relative;
+  display: inline-flex;
+}
+
+.workspace-dropdown .action-button {
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+}
+
+.workspace-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background-color: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  min-width: 150px;
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.menu-item {
+  width: 100%;
+  padding: 8px 16px;
+  background-color: #2a2a2a;
+  color: white;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+  display: block;
+}
+
+.menu-item:hover {
+  background-color: #444444;
+}
+
+.menu-item:not(:last-child) {
+  border-bottom: 1px solid #3a3a3a;
 }
 
 .file-input {

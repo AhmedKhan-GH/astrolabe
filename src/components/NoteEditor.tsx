@@ -1,10 +1,10 @@
-import './ExcalidrawCanvas.css'
+import './NoteEditor.css'
 
 interface ExcalidrawCanvasProps {
   onNavigateToFiles: () => void
 }
 
-function ExcalidrawCanvas({ onNavigateToFiles }: ExcalidrawCanvasProps) {
+function NoteEditor({ onNavigateToFiles }: ExcalidrawCanvasProps) {
   return (
     <div className="excalidraw-canvas">
       <div className="canvas-header">
@@ -24,4 +24,4 @@ function ExcalidrawCanvas({ onNavigateToFiles }: ExcalidrawCanvasProps) {
   )
 }
 
-export default ExcalidrawCanvas
+export default NoteEditor

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
-import FileNavigator from './components/FileNavigator'
-import PDFViewer from './components/PDFViewer'
-import ExcalidrawCanvas from './components/ExcalidrawCanvas'
+import FileManager from './components/FileManager.tsx'
+import DocumentViewer from './components/DocumentViewer.tsx'
+import NoteEditor from './components/NoteEditor.tsx'
 import './App.css'
 
 type AppContext = 'navigator' | 'viewer' | 'canvas'
@@ -47,7 +47,7 @@ function App() {
   return (
     <div className="app-container">
       {context === 'navigator' && (
-        <FileNavigator
+        <FileManager
           onFileSelect={handleFileSelect}
           onNavigateToCanvas={handleNavigateToCanvas}
         />
@@ -63,11 +63,11 @@ function App() {
               Notes →
             </button>
           </div>
-          <PDFViewer pdfUrl={pdfUrl} />
+          <DocumentViewer pdfUrl={pdfUrl} />
         </div>
       )}
       {context === 'canvas' && (
-        <ExcalidrawCanvas onNavigateToFiles={handleNavigateToFiles} />
+        <NoteEditor onNavigateToFiles={handleNavigateToFiles} />
       )}
     </div>
   )

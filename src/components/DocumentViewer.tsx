@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
-import './PDFViewer.css';
+import './DocumentViewer.css';
 
 // Set up worker using local legacy worker file
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -19,7 +19,7 @@ interface PDFViewerProps {
   pdfUrl?: string;
 }
 
-export default function PDFViewer({ pdfUrl }: PDFViewerProps) {
+export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);

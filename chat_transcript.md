@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
-import './PDFViewer.css';
+import './DocumentViewer.css';
 
 // Set up worker using local legacy worker file
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -23,7 +23,7 @@ interface PDFViewerProps {
   pdfUrl?: string;
 }
 
-export default function PDFViewer({ pdfUrl }: PDFViewerProps) {
+export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -572,8 +572,8 @@ A single React component that loads a PDF from a URL (including blob/object URLs
 ### Files
 ```
 src/
-  PDFViewer.tsx
-  PDFViewer.css
+  DocumentViewer.tsx
+  DocumentViewer.css
   App.tsx
 ```
 
@@ -588,7 +588,7 @@ npm i pdfjs-dist
 
 pdf.js parses PDFs in a Web Worker. Without this, performance degrades and the viewer may fail depending on bundler settings.
 
-At the top of `PDFViewer.tsx`:
+At the top of `DocumentViewer.tsx`:
 
 ```ts
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
@@ -607,12 +607,12 @@ This ties the worker file location to the bundler output so it resolves in dev a
 
 Create the smallest component that renders page 1 into a `<canvas>`.
 
-`src/PDFViewer.tsx`
+`src/DocumentViewer.tsx`
 ```tsx
 import { useEffect, useRef, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
-import './PDFViewer.css';
+import './DocumentViewer.css';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/legacy/build/pdf.worker.mjs',
@@ -621,7 +621,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 
 type Props = { pdfUrl?: string };
 
-export default function PDFViewer({ pdfUrl }: Props) {
+export default function DocumentViewer({ pdfUrl }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
 
@@ -987,12 +987,12 @@ Toolbar TOC toggle when hidden:
 
 ## 8) Stage 7: Assemble the final component (complete code)
 
-`src/PDFViewer.tsx`
+`src/DocumentViewer.tsx`
 ```tsx
 import { useEffect, useRef, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
-import './PDFViewer.css';
+import './DocumentViewer.css';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/legacy/build/pdf.worker.mjs',
@@ -1009,7 +1009,7 @@ interface PDFViewerProps {
   pdfUrl?: string;
 }
 
-export default function PDFViewer({ pdfUrl }: PDFViewerProps) {
+export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
@@ -1247,7 +1247,7 @@ export default function PDFViewer({ pdfUrl }: PDFViewerProps) {
 
 ## 9) CSS layout (final)
 
-`src/PDFViewer.css`
+`src/DocumentViewer.css`
 ```css
 .pdf-viewer-container {
   display: flex;
@@ -1404,7 +1404,7 @@ export default function PDFViewer({ pdfUrl }: PDFViewerProps) {
 `src/App.tsx`
 ```tsx
 import { useEffect, useState } from 'react';
-import PDFViewer from './PDFViewer';
+import DocumentViewer from './DocumentViewer';
 
 export default function App() {
   const [pdfUrl, setPdfUrl] = useState<string | undefined>(undefined);
@@ -1435,7 +1435,7 @@ export default function App() {
       </div>
 
       <div style={{ height: 'calc(100vh - 53px)' }}>
-        <PDFViewer pdfUrl={pdfUrl} />
+        <DocumentViewer pdfUrl={pdfUrl} />
       </div>
     </div>
   );
