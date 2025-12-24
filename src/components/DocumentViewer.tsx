@@ -48,6 +48,7 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
   const [isResizingRight, setIsResizingRight] = useState<boolean>(false);
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [treeDropdownOpen, setTreeDropdownOpen] = useState<boolean>(false);
+  const [gotoDropdownOpen, setGotoDropdownOpen] = useState<boolean>(false);
   const [sidebarTab, setSidebarTab] = useState<'toc' | 'pages' | 'canvas'>('toc');
   const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set());
   const [pageSelectionStart, setPageSelectionStart] = useState<number | null>(null);
@@ -67,6 +68,7 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
   const [pagesZoom, setPagesZoom] = useState<number>(120); // 120px width
   const tocDropdownRef = useRef<HTMLDivElement>(null);
   const pagesDropdownRef = useRef<HTMLDivElement>(null);
+  const gotoDropdownRef = useRef<HTMLDivElement>(null);
   const [visibleThumbnails, setVisibleThumbnails] = useState<Set<number>>(new Set());
   const thumbnailObserverRef = useRef<IntersectionObserver | null>(null);
 
@@ -105,6 +107,7 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
     const handleClickOutside = (event: MouseEvent) => {
       const tocDropdown = tocDropdownRef.current;
       const pagesDropdown = pagesDropdownRef.current;
+      const gotoDropdown = gotoDropdownRef.current;
 
       if (tocDropdown && !tocDropdown.contains(event.target as Node)) {
         setTreeDropdownOpen(false);
@@ -112,19 +115,23 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
       if (pagesDropdown && !pagesDropdown.contains(event.target as Node)) {
         setTreeDropdownOpen(false);
       }
+      if (gotoDropdown && !gotoDropdown.contains(event.target as Node)) {
+        setGotoDropdownOpen(false);
+      }
     };
 
-    if (treeDropdownOpen) {
+    if (treeDropdownOpen || gotoDropdownOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => {
         document.removeEventListener('mousedown', handleClickOutside);
       };
     }
-  }, [treeDropdownOpen]);
+  }, [treeDropdownOpen, gotoDropdownOpen]);
 
   // Close dropdown when switching tabs
   useEffect(() => {
     setTreeDropdownOpen(false);
+    setGotoDropdownOpen(false);
   }, [sidebarTab]);
 
   // Load PDF document
@@ -395,6 +402,144 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
     setExpandedNodes(new Set(allPaths));
   };
 
+  // Expand only nodes in active note
+  const expandNote = () => {
+    if (!activeNote) return;
+
+    setExpandedNodes(prev => {
+      const newSet = new Set(prev);
+
+      // Get all paths that are in the active note and have children
+      activeNote.tocPaths.forEach(path => {
+        // Find the node to check if it has children
+        const pathParts = path.split('/').filter(p => p).map(Number);
+        let current: OutlineNode[] = outline;
+        let node: OutlineNode | null = null;
+
+        for (const index of pathParts) {
+          if (index >= 0 && index < current.length) {
+            node = current[index];
+            current = node.items || [];
+          } else {
+            node = null;
+            break;
+          }
+        }
+
+        // If node has children, add it to expand list
+        if (node && node.items && node.items.length > 0) {
+          newSet.add(path);
+        }
+      });
+
+      return newSet;
+    });
+  };
+
+  // Collapse only nodes in active note
+  const collapseNote = () => {
+    if (!activeNote) return;
+
+    setExpandedNodes(prev => {
+      const newSet = new Set(prev);
+      // Remove all paths that are in the active note
+      activeNote.tocPaths.forEach(path => {
+        newSet.delete(path);
+      });
+      return newSet;
+    });
+  };
+
+  // Go to the first page/item of the active note (with one element buffer above)
+  const goToNote = () => {
+    if (!activeNote) return;
+
+    // Navigate to first page in the note
+    if (activeNote.pageRanges.length > 0) {
+      const firstPage = Math.min(...activeNote.pageRanges);
+      setCurrentPage(firstPage);
+
+      // Handle scrolling based on active tab
+      if (sidebarTab === 'toc') {
+        // Expand and scroll to first TOC item with one line buffer above
+        const firstTocPath = Array.from(activeNote.tocPaths).sort()[0];
+        if (firstTocPath) {
+          // Expand parent nodes
+          const pathParts = firstTocPath.split('/').filter(p => p);
+          const parentsToExpand = new Set(expandedNodes);
+          for (let i = 1; i < pathParts.length; i++) {
+            const parentPath = '/' + pathParts.slice(0, i).join('/');
+            parentsToExpand.add(parentPath);
+          }
+          setExpandedNodes(parentsToExpand);
+
+          // Scroll to one line above the first TOC item
+          setTimeout(() => {
+            // Get all visible TOC items in the rendered order
+            const allTocItems = Array.from(document.querySelectorAll('.toc-item[data-toc-path]'));
+            const firstTocElement = allTocItems.find(el => el.getAttribute('data-toc-path') === firstTocPath);
+
+            if (firstTocElement) {
+              // Find the index of the first element in the visible list
+              const firstIndex = allTocItems.indexOf(firstTocElement);
+
+              // If there's a previous item, scroll to it for buffer
+              if (firstIndex > 0) {
+                allTocItems[firstIndex - 1].scrollIntoView({ behavior: 'smooth', block: 'start' });
+              } else {
+                // If no previous element, just scroll to first
+                firstTocElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }
+          }, 100);
+        }
+      } else if (sidebarTab === 'pages') {
+        // Scroll to one page above the first note page
+        setTimeout(() => {
+          const targetPage = Math.max(1, firstPage - 1);
+          const allPages = document.querySelectorAll('.page-thumbnail');
+          if (allPages.length >= targetPage) {
+            allPages[targetPage - 1].scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 100);
+      } else if (sidebarTab === 'canvas') {
+        // Scroll to one row above the first canvas page
+        setTimeout(() => {
+          const canvasItems = canvasGridRef.current?.querySelectorAll('.canvas-item');
+          if (canvasItems && canvasItems.length > 0) {
+            // Calculate how many items per row based on grid
+            const gridElement = canvasGridRef.current;
+            if (gridElement) {
+              const gridWidth = gridElement.clientWidth;
+              const itemWidth = canvasZoom;
+              const itemsPerRow = Math.floor(gridWidth / itemWidth) || 1;
+
+              // Go back one row (or to start if not enough items)
+              const targetIndex = Math.max(0, firstPage - 1 - itemsPerRow);
+              canvasItems[targetIndex].scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          }
+        }, 100);
+      }
+    }
+  };
+
+  // Go to top of the current view
+  const goToTop = () => {
+    const contentElement = document.querySelector('.toc-content');
+    if (contentElement) {
+      contentElement.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  // Go to bottom of the current view
+  const goToBottom = () => {
+    const contentElement = document.querySelector('.toc-content');
+    if (contentElement) {
+      contentElement.scrollTo({ top: contentElement.scrollHeight, behavior: 'smooth' });
+    }
+  };
+
   // Deselect all nodes
   const deselectAll = () => {
     setSelectedNodes(new Set());
@@ -661,8 +806,8 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
           thumbnailObserverRef.current.observe(parent);
         }
 
-        // Render at 0.25 scale (4:1 reduction), CSS will handle display size
-        renderPageThumbnail(pageNum, canvas, 0.25, 1);
+        // Render at 0.5 scale (2:1 reduction), CSS will handle display size
+        renderPageThumbnail(pageNum, canvas, 0.5, 1);
       }
     }
   };
@@ -722,8 +867,8 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
       // Force reflow by reading layout property
       void pagesSliderRef.current.offsetHeight;
 
-      // Calculate available width (sidebar width minus padding and margins)
-      const availableWidth = pagesSliderRef.current.clientWidth - 48; // 24px left padding + 6px right padding + some margin
+      // Calculate available width (sidebar width minus padding and margins for visual breathing room)
+      const availableWidth = pagesSliderRef.current.clientWidth - 68;
 
       thumbnailRefs.forEach((canvas, pageNum) => {
         const dims = canvasDimensions.get(pageNum);
@@ -744,16 +889,16 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
     if (sidebarTab === 'pages' && currentPageThumbnailRef.current) {
       currentPageThumbnailRef.current.scrollIntoView({
         behavior: 'smooth',
-        block: 'center',
+        block: 'start',
       });
     }
   }, [currentPage, sidebarTab]);
 
   // Render pages view
   const renderPagesView = () => {
-    // Calculate available width for thumbnails
+    // Calculate available width for thumbnails (leave margin)
     const availableWidth = pagesSliderRef.current 
-      ? pagesSliderRef.current.clientWidth - 48 
+      ? pagesSliderRef.current.clientWidth - 68 
       : pagesZoom;
 
     return (
@@ -861,7 +1006,7 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
           const isGrayedOut = activeNote !== null && !isInActiveNote;
 
           return (
-            <li key={index} className={`toc-item ${isGrayedOut ? 'grayed-out' : ''}`}>
+            <li key={index} className={`toc-item ${isGrayedOut ? 'grayed-out' : ''}`} data-toc-path={nodePath}>
               <div className="toc-item-content" style={{ paddingLeft: `${level * 26}px` }}>
                 <input
                   type="checkbox"
@@ -1065,6 +1210,38 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
                 >
                   Create Note
                 </button>
+                <div className="toc-dropdown" ref={gotoDropdownRef}>
+                  <button
+                    onClick={() => setGotoDropdownOpen(!gotoDropdownOpen)}
+                    className="toc-dropdown-btn"
+                  >
+                    Go To {gotoDropdownOpen ? '▼' : '▶'}
+                  </button>
+                  {gotoDropdownOpen && (
+                    <div className="toc-dropdown-menu">
+                      {activeNote && (
+                        <button
+                          onClick={() => { goToNote(); setGotoDropdownOpen(false); }}
+                          className="toc-dropdown-item"
+                        >
+                          Note
+                        </button>
+                      )}
+                      <button
+                        onClick={() => { goToTop(); setGotoDropdownOpen(false); }}
+                        className="toc-dropdown-item"
+                      >
+                        Top
+                      </button>
+                      <button
+                        onClick={() => { goToBottom(); setGotoDropdownOpen(false); }}
+                        className="toc-dropdown-item"
+                      >
+                        Bottom
+                      </button>
+                    </div>
+                  )}
+                </div>
                 {sidebarTab === 'toc' && outline.length > 0 && (
                   <div className="toc-dropdown" ref={tocDropdownRef}>
                     <button
@@ -1075,6 +1252,22 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
                     </button>
                     {treeDropdownOpen && (
                       <div className="toc-dropdown-menu">
+                        {activeNote && (
+                          <>
+                            <button
+                              onClick={() => { expandNote(); setTreeDropdownOpen(false); }}
+                              className="toc-dropdown-item"
+                            >
+                              Expand Note
+                            </button>
+                            <button
+                              onClick={() => { collapseNote(); setTreeDropdownOpen(false); }}
+                              className="toc-dropdown-item"
+                            >
+                              Collapse Note
+                            </button>
+                          </>
+                        )}
                         <button
                           onClick={() => { expandAll(); setTreeDropdownOpen(false); }}
                           className="toc-dropdown-item"
@@ -1132,7 +1325,7 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
               </div>
               {sidebarTab === 'canvas' && (
                 <div className="toc-toolbar-zoom">
-                  <label htmlFor="canvas-zoom">Thumbnail Size:</label>
+                  <label htmlFor="canvas-zoom">Size:</label>
                   <input
                     id="canvas-zoom"
                     type="range"
@@ -1147,7 +1340,7 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
               )}
               {sidebarTab === 'pages' && (
                 <div className="toc-toolbar-zoom">
-                  <label htmlFor="pages-zoom">Thumbnail Size:</label>
+                  <label htmlFor="pages-zoom">Size:</label>
                   <input
                     id="pages-zoom"
                     type="range"
@@ -1256,8 +1449,8 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
           <div className="toc-sidebar right-sidebar" style={{ width: `${rightSidebarWidth}px` }}>
             <div className="toc-toolbar">
               <div className="toc-toolbar-top">
+                <h3 style={{ margin: '0', fontSize: '14px' }}>Notes</h3>
                 <button onClick={() => setShowRightSidebar(false)} className="toc-close-btn right-close-btn">☰</button>
-                <h3 style={{ margin: '0 0 0 12px', fontSize: '14px' }}>Notes</h3>
               </div>
               {activeNote && (
                 <div className="toc-toolbar-bottom">

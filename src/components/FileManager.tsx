@@ -164,6 +164,7 @@ function FileManager({ onFileSelect, onNavigateToCanvas }: FileNavigatorProps) {
       const importedWorkspaceName = await importFromJSON(file)
       // Always set the workspace name, even if it's blank
       const nameToSet = importedWorkspaceName || ''
+
       setWorkspaceName(nameToSet)
       localStorage.setItem('workspaceName', nameToSet)
 
