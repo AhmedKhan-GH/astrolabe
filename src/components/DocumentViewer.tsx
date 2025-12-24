@@ -36,6 +36,7 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
   const [tocWidth, setTocWidth] = useState<number>(300);
   const [isResizing, setIsResizing] = useState<boolean>(false);
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
+  const [treeDropdownOpen, setTreeDropdownOpen] = useState<boolean>(false);
 
   // Update page input when current page changes
   useEffect(() => {
@@ -205,6 +206,23 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
     setExpandedNodes(new Set());
   };
 
+  // Expand all nodes
+  const expandAll = () => {
+    const allPaths = getAllDescendantPaths(outline, '');
+    setExpandedNodes(new Set(allPaths));
+  };
+
+  // Deselect all nodes
+  const deselectAll = () => {
+    setSelectedNodes(new Set());
+  };
+
+  // Select all nodes
+  const selectAll = () => {
+    const allPaths = getAllDescendantPaths(outline, '');
+    setSelectedNodes(new Set(allPaths));
+  };
+
   // Get all descendant node paths recursively
   const getAllDescendantPaths = (items: OutlineNode[], parentPath: string): string[] => {
     const paths: string[] = [];
@@ -247,7 +265,7 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
   // Render outline tree
   const renderOutlineItems = (items: OutlineNode[], level = 0, parentPath = '') => {
     return (
-      <ul className={level === 0 ? 'toc-list' : 'toc-list-nested'} style={{ marginLeft: level * 30 }}>
+      <ul className={level === 0 ? 'toc-list' : 'toc-list-nested'}>
         {items.map((item, index) => {
           const nodePath = `${parentPath}/${index}`;
           const hasChildren = item.items && item.items.length > 0;
@@ -255,7 +273,7 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
 
           return (
             <li key={index} className="toc-item">
-              <div className="toc-item-content">
+              <div className="toc-item-content" style={{ paddingLeft: `${level * 26}px` }}>
                 <input
                   type="checkbox"
                   className="toc-checkbox"
@@ -358,7 +376,7 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
       const newWidth = e.clientX;
       const minToolbarWidth = 650;
       const maxTocWidth = window.innerWidth - minToolbarWidth - 12; // 12px for resize handle
-      if (newWidth >= 240 && newWidth <= maxTocWidth) {
+      if (newWidth >= 320 && newWidth <= maxTocWidth) {
         setTocWidth(newWidth);
       }
     }
@@ -391,7 +409,45 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
           <div className="toc-sidebar" style={{ width: `${tocWidth}px` }}>
             <div className="toc-toolbar">
               <button onClick={() => setShowToc(false)} className="toc-close-btn">X</button>
-              <button onClick={collapseAll} className="toc-collapse-btn">Collapse All</button>
+              <div className="toc-toolbar-right">
+                <button className="toc-collapse-btn">Create Note</button>
+                <div className="toc-dropdown">
+                  <button 
+                    onClick={() => setTreeDropdownOpen(!treeDropdownOpen)} 
+                    className="toc-dropdown-btn"
+                  >
+                    Tree {treeDropdownOpen ? '▼' : '▶'}
+                  </button>
+                  {treeDropdownOpen && (
+                    <div className="toc-dropdown-menu">
+                      <button 
+                        onClick={() => { expandAll(); setTreeDropdownOpen(false); }} 
+                        className="toc-dropdown-item"
+                      >
+                        Expand All
+                      </button>
+                      <button 
+                        onClick={() => { collapseAll(); setTreeDropdownOpen(false); }} 
+                        className="toc-dropdown-item"
+                      >
+                        Collapse All
+                      </button>
+                      <button 
+                        onClick={() => { selectAll(); setTreeDropdownOpen(false); }} 
+                        className="toc-dropdown-item"
+                      >
+                        Select All
+                      </button>
+                      <button 
+                        onClick={() => { deselectAll(); setTreeDropdownOpen(false); }} 
+                        className="toc-dropdown-item"
+                      >
+                        Deselect All
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
             <div className="toc-content">
               <h3>Table of Contents</h3>

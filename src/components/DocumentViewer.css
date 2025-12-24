@@ -14,7 +14,7 @@
 }
 
 .toc-sidebar {
-  min-width: 240px;
+  min-width: 320px;
   background-color: #f9f9f9;
   display: flex;
   flex-direction: column;
@@ -58,6 +58,65 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.toc-toolbar-right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-left: auto;
+}
+
+.toc-dropdown {
+  position: relative;
+}
+
+.toc-dropdown-btn {
+  padding: 6px 12px;
+  border: none;
+  background-color: #2a2a2a;
+  color: white;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background-color 0.2s;
+}
+
+.toc-dropdown-btn:hover {
+  background-color: #444444;
+}
+
+.toc-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background-color: #2a2a2a;
+  border: 1px solid #444444;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  min-width: 160px;
+  padding: 4px 0;
+}
+
+.toc-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 8px 16px;
+  border: none;
+  background-color: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-size: 12px;
+  color: white;
+  transition: background-color 0.2s;
+}
+
+.toc-dropdown-item:hover {
+  background-color: #444444;
 }
 
 .toc-content {
@@ -141,6 +200,12 @@
   transition: all 0.2s;
 }
 
+.toc-item-content {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .toc-checkbox:hover {
   border-color: #444444;
   background-color: #f5f5f5;
@@ -166,12 +231,16 @@
   background: none;
   border: none;
   cursor: pointer;
-  padding: 2px;
+  padding: 0;
+  margin: 0;
   font-size: 12px;
   display: flex;
   align-items: center;
+  justify-content: center;
   color: #666;
-  min-width: 18px;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 
 .toc-expand-btn:hover {
@@ -180,7 +249,9 @@
 
 .toc-spacer {
   width: 18px;
+  height: 18px;
   display: inline-block;
+  flex-shrink: 0;
 }
 
 .toc-link-btn {

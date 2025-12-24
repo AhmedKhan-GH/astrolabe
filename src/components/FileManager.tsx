@@ -239,7 +239,7 @@ function FileManager({ onFileSelect, onNavigateToCanvas }: FileNavigatorProps) {
               onClick={() => setShowWorkspaceMenu(!showWorkspaceMenu)} 
               className="action-button"
             >
-              Workspace ▼
+              Workspace {showWorkspaceMenu ? '▼' : '▶'}
             </button>
             {showWorkspaceMenu && (
               <div className="workspace-menu">
