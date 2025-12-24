@@ -1,5 +1,5 @@
 const DB_NAME = 'PDFViewerDB'
-const DB_VERSION = 1
+const DB_VERSION = 3
 const STORE_NAME = 'files'
 
 interface StoredFile {

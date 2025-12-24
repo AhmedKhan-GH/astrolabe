@@ -71,6 +71,7 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
   const gotoDropdownRef = useRef<HTMLDivElement>(null);
   const [visibleThumbnails, setVisibleThumbnails] = useState<Set<number>>(new Set());
   const thumbnailObserverRef = useRef<IntersectionObserver | null>(null);
+  const [shouldAutoScroll, setShouldAutoScroll] = useState<boolean>(false);
 
   // Initialize intersection observer for lazy thumbnail loading
   useEffect(() => {
@@ -526,17 +527,41 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
 
   // Go to top of the current view
   const goToTop = () => {
-    const contentElement = document.querySelector('.toc-content');
-    if (contentElement) {
-      contentElement.scrollTo({ top: 0, behavior: 'smooth' });
+    if (sidebarTab === 'toc') {
+      const tocContent = document.querySelector('.toc-tab-panel.active');
+      if (tocContent) {
+        tocContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } else if (sidebarTab === 'pages') {
+      const pagesSlider = pagesSliderRef.current;
+      if (pagesSlider) {
+        pagesSlider.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    } else if (sidebarTab === 'canvas') {
+      const canvasView = document.querySelector('.canvas-view');
+      if (canvasView) {
+        canvasView.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     }
   };
 
   // Go to bottom of the current view
   const goToBottom = () => {
-    const contentElement = document.querySelector('.toc-content');
-    if (contentElement) {
-      contentElement.scrollTo({ top: contentElement.scrollHeight, behavior: 'smooth' });
+    if (sidebarTab === 'toc') {
+      const tocContent = document.querySelector('.toc-tab-panel.active');
+      if (tocContent) {
+        tocContent.scrollTo({ top: tocContent.scrollHeight, behavior: 'smooth' });
+      }
+    } else if (sidebarTab === 'pages') {
+      const pagesSlider = pagesSliderRef.current;
+      if (pagesSlider) {
+        pagesSlider.scrollTo({ top: pagesSlider.scrollHeight, behavior: 'smooth' });
+      }
+    } else if (sidebarTab === 'canvas') {
+      const canvasView = document.querySelector('.canvas-view');
+      if (canvasView) {
+        canvasView.scrollTo({ top: canvasView.scrollHeight, behavior: 'smooth' });
+      }
     }
   };
 
@@ -663,6 +688,8 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
         newPages.add(i);
       }
       setSelectedPages(newPages);
+      // Also navigate to the clicked page
+      setCurrentPage(pageNum);
     } else if (e.ctrlKey || e.metaKey) {
       // Toggle single page
       const newPages = new Set(selectedPages);
@@ -673,8 +700,10 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
       }
       setSelectedPages(newPages);
       setPageSelectionStart(pageNum);
+      // Also navigate to the clicked page
+      setCurrentPage(pageNum);
     } else if (!isDraggingSelection) {
-      // Navigate to page (only if not dragging)
+      // Navigate to page without affecting selection
       setCurrentPage(pageNum);
     }
   };
@@ -732,6 +761,20 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
       };
     }
   }, [isDraggingSelection]);
+
+  // ESC key handler to clear selections
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && (sidebarTab === 'pages' || sidebarTab === 'canvas')) {
+        clearPageSelections();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [sidebarTab]);
 
   // Clear page selections
   const clearPageSelections = () => {
@@ -884,15 +927,30 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
     }
   }, [sidebarTab, pagesZoom, thumbnailRefs, canvasDimensions, tocWidth]);
 
-  // Scroll current page thumbnail into view
+  // Auto-scroll when navigating via Previous/Next buttons
   useEffect(() => {
-    if (sidebarTab === 'pages' && currentPageThumbnailRef.current) {
-      currentPageThumbnailRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      });
+    if (!shouldAutoScroll) return;
+
+    if (sidebarTab === 'pages') {
+      // Scroll to current page in pages view
+      setTimeout(() => {
+        const allPages = document.querySelectorAll('.page-thumbnail');
+        if (allPages.length >= currentPage) {
+          allPages[currentPage - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 50);
+    } else if (sidebarTab === 'canvas') {
+      // Scroll to current page in canvas view
+      setTimeout(() => {
+        const canvasItems = canvasGridRef.current?.querySelectorAll('.canvas-item');
+        if (canvasItems && canvasItems.length >= currentPage) {
+          canvasItems[currentPage - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 50);
     }
-  }, [currentPage, sidebarTab]);
+
+    setShouldAutoScroll(false);
+  }, [currentPage, shouldAutoScroll, sidebarTab]);
 
   // Render pages view
   const renderPagesView = () => {
@@ -939,9 +997,6 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
             );
           })}
         </div>
-        <div className="pages-instructions">
-          Click to navigate • Drag to select range • Ctrl+Click to toggle • Shift+Click for range
-        </div>
       </div>
     );
   };
@@ -973,8 +1028,10 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
             return (
               <div
                 key={pageNum}
-                className={`canvas-item ${pageNum === currentPage ? 'current-page' : ''} ${isGrayedOut ? 'grayed-out' : ''}`}
-                onClick={() => setCurrentPage(pageNum)}
+                className={`canvas-item ${pageNum === currentPage ? 'current-page' : ''} ${selectedPages.has(pageNum) ? 'selected-page' : ''} ${isGrayedOut ? 'grayed-out' : ''}`}
+                onClick={(e) => handlePageClick(pageNum, e)}
+                onMouseDown={(e) => handleDragSelectionStart(pageNum, e)}
+                onMouseEnter={() => handleDragSelectionMove(pageNum)}
                 title={`Page ${pageNum}`}
               >
                 <canvas
@@ -1045,12 +1102,14 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
   const handlePrevPage = () => {
     if (currentPage > 1) {
       setCurrentPage(currentPage - 1);
+      setShouldAutoScroll(true);
     }
   };
 
   const handleNextPage = () => {
     if (currentPage < totalPages) {
       setCurrentPage(currentPage + 1);
+      setShouldAutoScroll(true);
     }
   };
 
@@ -1109,8 +1168,9 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
     if (isResizing) {
       const newWidth = e.clientX;
       const minToolbarWidth = 650;
+      const minTocWidth = 415; // Accommodate Create Note + Go To + Selection buttons
       const maxTocWidth = window.innerWidth - minToolbarWidth - 12; // 12px for resize handle
-      if (newWidth >= 340 && newWidth <= maxTocWidth) {
+      if (newWidth >= minTocWidth && newWidth <= maxTocWidth) {
         setTocWidth(newWidth);
       }
     }
@@ -1173,9 +1233,8 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
   return (
     <div className={`pdf-viewer-container ${isResizing || isResizingRight ? 'resizing' : ''}`}>
       {/* Table of Contents Sidebar */}
-      {showToc && (
-        <>
-          <div className="toc-sidebar" style={{ width: `${tocWidth}px` }}>
+      <>
+        <div className={`toc-sidebar ${!showToc ? 'hidden' : ''}`} style={{ width: `${tocWidth}px`, minWidth: '415px' }}>
             <div className="toc-toolbar">
               <div className="toc-toolbar-top">
                 <button onClick={() => setShowToc(false)} className="toc-close-btn">☰</button>
@@ -1329,8 +1388,8 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
                   <input
                     id="canvas-zoom"
                     type="range"
-                    min="50"
-                    max="500"
+                    min="25"
+                    max="250"
                     value={canvasZoom}
                     onChange={(e) => setCanvasZoom(Number(e.target.value))}
                     className="zoom-slider"
@@ -1353,6 +1412,11 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
                   <span className="zoom-value">{pagesZoom}px</span>
                 </div>
               )}
+              {(sidebarTab === 'pages' || sidebarTab === 'canvas') && (
+                <div className="sidebar-instructions">
+                  Click to navigate • Drag to select range • Ctrl+Click to toggle selection • Shift+Click to select range • ESC to clear selection
+                </div>
+              )}
             </div>
             <div className="toc-content">
               {outline.length > 0 && (
@@ -1371,9 +1435,8 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
               </div>
             </div>
           </div>
-          <div className="toc-resize-handle" onMouseDown={handleResizeStart}></div>
-        </>
-      )}
+        <div className={`toc-resize-handle ${!showToc ? 'hidden' : ''}`} onMouseDown={handleResizeStart}></div>
+      </>
 
       {/* Main PDF Viewer */}
       <div className="pdf-main-container">
@@ -1443,10 +1506,9 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
       </div>
 
       {/* Right Sidebar */}
-      {showRightSidebar && (
-        <>
-          <div className="toc-resize-handle" onMouseDown={handleRightResizeStart}></div>
-          <div className="toc-sidebar right-sidebar" style={{ width: `${rightSidebarWidth}px` }}>
+      <>
+        <div className={`toc-resize-handle ${!showRightSidebar ? 'hidden' : ''}`} onMouseDown={handleRightResizeStart}></div>
+        <div className={`toc-sidebar right-sidebar ${!showRightSidebar ? 'hidden' : ''}`} style={{ width: `${rightSidebarWidth}px` }}>
             <div className="toc-toolbar">
               <div className="toc-toolbar-top">
                 <h3 style={{ margin: '0', fontSize: '14px' }}>Notes</h3>
@@ -1513,8 +1575,7 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
               )}
             </div>
           </div>
-        </>
-      )}
+      </>
     </div>
   );
 }
