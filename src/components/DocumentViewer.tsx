@@ -48,6 +48,7 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
   const [dragStartPage, setDragStartPage] = useState<number | null>(null);
   const [dragCurrentPage, setDragCurrentPage] = useState<number | null>(null);
   const pagesSliderRef = useRef<HTMLDivElement>(null);
+  const canvasGridRef = useRef<HTMLDivElement>(null);
   const [canvasZoom, setCanvasZoom] = useState<number>(120); // 120px grid size
   const [pagesZoom, setPagesZoom] = useState<number>(120); // 120px width
 
@@ -437,33 +438,44 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
 
   // Update Canvas thumbnail sizes when switching tabs or zoom changes
   useEffect(() => {
-    if (sidebarTab === 'canvas') {
+    if (sidebarTab === 'canvas' && canvasGridRef.current) {
+      // Calculate available width (sidebar width minus padding) - same as Pages
+      const availableWidth = canvasGridRef.current.clientWidth - 8; // Account for grid padding
+
       mainThumbnailRefs.forEach((canvas, pageNum) => {
         const dims = canvasDimensions.get(pageNum);
         if (dims) {
           const aspectRatio = dims.height / dims.width;
-          const canvasWidth = canvasZoom - 4;
-          const displayHeight = canvasWidth * aspectRatio;
-          canvas.style.width = `${canvasWidth}px`;
-          canvas.style.height = `${displayHeight}px`;
+          // Cap width at both grid cell size and available width - same as Pages
+          const targetWidth = canvasZoom - 4;
+          const constrainedWidth = Math.min(targetWidth, availableWidth);
+          canvas.style.width = `${constrainedWidth}px`;
+          canvas.style.height = `${constrainedWidth * aspectRatio}px`;
+          canvas.style.maxWidth = `${availableWidth}px`;
         }
       });
     }
-  }, [sidebarTab, canvasZoom, mainThumbnailRefs, canvasDimensions]);
+  }, [sidebarTab, canvasZoom, mainThumbnailRefs, canvasDimensions, tocWidth]);
 
   // Update Pages thumbnail sizes when switching tabs or zoom changes
   useEffect(() => {
-    if (sidebarTab === 'pages') {
+    if (sidebarTab === 'pages' && pagesSliderRef.current) {
+      // Calculate available width (sidebar width minus padding and margins)
+      const availableWidth = pagesSliderRef.current.clientWidth - 48; // 24px left padding + 6px right padding + some margin
+
       thumbnailRefs.forEach((canvas, pageNum) => {
         const dims = canvasDimensions.get(pageNum);
         if (dims) {
           const aspectRatio = dims.height / dims.width;
-          canvas.style.width = `${pagesZoom}px`;
-          canvas.style.height = `${pagesZoom * aspectRatio}px`;
+          // Constrain width to not exceed available space - stop growing at sidebar limit
+          const constrainedWidth = Math.min(pagesZoom, availableWidth);
+          canvas.style.width = `${constrainedWidth}px`;
+          canvas.style.height = `${constrainedWidth * aspectRatio}px`;
+          canvas.style.maxWidth = `${availableWidth}px`;
         }
       });
     }
-  }, [sidebarTab, pagesZoom, thumbnailRefs, canvasDimensions]);
+  }, [sidebarTab, pagesZoom, thumbnailRefs, canvasDimensions, tocWidth]);
 
   // Scroll current page thumbnail into view
   useEffect(() => {
@@ -477,37 +489,45 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
 
   // Render pages view
   const renderPagesView = () => {
+    // Calculate available width for thumbnails
+    const availableWidth = pagesSliderRef.current 
+      ? pagesSliderRef.current.clientWidth - 48 
+      : pagesZoom;
+
     return (
       <div className="pages-view">
         <div className="pages-slider" ref={pagesSliderRef} style={{ '--pages-zoom': pagesZoom } as React.CSSProperties}>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
-            <div
-              key={pageNum}
-              ref={pageNum === currentPage ? currentPageThumbnailRef : null}
-              className={`page-thumbnail ${pageNum === currentPage ? 'current-page' : ''} ${selectedPages.has(pageNum) ? 'selected-page' : ''}`}
-              onClick={(e) => handlePageClick(pageNum, e)}
-              onMouseDown={(e) => handleDragSelectionStart(pageNum, e)}
-              onMouseEnter={() => handleDragSelectionMove(pageNum)}
-              title={`Page ${pageNum}`}
-            >
-              <canvas
-                ref={setThumbnailRef(pageNum)}
-                className="page-thumbnail-canvas"
-                style={{
-                  width: `${pagesZoom}px`,
-                  height: (() => {
-                    const dims = canvasDimensions.get(pageNum);
-                    if (dims) {
-                      const aspectRatio = dims.height / dims.width;
-                      return `${pagesZoom * aspectRatio}px`;
-                    }
-                    return 'auto';
-                  })()
-                }}
-              />
-              <div className="page-thumbnail-number">{pageNum}</div>
-            </div>
-          ))}
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => {
+            const dims = canvasDimensions.get(pageNum);
+            // Cap width at available sidebar width
+            const constrainedWidth = Math.min(pagesZoom, availableWidth);
+            const displayHeight = dims 
+              ? constrainedWidth * (dims.height / dims.width) 
+              : 'auto';
+
+            return (
+              <div
+                key={pageNum}
+                ref={pageNum === currentPage ? currentPageThumbnailRef : null}
+                className={`page-thumbnail ${pageNum === currentPage ? 'current-page' : ''} ${selectedPages.has(pageNum) ? 'selected-page' : ''}`}
+                onClick={(e) => handlePageClick(pageNum, e)}
+                onMouseDown={(e) => handleDragSelectionStart(pageNum, e)}
+                onMouseEnter={() => handleDragSelectionMove(pageNum)}
+                title={`Page ${pageNum}`}
+              >
+                <canvas
+                  ref={setThumbnailRef(pageNum)}
+                  className="page-thumbnail-canvas"
+                  style={{
+                    width: `${constrainedWidth}px`,
+                    height: typeof displayHeight === 'number' ? `${displayHeight}px` : displayHeight,
+                    maxWidth: `${availableWidth}px`
+                  }}
+                />
+                <div className="page-thumbnail-number">{pageNum}</div>
+              </div>
+            );
+          })}
         </div>
         <div className="pages-instructions">
           Click to navigate • Drag to select range • Ctrl+Click to toggle • Shift+Click for range
@@ -518,15 +538,25 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
 
   // Render canvas view with very small canvases in reflowable grid
   const renderCanvasView = () => {
+    // Calculate available width for thumbnails - same as Pages
+    const availableWidth = canvasGridRef.current 
+      ? canvasGridRef.current.clientWidth - 8 
+      : canvasZoom;
+
+    // Cap grid cell size at available width to prevent tiles growing beyond thumbnails
+    const effectiveGridSize = Math.min(canvasZoom, availableWidth + 4); // +4 to account for padding
+
     return (
       <div className="canvas-view">
-        <div className="canvas-grid" style={{ '--canvas-zoom': `${canvasZoom}px` } as React.CSSProperties}>
+        <div className="canvas-grid" ref={canvasGridRef} style={{ '--canvas-zoom': `${effectiveGridSize}px` } as React.CSSProperties}>
           {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => {
             const dims = canvasDimensions.get(pageNum);
-            const aspectRatio = dims ? dims.height / dims.width : 1.414; // Default to A4 ratio
-            // Subtract padding from canvas size to fit within grid cell
-            const canvasWidth = canvasZoom - 4; // Account for 2px padding on each side
-            const displayHeight = canvasWidth * aspectRatio;
+            const aspectRatio = dims ? dims.height / dims.width : 1.414;
+            const targetWidth = canvasZoom - 4;
+            // Cap width at available sidebar width - same as Pages
+            const constrainedWidth = Math.min(targetWidth, availableWidth);
+            const targetHeight = constrainedWidth * aspectRatio;
+
             return (
               <div
                 key={pageNum}
@@ -537,7 +567,11 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
                 <canvas
                   ref={setMainThumbnailRef(pageNum)}
                   className="canvas-thumbnail"
-                  style={{ width: `${canvasWidth}px`, height: `${displayHeight}px` }}
+                  style={{ 
+                    width: `${constrainedWidth}px`, 
+                    height: `${targetHeight}px`,
+                    maxWidth: `${availableWidth}px`
+                  }}
                 />
               </div>
             );

@@ -211,6 +211,7 @@
   border: none;
   transition: outline 0.2s, box-shadow 0.2s;
   width: 100%;
+  overflow: hidden;
 }
 
 .canvas-item:hover {
@@ -231,6 +232,9 @@
   image-rendering: pixelated;
   image-rendering: -moz-crisp-edges;
   image-rendering: crisp-edges;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 
 .toc-dropdown-item:hover {
@@ -337,6 +341,9 @@
   image-rendering: -moz-crisp-edges;
   image-rendering: crisp-edges;
   background-color: white;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
 }
 
 .page-thumbnail:hover .page-thumbnail-canvas {
