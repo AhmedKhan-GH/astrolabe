@@ -51,11 +51,40 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
   const canvasGridRef = useRef<HTMLDivElement>(null);
   const [canvasZoom, setCanvasZoom] = useState<number>(120); // 120px grid size
   const [pagesZoom, setPagesZoom] = useState<number>(120); // 120px width
+  const tocDropdownRef = useRef<HTMLDivElement>(null);
+  const pagesDropdownRef = useRef<HTMLDivElement>(null);
 
   // Update page input when current page changes
   useEffect(() => {
     setPageInput(currentPage.toString());
   }, [currentPage]);
+
+  // Close dropdown when clicking outside or switching tabs
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const tocDropdown = tocDropdownRef.current;
+      const pagesDropdown = pagesDropdownRef.current;
+
+      if (tocDropdown && !tocDropdown.contains(event.target as Node)) {
+        setTreeDropdownOpen(false);
+      }
+      if (pagesDropdown && !pagesDropdown.contains(event.target as Node)) {
+        setTreeDropdownOpen(false);
+      }
+    };
+
+    if (treeDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [treeDropdownOpen]);
+
+  // Close dropdown when switching tabs
+  useEffect(() => {
+    setTreeDropdownOpen(false);
+  }, [sidebarTab]);
 
   // Load PDF document
   useEffect(() => {
@@ -695,7 +724,7 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
       const newWidth = e.clientX;
       const minToolbarWidth = 650;
       const maxTocWidth = window.innerWidth - minToolbarWidth - 12; // 12px for resize handle
-      if (newWidth >= 320 && newWidth <= maxTocWidth) {
+      if (newWidth >= 340 && newWidth <= maxTocWidth) {
         setTocWidth(newWidth);
       }
     }
@@ -755,7 +784,7 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
               <div className="toc-toolbar-bottom">
                 <button className="toc-collapse-btn">Create Note</button>
                 {sidebarTab === 'toc' && outline.length > 0 && (
-                  <div className="toc-dropdown">
+                  <div className="toc-dropdown" ref={tocDropdownRef}>
                     <button
                       onClick={() => setTreeDropdownOpen(!treeDropdownOpen)}
                       className="toc-dropdown-btn"
@@ -795,7 +824,7 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
                 {sidebarTab === 'pages' && (
                   <div className="toc-dropdown">
                     <button
-                      onClick={() => setTreeDropdownOpen(!treeDropdownOpen)}
+                      onClick={(e) => { e.stopPropagation(); setTreeDropdownOpen(!treeDropdownOpen); }}
                       className="toc-dropdown-btn"
                     >
                       Selection {treeDropdownOpen ? '▼' : '▶'}
@@ -803,13 +832,13 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
                     {treeDropdownOpen && (
                       <div className="toc-dropdown-menu">
                         <button
-                          onClick={() => { selectAllPages(); setTreeDropdownOpen(false); }}
+                          onClick={(e) => { e.stopPropagation(); selectAllPages(); setTreeDropdownOpen(false); }}
                           className="toc-dropdown-item"
                         >
                           Select All
                         </button>
                         <button
-                          onClick={() => { clearPageSelections(); setTreeDropdownOpen(false); }}
+                          onClick={(e) => { e.stopPropagation(); clearPageSelections(); setTreeDropdownOpen(false); }}
                           className="toc-dropdown-item"
                         >
                           Deselect All
