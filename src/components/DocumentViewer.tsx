@@ -15,6 +15,14 @@ interface OutlineNode {
   items: OutlineNode[];
 }
 
+interface Note {
+  id: string;
+  title: string;
+  tocPaths: Set<string>;
+  pageRanges: number[];
+  createdAt: Date;
+}
+
 interface PDFViewerProps {
   pdfUrl?: string;
 }
@@ -44,6 +52,9 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
   const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set());
   const [pageSelectionStart, setPageSelectionStart] = useState<number | null>(null);
   const [thumbnailRefs, setThumbnailRefs] = useState<Map<number, HTMLCanvasElement>>(new Map());
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [activeNote, setActiveNote] = useState<Note | null>(null);
+  const [tocPageMap, setTocPageMap] = useState<Map<string, number[]>>(new Map());
   const [mainThumbnailRefs, setMainThumbnailRefs] = useState<Map<number, HTMLCanvasElement>>(new Map());
   const [canvasDimensions, setCanvasDimensions] = useState<Map<number, {width: number, height: number}>>(new Map());
   const currentPageThumbnailRef = useRef<HTMLDivElement>(null);
@@ -261,6 +272,105 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
     }
   };
 
+  // Get page number for a destination
+  const getPageForDestination = async (dest: any): Promise<number | null> => {
+    if (!pdfDoc) return null;
+
+    try {
+      let destination = dest;
+      if (typeof dest === 'string') {
+        destination = await pdfDoc.getDestination(dest);
+      }
+
+      if (destination && Array.isArray(destination)) {
+        const pageRef = destination[0];
+        const pageIndex = await pdfDoc.getPageIndex(pageRef);
+        return pageIndex + 1;
+      }
+    } catch (err) {
+      console.error('Error getting page for destination:', err);
+    }
+    return null;
+  };
+
+  // Build map of TOC paths to page numbers
+  useEffect(() => {
+    if (!pdfDoc || outline.length === 0) return;
+
+    const buildPageMap = async () => {
+      const pageMap = new Map<string, number[]>();
+
+      // Build a flat list of all items with structural info
+      const allItems: Array<{
+        path: string;
+        page: number;
+        parentPath: string;
+        siblingIndex: number;
+      }> = [];
+
+      const collectItems = async (items: OutlineNode[], parentPath: string) => {
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          const nodePath = `${parentPath}/${i}`;
+          const pageNum = await getPageForDestination(item.dest);
+
+          if (pageNum !== null) {
+            allItems.push({
+              path: nodePath,
+              page: pageNum,
+              parentPath: parentPath,
+              siblingIndex: i
+            });
+          }
+
+          if (item.items && item.items.length > 0) {
+            await collectItems(item.items, nodePath);
+          }
+        }
+      };
+
+      await collectItems(outline, '');
+
+      // For each item, find where its section ends
+      for (const currentItem of allItems) {
+        const startPage = currentItem.page;
+        let endPage = totalPages;
+
+        // Find the next item that is NOT a descendant of current item
+        // This will be either:
+        // - A sibling (next item at same level)
+        // - An uncle (parent's next sibling)
+        // - Or any ancestor's next sibling
+        for (const otherItem of allItems) {
+          // Skip if same item or if it comes before current item
+          if (otherItem.path === currentItem.path || otherItem.page <= startPage) {
+            continue;
+          }
+
+          // Check if otherItem is a descendant of currentItem
+          const isDescendant = otherItem.path.startsWith(currentItem.path + '/');
+
+          // If it's NOT a descendant and comes after, this is where our section ends
+          if (!isDescendant) {
+            endPage = otherItem.page - 1;
+            break;
+          }
+        }
+
+        // Generate page range
+        const pages: number[] = [];
+        for (let p = startPage; p <= endPage; p++) {
+          pages.push(p);
+        }
+        pageMap.set(currentItem.path, pages);
+      }
+
+      setTocPageMap(pageMap);
+    };
+
+    buildPageMap();
+  }, [pdfDoc, outline, totalPages]);
+
   // Toggle node expansion
   const toggleNode = (nodePath: string) => {
     setExpandedNodes(prev => {
@@ -294,6 +404,68 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
   const selectAll = () => {
     const allPaths = getAllDescendantPaths(outline, '');
     setSelectedNodes(new Set(allPaths));
+  };
+
+  // Create note from selected TOC items
+  const createNoteFromSelection = () => {
+    if (selectedNodes.size === 0) {
+      alert('Please select at least one TOC item');
+      return;
+    }
+
+    // Simply collect all pages from selected TOC items
+    const allPages = new Set<number>();
+    selectedNodes.forEach(path => {
+      const pages = tocPageMap.get(path);
+      if (pages) {
+        pages.forEach(p => allPages.add(p));
+      }
+    });
+
+    const sortedPages = Array.from(allPages).sort((a, b) => a - b);
+
+    // Generate default title from first selected item
+    const firstPath = Array.from(selectedNodes)[0];
+    const pathParts = firstPath.split('/').filter(p => p);
+    let defaultTitle = 'New Note';
+
+    if (pathParts.length > 0) {
+      const findNodeByPath = (items: OutlineNode[], path: string): OutlineNode | null => {
+        const parts = path.split('/').filter(p => p).map(Number);
+        let current: OutlineNode[] = items;
+        let node: OutlineNode | null = null;
+
+        for (const index of parts) {
+          if (index >= 0 && index < current.length) {
+            node = current[index];
+            current = node.items || [];
+          } else {
+            return null;
+          }
+        }
+        return node;
+      };
+
+      const firstNode = findNodeByPath(outline, firstPath);
+      if (firstNode) {
+        defaultTitle = firstNode.title;
+      }
+    }
+
+    const noteTitle = prompt('Enter note title:', defaultTitle);
+    if (!noteTitle) return;
+
+    const newNote: Note = {
+      id: Date.now().toString(),
+      title: noteTitle,
+      tocPaths: new Set(selectedNodes),
+      pageRanges: sortedPages,
+      createdAt: new Date(),
+    };
+
+    setNotes(prev => [...prev, newNote]);
+    setActiveNote(newNote);
+    setSelectedNodes(new Set());
   };
 
   // Get all descendant node paths recursively
@@ -595,11 +767,14 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
               ? constrainedWidth * (dims.height / dims.width) 
               : 'auto';
 
+            const isInActiveNote = activeNote ? activeNote.pageRanges.includes(pageNum) : false;
+            const isGrayedOut = activeNote !== null && !isInActiveNote;
+
             return (
               <div
                 key={pageNum}
                 ref={pageNum === currentPage ? currentPageThumbnailRef : null}
-                className={`page-thumbnail ${pageNum === currentPage ? 'current-page' : ''} ${selectedPages.has(pageNum) ? 'selected-page' : ''}`}
+                className={`page-thumbnail ${pageNum === currentPage ? 'current-page' : ''} ${selectedPages.has(pageNum) ? 'selected-page' : ''} ${isGrayedOut ? 'grayed-out' : ''}`}
                 onClick={(e) => handlePageClick(pageNum, e)}
                 onMouseDown={(e) => handleDragSelectionStart(pageNum, e)}
                 onMouseEnter={() => handleDragSelectionMove(pageNum)}
@@ -647,10 +822,13 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
             const constrainedWidth = Math.min(targetWidth, availableWidth);
             const targetHeight = constrainedWidth * aspectRatio;
 
+            const isInActiveNote = activeNote ? activeNote.pageRanges.includes(pageNum) : false;
+            const isGrayedOut = activeNote !== null && !isInActiveNote;
+
             return (
               <div
                 key={pageNum}
-                className={`canvas-item ${pageNum === currentPage ? 'current-page' : ''}`}
+                className={`canvas-item ${pageNum === currentPage ? 'current-page' : ''} ${isGrayedOut ? 'grayed-out' : ''}`}
                 onClick={() => setCurrentPage(pageNum)}
                 title={`Page ${pageNum}`}
               >
@@ -679,9 +857,11 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
           const nodePath = `${parentPath}/${index}`;
           const hasChildren = item.items && item.items.length > 0;
           const isExpanded = expandedNodes.has(nodePath);
+          const isInActiveNote = activeNote ? activeNote.tocPaths.has(nodePath) : false;
+          const isGrayedOut = activeNote !== null && !isInActiveNote;
 
           return (
-            <li key={index} className="toc-item">
+            <li key={index} className={`toc-item ${isGrayedOut ? 'grayed-out' : ''}`}>
               <div className="toc-item-content" style={{ paddingLeft: `${level * 26}px` }}>
                 <input
                   type="checkbox"
@@ -878,7 +1058,13 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
                 </div>
               </div>
               <div className="toc-toolbar-bottom">
-                <button className="toc-collapse-btn">Create Note</button>
+                <button 
+                  className="toc-collapse-btn" 
+                  onClick={createNoteFromSelection}
+                  disabled={sidebarTab !== 'toc' || selectedNodes.size === 0}
+                >
+                  Create Note
+                </button>
                 {sidebarTab === 'toc' && outline.length > 0 && (
                   <div className="toc-dropdown" ref={tocDropdownRef}>
                     <button
@@ -1071,12 +1257,67 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
             <div className="toc-toolbar">
               <div className="toc-toolbar-top">
                 <button onClick={() => setShowRightSidebar(false)} className="toc-close-btn right-close-btn">☰</button>
+                <h3 style={{ margin: '0 0 0 12px', fontSize: '14px' }}>Notes</h3>
               </div>
+              {activeNote && (
+                <div className="toc-toolbar-bottom">
+                  <button 
+                    className="toc-collapse-btn" 
+                    onClick={() => setActiveNote(null)}
+                  >
+                    Clear Selection
+                  </button>
+                </div>
+              )}
             </div>
             <div className="toc-content">
-              <p style={{ padding: '20px', color: '#888', textAlign: 'center' }}>
-                Right sidebar content
-              </p>
+              {notes.length === 0 ? (
+                <p style={{ padding: '20px', color: '#888', textAlign: 'center' }}>
+                  No notes yet. Select TOC items and click "Create Note" to get started.
+                </p>
+              ) : (
+                <div className="notes-list">
+                  {notes.map(note => (
+                    <div 
+                      key={note.id} 
+                      className={`note-item ${activeNote?.id === note.id ? 'active' : ''}`}
+                      onClick={() => setActiveNote(note)}
+                    >
+                      <div className="note-header">
+                        <h4>{note.title}</h4>
+                        <button
+                          className="note-delete-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm(`Delete note "${note.title}"?`)) {
+                              setNotes(prev => prev.filter(n => n.id !== note.id));
+                              if (activeNote?.id === note.id) {
+                                setActiveNote(null);
+                              }
+                            }
+                          }}
+                          title="Delete note"
+                        >
+                          ×
+                        </button>
+                      </div>
+                      <div className="note-info">
+                        <span className="note-toc-count">{note.tocPaths.size} TOC items</span>
+                        <span className="note-page-range">
+                          {note.pageRanges.length > 0 ? (
+                            <>Pages: {Math.min(...note.pageRanges)}-{Math.max(...note.pageRanges)}</>
+                          ) : (
+                            'No pages'
+                          )}
+                        </span>
+                      </div>
+                      <div className="note-date">
+                        {note.createdAt.toLocaleDateString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </>
