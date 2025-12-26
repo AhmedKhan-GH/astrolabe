@@ -1850,7 +1850,7 @@ export default function DocumentViewer({ pdfUrl, fileId, isParentResizing = fals
               />
               <span> of {totalPages}</span>
             </form>
-            <span className="toolbar-separator">|</span>
+            <span className="toolbar-separator"></span>
             <span>{getZoomPercentage()}%</span>
           </div>
 
