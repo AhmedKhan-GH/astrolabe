@@ -107,6 +107,11 @@ export default function DocumentViewer({ pdfUrl, fileId, isParentResizing = fals
     loadNotes();
   }, [fileId]);
 
+  // Debug: Log notes state changes
+  useEffect(() => {
+    console.log('DocumentViewer: Notes state updated, count:', notes.length, notes);
+  }, [notes]);
+
   // Initialize intersection observer for lazy thumbnail loading
   useEffect(() => {
     thumbnailObserverRef.current = new IntersectionObserver(
@@ -795,12 +800,7 @@ export default function DocumentViewer({ pdfUrl, fileId, isParentResizing = fals
       createdAt: new Date(),
     };
 
-    setNotes(prev => [...prev, newNote]);
-    setActiveNote(newNote);
-    setSelectedNodes(new Set());
-    setSelectedPages(new Set());
-
-    // Persist to database
+    // Persist to database first
     if (fileId) {
       const storedNote: StoredNote = {
         id: newNote.id,
@@ -813,12 +813,24 @@ export default function DocumentViewer({ pdfUrl, fileId, isParentResizing = fals
       console.log('DocumentViewer: Saving note to DB:', storedNote);
       saveNote(storedNote).then(() => {
         console.log('DocumentViewer: Note saved successfully');
+        // Update state after successful save
+        setNotes(prev => [...prev, newNote]);
+        setActiveNote(newNote);
       }).catch(err => {
         console.error('Failed to save note:', err);
+        // Still update state even if save failed (will be in memory)
+        setNotes(prev => [...prev, newNote]);
+        setActiveNote(newNote);
       });
     } else {
       console.warn('DocumentViewer: No fileId, cannot save note');
+      // Update state without persistence
+      setNotes(prev => [...prev, newNote]);
+      setActiveNote(newNote);
     }
+
+    setSelectedNodes(new Set());
+    setSelectedPages(new Set());
   };
 
   // Get all descendant node paths recursively
