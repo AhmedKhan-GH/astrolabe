@@ -1457,7 +1457,7 @@ export default function DocumentViewer({ pdfUrl, fileId, isParentResizing = fals
     if (isResizing) {
       const newWidth = e.clientX;
       const minToolbarWidth = 650;
-      const minTocWidth = 415; // Accommodate Create Note + Go To + Selection buttons
+      const minTocWidth = 320; // Accommodate Create Note + Go To + Selection buttons
       const currentRightSidebarWidth = showRightSidebar ? rightSidebarWidth : 0;
       const rightResizeHandle = showRightSidebar ? 12 : 0;
       const leftResizeHandle = 12;
@@ -1564,7 +1564,7 @@ export default function DocumentViewer({ pdfUrl, fileId, isParentResizing = fals
     <div className={`pdf-viewer-container ${isResizing || isResizingRight ? 'resizing' : ''}`}>
       {/* Table of Contents Sidebar */}
       <>
-        <div className={`toc-sidebar ${!showToc ? 'hidden' : ''}`} style={{ width: `${tocWidth}px`, minWidth: '415px' }}>
+        <div className={`toc-sidebar ${!showToc ? 'hidden' : ''}`} style={{ width: `${tocWidth}px`, minWidth: '320px' }}>
             <div className="toc-toolbar">
               <div className="toc-toolbar-top">
                 <button onClick={() => setShowToc(false)} className="toc-close-btn">Finder</button>
