@@ -271,9 +271,6 @@ function FileManager({ onFileSelect, onNavigateToCanvas }: FileNavigatorProps) {
         <span ref={measureSpanRef} className="workspace-name-measure">
           {workspaceName || 'Workspace Name'}
         </span>
-        <button onClick={onNavigateToCanvas} className="action-button">
-          Notes →
-        </button>
         <input
           id="file-add"
           type="file"

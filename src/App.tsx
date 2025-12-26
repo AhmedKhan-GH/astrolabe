@@ -11,6 +11,9 @@ function App() {
   const [pdfUrl, setPdfUrl] = useState<string>('')
   const [fileName, setFileName] = useState<string>('')
   const [fileId, setFileId] = useState<string>('')
+  const [showNoteEditor, setShowNoteEditor] = useState<boolean>(false)
+  const [viewerPanelWidth, setViewerPanelWidth] = useState<number>(window.innerWidth / 2)
+  const [isResizingNote, setIsResizingNote] = useState<boolean>(false)
   const currentBlobUrl = useRef<string>('')
 
   // Restore current file state on mount
@@ -18,6 +21,7 @@ function App() {
     const savedContext = localStorage.getItem('currentContext') as AppContext | null
     const savedFileName = localStorage.getItem('currentFileName')
     const savedFileId = localStorage.getItem('currentFileId')
+    const savedShowNoteEditor = localStorage.getItem('showNoteEditor') === 'true'
 
     if (savedContext && savedFileName && savedFileId) {
       // Try to reload the file from IndexedDB
@@ -32,6 +36,7 @@ function App() {
             setFileName(savedFileName)
             setFileId(savedFileId)
             setContext(savedContext)
+            setShowNoteEditor(savedShowNoteEditor)
           } else {
             // File not found, clear saved state
             localStorage.removeItem('currentContext')
@@ -49,11 +54,13 @@ function App() {
     const newFileId = `${file.name}-${file.size}`
     setFileName(file.name)
     setFileId(newFileId)
+    setShowNoteEditor(false)
 
     // Save current file state
     localStorage.setItem('currentContext', 'viewer')
     localStorage.setItem('currentFileName', file.name)
     localStorage.setItem('currentFileId', newFileId)
+    localStorage.setItem('showNoteEditor', 'false')
 
     // Only revoke if we're replacing with a different file
     if (currentBlobUrl.current && currentBlobUrl.current !== pdfUrl) {
@@ -69,13 +76,104 @@ function App() {
 
   const handleNavigateToFiles = () => {
     setContext('navigator')
+    setShowNoteEditor(false)
     localStorage.setItem('currentContext', 'navigator')
+    localStorage.setItem('showNoteEditor', 'false')
   }
 
-  const handleNavigateToCanvas = () => {
-    setContext('canvas')
-    localStorage.setItem('currentContext', 'canvas')
+  const handleToggleNoteEditor = () => {
+    const newValue = !showNoteEditor
+    setShowNoteEditor(newValue)
+    localStorage.setItem('showNoteEditor', String(newValue))
   }
+
+  const handleNoteResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsResizingNote(true)
+  }
+
+  const handleNoteResizeMove = (e: MouseEvent) => {
+    if (isResizingNote) {
+      const minPdfViewerWidth = 400 // Minimum width for PDF viewer panel
+      const minNoteWidth = 500 // Minimum width for note panel
+      const resizeHandleWidth = 12 // Width of the resize handle
+
+      // New viewer panel width is the mouse X position
+      const newViewerWidth = e.clientX
+
+      // Calculate the maximum viewer width (leaving minimum space for note panel)
+      const maxViewerWidth = window.innerWidth - minNoteWidth - resizeHandleWidth
+
+      // Clamp the viewer width between minimum and maximum
+      // This prevents BOTH:
+      // - Viewer from being smaller than 400px (stops note from expanding too much)
+      // - Note from being smaller than 500px (stops viewer from expanding too much)
+      const clampedViewerWidth = Math.max(minPdfViewerWidth, Math.min(maxViewerWidth, newViewerWidth))
+
+      setViewerPanelWidth(clampedViewerWidth)
+    }
+  }
+
+  const handleNoteResizeEnd = () => {
+    setIsResizingNote(false)
+  }
+
+  // Effect to handle resize mouse events
+  useEffect(() => {
+    if (isResizingNote) {
+      document.body.style.userSelect = 'none'
+      document.body.style.cursor = 'col-resize'
+      document.addEventListener('mousemove', handleNoteResizeMove)
+      document.addEventListener('mouseup', handleNoteResizeEnd)
+      return () => {
+        document.body.style.userSelect = ''
+        document.body.style.cursor = ''
+        document.removeEventListener('mousemove', handleNoteResizeMove)
+        document.removeEventListener('mouseup', handleNoteResizeEnd)
+      }
+    }
+  }, [isResizingNote])
+
+  // Effect to handle window resize - maintain proportions
+  useEffect(() => {
+    if (!showNoteEditor) return
+
+    let previousWindowWidth = window.innerWidth
+
+    const handleWindowResize = () => {
+      const minPdfViewerWidth = 400
+      const minNoteWidth = 500
+      const resizeHandleWidth = 12
+      const currentWindowWidth = window.innerWidth
+
+      // Calculate the ratio of viewer panel to total available width
+      const previousAvailableWidth = previousWindowWidth - resizeHandleWidth
+      const viewerRatio = viewerPanelWidth / previousAvailableWidth
+
+      // Apply the same ratio to the new window width
+      const newAvailableWidth = currentWindowWidth - resizeHandleWidth
+      let newViewerWidth = viewerRatio * newAvailableWidth
+
+      // Calculate resulting note width
+      const newNoteWidth = newAvailableWidth - newViewerWidth
+
+      // Clamp to ensure both panels meet minimum requirements
+      const maxViewerWidth = newAvailableWidth - minNoteWidth
+      newViewerWidth = Math.max(minPdfViewerWidth, Math.min(maxViewerWidth, newViewerWidth))
+
+      // Only update if the width actually changed
+      if (Math.abs(newViewerWidth - viewerPanelWidth) > 1) {
+        setViewerPanelWidth(newViewerWidth)
+      }
+
+      previousWindowWidth = currentWindowWidth
+    }
+
+    window.addEventListener('resize', handleWindowResize)
+    return () => {
+      window.removeEventListener('resize', handleWindowResize)
+    }
+  }, [showNoteEditor, viewerPanelWidth])
 
   // Cleanup blob URL only on unmount
   useEffect(() => {
@@ -91,7 +189,6 @@ function App() {
       {context === 'navigator' && (
         <FileManager
           onFileSelect={handleFileSelect}
-          onNavigateToCanvas={handleNavigateToCanvas}
         />
       )}
       {context === 'viewer' && (
@@ -101,15 +198,29 @@ function App() {
               ← Files
             </button>
             <h2>{fileName}</h2>
-            <button onClick={handleNavigateToCanvas} className="notes-button">
-              Notes →
+            <button onClick={handleToggleNoteEditor} className="notes-button">
+              Note
             </button>
           </div>
-          <DocumentViewer pdfUrl={pdfUrl} fileId={fileId} />
+          <div className={`viewer-content ${showNoteEditor ? 'split-view' : ''} ${isResizingNote ? 'resizing' : ''}`}>
+            <div className="viewer-panel" style={{ width: showNoteEditor ? `${viewerPanelWidth}px` : '100%' }}>
+              <DocumentViewer 
+                pdfUrl={pdfUrl} 
+                fileId={fileId} 
+                isParentResizing={isResizingNote}
+                availableWidth={showNoteEditor ? viewerPanelWidth : window.innerWidth}
+              />
+            </div>
+            {showNoteEditor && (
+              <>
+                <div className="note-resize-handle" onMouseDown={handleNoteResizeStart}></div>
+                <div className="note-panel" style={{ flex: 1, minWidth: '500px' }}>
+                  <NoteEditor onNavigateToFiles={handleNavigateToFiles} fileId={fileId} />
+                </div>
+              </>
+            )}
+          </div>
         </div>
-      )}
-      {context === 'canvas' && (
-        <NoteEditor onNavigateToFiles={handleNavigateToFiles} />
       )}
     </div>
   )

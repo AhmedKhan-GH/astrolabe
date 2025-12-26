@@ -3,13 +3,13 @@ import { Excalidraw } from '@excalidraw/excalidraw'
 import '@excalidraw/excalidraw/index.css'
 import './NoteEditor.css'
 
-const STORAGE_KEY = 'excalidraw-drawing'
-
 interface ExcalidrawCanvasProps {
   onNavigateToFiles: () => void
+  fileId?: string
 }
 
-function NoteEditor({ onNavigateToFiles }: ExcalidrawCanvasProps) {
+function NoteEditor({ onNavigateToFiles, fileId }: ExcalidrawCanvasProps) {
+  const STORAGE_KEY = fileId ? `excalidraw-drawing-${fileId}` : 'excalidraw-drawing'
   const [initialData, setInitialData] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -119,13 +119,6 @@ function NoteEditor({ onNavigateToFiles }: ExcalidrawCanvasProps) {
 
   return (
     <div className="excalidraw-canvas">
-      <div className="canvas-header">
-        <button onClick={onNavigateToFiles} className="back-button">
-          ← Files
-        </button>
-        <h2>Notes</h2>
-        <div className="header-spacer"></div>
-      </div>
       <div className="canvas-content">
         <Excalidraw
           initialData={initialData || undefined}

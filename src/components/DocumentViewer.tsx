@@ -27,9 +27,11 @@ interface Note {
 interface PDFViewerProps {
   pdfUrl?: string;
   fileId?: string;
+  isParentResizing?: boolean;
+  availableWidth?: number;
 }
 
-export default function DocumentViewer({ pdfUrl, fileId }: PDFViewerProps) {
+export default function DocumentViewer({ pdfUrl, fileId, isParentResizing = false, availableWidth }: PDFViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
@@ -1420,6 +1422,7 @@ export default function DocumentViewer({ pdfUrl, fileId }: PDFViewerProps) {
   };
 
   const handleResizeStart = (e: React.MouseEvent) => {
+    if (isParentResizing) return; // Don't allow resize when parent is resizing
     e.preventDefault();
     setIsResizing(true);
   };
@@ -1444,18 +1447,26 @@ export default function DocumentViewer({ pdfUrl, fileId }: PDFViewerProps) {
   };
 
   const handleRightResizeStart = (e: React.MouseEvent) => {
+    if (isParentResizing) return; // Don't allow resize when parent is resizing
     e.preventDefault();
     setIsResizingRight(true);
   };
 
   const handleRightResizeMove = (e: MouseEvent) => {
     if (isResizingRight) {
-      const newWidth = window.innerWidth - e.clientX;
+      // Use availableWidth if provided (when note editor is open), otherwise use full window width
+      const containerWidth = availableWidth || window.innerWidth;
+
+      // Calculate new width based on the mouse position relative to container
+      const mouseXInContainer = e.clientX - (window.innerWidth - containerWidth);
+      const newWidth = containerWidth - mouseXInContainer;
+
       const minToolbarWidth = 650;
       const leftSidebarWidth = showToc ? tocWidth : 0;
       const leftResizeHandle = showToc ? 12 : 0;
       const rightResizeHandle = 12;
-      const maxRightWidth = window.innerWidth - leftSidebarWidth - leftResizeHandle - rightResizeHandle - minToolbarWidth;
+      const maxRightWidth = containerWidth - leftSidebarWidth - leftResizeHandle - rightResizeHandle - minToolbarWidth;
+
       if (newWidth >= 340 && newWidth <= maxRightWidth) {
         setRightSidebarWidth(newWidth);
       }
@@ -1494,7 +1505,7 @@ export default function DocumentViewer({ pdfUrl, fileId }: PDFViewerProps) {
         document.removeEventListener('mouseup', handleRightResizeEnd);
       };
     }
-  }, [isResizingRight]);
+  }, [isResizingRight, availableWidth, showToc, tocWidth, rightSidebarWidth]);
 
   return (
     <div className={`pdf-viewer-container ${isResizing || isResizingRight ? 'resizing' : ''}`}>
@@ -1748,7 +1759,11 @@ export default function DocumentViewer({ pdfUrl, fileId }: PDFViewerProps) {
               </div>
             </div>
           </div>
-        <div className={`toc-resize-handle ${!showToc ? 'hidden' : ''}`} onMouseDown={handleResizeStart}></div>
+        <div 
+          className={`toc-resize-handle ${!showToc ? 'hidden' : ''}`} 
+          onMouseDown={handleResizeStart}
+          style={{ pointerEvents: isParentResizing ? 'none' : 'auto' }}
+        ></div>
       </>
 
       {/* Main PDF Viewer */}
@@ -1820,7 +1835,11 @@ export default function DocumentViewer({ pdfUrl, fileId }: PDFViewerProps) {
 
       {/* Right Sidebar */}
       <>
-        <div className={`toc-resize-handle ${!showRightSidebar ? 'hidden' : ''}`} onMouseDown={handleRightResizeStart}></div>
+        <div 
+          className={`toc-resize-handle ${!showRightSidebar ? 'hidden' : ''}`} 
+          onMouseDown={handleRightResizeStart}
+          style={{ pointerEvents: isParentResizing ? 'none' : 'auto' }}
+        ></div>
         <div className={`toc-sidebar right-sidebar ${!showRightSidebar ? 'hidden' : ''}`} style={{ width: `${rightSidebarWidth}px` }}>
             <div className="toc-toolbar">
               <div className="toc-toolbar-top">
