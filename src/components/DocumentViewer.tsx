@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
+import { saveNote, getNotesForFile, deleteNote, type StoredNote } from '../utils/noteStorage';
 import './DocumentViewer.css';
 
 // Set up worker using local legacy worker file
@@ -25,9 +26,10 @@ interface Note {
 
 interface PDFViewerProps {
   pdfUrl?: string;
+  fileId?: string;
 }
 
-export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
+export default function DocumentViewer({ pdfUrl, fileId }: PDFViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
@@ -72,6 +74,36 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
   const [visibleThumbnails, setVisibleThumbnails] = useState<Set<number>>(new Set());
   const thumbnailObserverRef = useRef<IntersectionObserver | null>(null);
   const [shouldAutoScroll, setShouldAutoScroll] = useState<boolean>(false);
+
+  // Load persisted notes for this file
+  useEffect(() => {
+    if (!fileId) {
+      console.log('DocumentViewer: No fileId, skipping note load');
+      return;
+    }
+
+    console.log('DocumentViewer: Loading notes for fileId:', fileId);
+
+    const loadNotes = async () => {
+      try {
+        const storedNotes = await getNotesForFile(fileId);
+        console.log('DocumentViewer: Loaded notes from DB:', storedNotes);
+        const notes: Note[] = storedNotes.map(sn => ({
+          id: sn.id,
+          title: sn.title,
+          tocPaths: new Set(sn.tocPaths),
+          pageRanges: sn.pageRanges,
+          createdAt: new Date(sn.createdAt)
+        }));
+        setNotes(notes);
+        console.log('DocumentViewer: Set notes state:', notes);
+      } catch (error) {
+        console.error('Failed to load notes:', error);
+      }
+    };
+
+    loadNotes();
+  }, [fileId]);
 
   // Initialize intersection observer for lazy thumbnail loading
   useEffect(() => {
@@ -451,6 +483,54 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
     });
   };
 
+  // Expand only selected (checked) nodes
+  const expandChecked = () => {
+    if (selectedNodes.size === 0) return;
+
+    setExpandedNodes(prev => {
+      const newSet = new Set(prev);
+
+      // Get all checked paths that have children
+      selectedNodes.forEach(path => {
+        // Find the node to check if it has children
+        const pathParts = path.split('/').filter(p => p).map(Number);
+        let current: OutlineNode[] = outline;
+        let node: OutlineNode | null = null;
+
+        for (const index of pathParts) {
+          if (index >= 0 && index < current.length) {
+            node = current[index];
+            current = node.items || [];
+          } else {
+            node = null;
+            break;
+          }
+        }
+
+        // If node has children, add it to expand list
+        if (node && node.items && node.items.length > 0) {
+          newSet.add(path);
+        }
+      });
+
+      return newSet;
+    });
+  };
+
+  // Collapse only selected (checked) nodes
+  const collapseChecked = () => {
+    if (selectedNodes.size === 0) return;
+
+    setExpandedNodes(prev => {
+      const newSet = new Set(prev);
+      // Remove all paths that are checked
+      selectedNodes.forEach(path => {
+        newSet.delete(path);
+      });
+      return newSet;
+    });
+  };
+
   // Go to the first page/item of the active note (with one element buffer above)
   const goToNote = () => {
     if (!activeNote) return;
@@ -712,6 +792,26 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
     setActiveNote(newNote);
     setSelectedNodes(new Set());
     setSelectedPages(new Set());
+
+    // Persist to database
+    if (fileId) {
+      const storedNote: StoredNote = {
+        id: newNote.id,
+        fileId: fileId,
+        title: newNote.title,
+        tocPaths: Array.from(newNote.tocPaths),
+        pageRanges: newNote.pageRanges,
+        createdAt: newNote.createdAt.getTime()
+      };
+      console.log('DocumentViewer: Saving note to DB:', storedNote);
+      saveNote(storedNote).then(() => {
+        console.log('DocumentViewer: Note saved successfully');
+      }).catch(err => {
+        console.error('Failed to save note:', err);
+      });
+    } else {
+      console.warn('DocumentViewer: No fileId, cannot save note');
+    }
   };
 
   // Get all descendant node paths recursively
@@ -887,15 +987,14 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
       canvas.width = Math.floor(viewport.width);
       canvas.height = Math.floor(viewport.height);
 
-      // Store dimensions for later sizing ONLY if not already stored
+      // Always store/update dimensions to ensure consistency
       setCanvasDimensions(prev => {
-        if (!prev.has(pageNum)) {
-          return new Map(prev).set(pageNum, {
-            width: canvas.width,
-            height: canvas.height
-          });
-        }
-        return prev;
+        const newMap = new Map(prev);
+        newMap.set(pageNum, {
+          width: canvas.width,
+          height: canvas.height
+        });
+        return newMap;
       });
 
       // Display at larger size
@@ -999,6 +1098,26 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
       }, 0);
     }
   }, [sidebarTab, canvasZoom]);
+
+  // Maintain thumbnail sizes when active note changes in canvas view
+  useEffect(() => {
+    if (sidebarTab === 'canvas' && canvasGridRef.current) {
+      const availableWidth = canvasGridRef.current.clientWidth - 8;
+
+      mainThumbnailRefs.forEach((canvas, pageNum) => {
+        const dims = canvasDimensions.get(pageNum);
+        if (dims) {
+          const aspectRatio = dims.height / dims.width;
+          const targetWidth = canvasZoom - 4;
+          const constrainedWidth = Math.min(targetWidth, availableWidth);
+
+          canvas.style.width = `${constrainedWidth}px`;
+          canvas.style.height = `${constrainedWidth * aspectRatio}px`;
+          canvas.style.maxWidth = `${availableWidth}px`;
+        }
+      });
+    }
+  }, [activeNote?.id, sidebarTab, canvasZoom, mainThumbnailRefs, canvasDimensions]);
 
   // Update Pages thumbnail sizes when switching tabs or zoom changes
   useEffect(() => {
@@ -1473,6 +1592,20 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
                           </>
                         )}
                         <button
+                          onClick={() => { expandChecked(); setTreeDropdownOpen(false); }}
+                          className="toc-dropdown-item"
+                          disabled={selectedNodes.size === 0}
+                        >
+                          Expand Checked
+                        </button>
+                        <button
+                          onClick={() => { collapseChecked(); setTreeDropdownOpen(false); }}
+                          className="toc-dropdown-item"
+                          disabled={selectedNodes.size === 0}
+                        >
+                          Collapse Checked
+                        </button>
+                        <button
                           onClick={() => { expandAll(); setTreeDropdownOpen(false); }}
                           className="toc-dropdown-item"
                         >
@@ -1727,6 +1860,10 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
                               if (activeNote?.id === note.id) {
                                 setActiveNote(null);
                               }
+                              // Delete from database
+                              deleteNote(note.id).catch(err => {
+                                console.error('Failed to delete note:', err);
+                              });
                             }
                           }}
                           title="Delete note"

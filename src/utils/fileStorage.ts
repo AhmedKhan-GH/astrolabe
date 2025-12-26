@@ -1,6 +1,7 @@
 const DB_NAME = 'PDFViewerDB'
-const DB_VERSION = 3
+const DB_VERSION = 4
 const STORE_NAME = 'files'
+const NOTES_STORE_NAME = 'notes'
 
 interface StoredFile {
   id: string
@@ -20,8 +21,16 @@ function openDB(): Promise<IDBDatabase> {
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result
+
+      // Create files store if it doesn't exist
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME, { keyPath: 'id' })
+      }
+
+      // Create notes store if it doesn't exist
+      if (!db.objectStoreNames.contains(NOTES_STORE_NAME)) {
+        const notesStore = db.createObjectStore(NOTES_STORE_NAME, { keyPath: 'id' })
+        notesStore.createIndex('fileId', 'fileId', { unique: false })
       }
     }
   })
