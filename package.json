@@ -10,10 +10,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
-      "perfect-freehand": "^1.2.2",
+    "@excalidraw/excalidraw": "^0.18.0",
+    "pdfjs-dist": "^4.9.155",
+    "perfect-freehand": "^1.2.2",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "pdfjs-dist": "^4.9.155"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
