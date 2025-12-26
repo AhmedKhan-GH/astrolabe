@@ -74,7 +74,7 @@
   display: flex;
   justify-content: flex-start;
   align-items: center;
-  padding: 10px 20px;
+  padding: 10px;
   gap: 8px;
 }
 
@@ -82,7 +82,7 @@
   display: flex;
   gap: 8px;
   align-items: center;
-  padding: 10px 20px;
+  padding: 10px;
   border-top: 1px solid #ccc;
   flex-wrap: wrap;
 }
@@ -91,7 +91,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 20px 0 20px;
+  padding: 8px 10px 0 10px;
   border-top: 1px solid #e0e0e0;
 }
 
@@ -141,7 +141,7 @@
   font-size: 11px;
   color: #666;
   text-align: center;
-  padding: 8px 20px;
+  padding: 8px 10px;
   border-top: 1px solid #e0e0e0;
   background-color: #fff;
   line-height: 1.4;
@@ -480,7 +480,7 @@
 .sidebar-tabs {
   display: flex;
   gap: 4px;
-  margin-left: 8px;
+  margin-left: 0;
 }
 
 .sidebar-tab {
@@ -843,8 +843,14 @@
 }
 
 .toolbar-separator {
-  color: #ccc;
-  margin: 0 5px;
+  width: 2px;
+  align-self: stretch;
+  background-color: #ccc;
+  margin: 0;
+  margin-left: 10px;
+  margin-right: 10px;
+  user-select: none;
+  flex-shrink: 0;
 }
 
 .pdf-toolbar button {

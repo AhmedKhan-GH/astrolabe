@@ -80,16 +80,16 @@ export default function DocumentViewer({ pdfUrl, fileId, isParentResizing = fals
   // Load persisted notes for this file
   useEffect(() => {
     if (!fileId) {
-      console.log('DocumentViewer: No fileId, skipping note load');
+      console.log('DocumentViewer: No fileId, skipping view load');
       return;
     }
 
-    console.log('DocumentViewer: Loading notes for fileId:', fileId);
+    console.log('DocumentViewer: Loading views for fileId:', fileId);
 
     const loadNotes = async () => {
       try {
         const storedNotes = await getNotesForFile(fileId);
-        console.log('DocumentViewer: Loaded notes from DB:', storedNotes);
+        console.log('DocumentViewer: Loaded views from DB:', storedNotes);
         const notes: Note[] = storedNotes.map(sn => ({
           id: sn.id,
           title: sn.title,
@@ -98,9 +98,9 @@ export default function DocumentViewer({ pdfUrl, fileId, isParentResizing = fals
           createdAt: new Date(sn.createdAt)
         }));
         setNotes(notes);
-        console.log('DocumentViewer: Set notes state:', notes);
+        console.log('DocumentViewer: Set views state:', notes);
       } catch (error) {
-        console.error('Failed to load notes:', error);
+        console.error('Failed to load views:', error);
       }
     };
 
@@ -109,7 +109,7 @@ export default function DocumentViewer({ pdfUrl, fileId, isParentResizing = fals
 
   // Debug: Log notes state changes
   useEffect(() => {
-    console.log('DocumentViewer: Notes state updated, count:', notes.length, notes);
+    console.log('DocumentViewer: Views state updated, count:', notes.length, notes);
   }, [notes]);
 
   // Initialize intersection observer for lazy thumbnail loading
@@ -724,12 +724,12 @@ export default function DocumentViewer({ pdfUrl, fileId, isParentResizing = fals
   const createNoteFromSelection = () => {
     let tocPaths: Set<string>;
     let pageRanges: number[];
-    let defaultTitle = 'New Note';
+    let defaultTitle = 'New View';
 
     if (sidebarTab === 'toc') {
       // Creating from TOC selection
       if (selectedNodes.size === 0) {
-        alert('Please select at least one TOC item');
+        alert('Please select at least one item');
         return;
       }
 
@@ -789,7 +789,7 @@ export default function DocumentViewer({ pdfUrl, fileId, isParentResizing = fals
       }
     }
 
-    const noteTitle = prompt('Enter note title:', defaultTitle);
+    const noteTitle = prompt('Enter view title:', defaultTitle);
     if (!noteTitle) return;
 
     const newNote: Note = {
@@ -810,20 +810,20 @@ export default function DocumentViewer({ pdfUrl, fileId, isParentResizing = fals
         pageRanges: newNote.pageRanges,
         createdAt: newNote.createdAt.getTime()
       };
-      console.log('DocumentViewer: Saving note to DB:', storedNote);
+      console.log('DocumentViewer: Saving view to DB:', storedNote);
       saveNote(storedNote).then(() => {
-        console.log('DocumentViewer: Note saved successfully');
+        console.log('DocumentViewer: View saved successfully');
         // Update state after successful save
         setNotes(prev => [...prev, newNote]);
         setActiveNote(newNote);
       }).catch(err => {
-        console.error('Failed to save note:', err);
+        console.error('Failed to save view:', err);
         // Still update state even if save failed (will be in memory)
         setNotes(prev => [...prev, newNote]);
         setActiveNote(newNote);
       });
     } else {
-      console.warn('DocumentViewer: No fileId, cannot save note');
+      console.warn('DocumentViewer: No fileId, cannot save view');
       // Update state without persistence
       setNotes(prev => [...prev, newNote]);
       setActiveNote(newNote);
@@ -1108,15 +1108,22 @@ export default function DocumentViewer({ pdfUrl, fileId, isParentResizing = fals
         }
       });
 
-      // After resizing, scroll to keep current page in view
-      setTimeout(() => {
+      // Only scroll to current page when zoom slider changes (not on other state changes)
+      // This prevents interfering with manual scrolling
+    }
+  }, [sidebarTab, canvasZoom, mainThumbnailRefs, canvasDimensions, currentPage]);
+
+  // Separate effect for canvas zoom slider changes - scroll to keep current page in view
+  useEffect(() => {
+    if (sidebarTab === 'canvas' && canvasGridRef.current) {
+      requestAnimationFrame(() => {
         const canvasItems = canvasGridRef.current?.querySelectorAll('.canvas-item');
         if (canvasItems && canvasItems.length >= currentPage) {
           canvasItems[currentPage - 1].scrollIntoView({ behavior: 'auto', block: 'center' });
         }
-      }, 0);
+      });
     }
-  }, [sidebarTab, canvasZoom]);
+  }, [canvasZoom]);
 
   // Maintain thumbnail sizes when active note changes in canvas view
   useEffect(() => {
@@ -1166,14 +1173,21 @@ export default function DocumentViewer({ pdfUrl, fileId, isParentResizing = fals
         }
       });
 
-      // After resizing, scroll to keep current page in view
-      setTimeout(() => {
+      // Only scroll to current page when zoom slider changes (not on other state changes)
+      // This prevents interfering with manual scrolling
+    }
+  }, [sidebarTab, pagesZoom, thumbnailRefs, canvasDimensions, currentPageThumbnailRef]);
+
+  // Separate effect for zoom slider changes - scroll to keep current page in view
+  useEffect(() => {
+    if (sidebarTab === 'pages' && pagesSliderRef.current) {
+      requestAnimationFrame(() => {
         if (currentPageThumbnailRef.current) {
           currentPageThumbnailRef.current.scrollIntoView({ behavior: 'auto', block: 'center' });
         }
-      }, 0);
+      });
     }
-  }, [sidebarTab, pagesZoom]);
+  }, [pagesZoom]);
 
   // Pre-render thumbnails for active note to ensure seamless transitions
   useEffect(() => {
@@ -1519,6 +1533,33 @@ export default function DocumentViewer({ pdfUrl, fileId, isParentResizing = fals
     }
   }, [isResizingRight, availableWidth, showToc, tocWidth, rightSidebarWidth]);
 
+  // Preserve scroll position when sidebar widths change (from resizing)
+  // Only triggers after resize is complete, not during page changes
+  useEffect(() => {
+    // Skip if currently resizing
+    if (isResizing || isResizingRight) return;
+
+    // Use a timeout to only apply after resize is actually complete
+    const timeoutId = setTimeout(() => {
+      if (sidebarTab === 'pages' && pagesSliderRef.current && currentPageThumbnailRef.current) {
+        requestAnimationFrame(() => {
+          if (currentPageThumbnailRef.current) {
+            currentPageThumbnailRef.current.scrollIntoView({ behavior: 'auto', block: 'center' });
+          }
+        });
+      } else if (sidebarTab === 'canvas' && canvasGridRef.current) {
+        requestAnimationFrame(() => {
+          const canvasItems = canvasGridRef.current?.querySelectorAll('.canvas-item');
+          if (canvasItems && canvasItems.length >= currentPage) {
+            canvasItems[currentPage - 1].scrollIntoView({ behavior: 'auto', block: 'center' });
+          }
+        });
+      }
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [tocWidth, rightSidebarWidth, sidebarTab, isResizing, isResizingRight]);
+
   return (
     <div className={`pdf-viewer-container ${isResizing || isResizingRight ? 'resizing' : ''}`}>
       {/* Table of Contents Sidebar */}
@@ -1526,7 +1567,8 @@ export default function DocumentViewer({ pdfUrl, fileId, isParentResizing = fals
         <div className={`toc-sidebar ${!showToc ? 'hidden' : ''}`} style={{ width: `${tocWidth}px`, minWidth: '415px' }}>
             <div className="toc-toolbar">
               <div className="toc-toolbar-top">
-                <button onClick={() => setShowToc(false)} className="toc-close-btn">☰</button>
+                <button onClick={() => setShowToc(false)} className="toc-close-btn">Finder</button>
+                <div className="toolbar-separator"></div>
                 <div className="sidebar-tabs">
                   <button
                     onClick={() => setSidebarTab('toc')}
@@ -1546,7 +1588,7 @@ export default function DocumentViewer({ pdfUrl, fileId, isParentResizing = fals
                     onClick={() => setSidebarTab('canvas')}
                     className={`sidebar-tab ${sidebarTab === 'canvas' ? 'active' : ''}`}
                   >
-                    Canvas
+                    Loose
                   </button>
                 </div>
               </div>
@@ -1559,7 +1601,7 @@ export default function DocumentViewer({ pdfUrl, fileId, isParentResizing = fals
                     ((sidebarTab === 'pages' || sidebarTab === 'canvas') && selectedPages.size === 0)
                   }
                 >
-                  Create Note
+                  Create View
                 </button>
                 <div className="toc-dropdown" ref={gotoDropdownRef}>
                   <button
@@ -1575,7 +1617,7 @@ export default function DocumentViewer({ pdfUrl, fileId, isParentResizing = fals
                           onClick={() => { goToNote(); setGotoDropdownOpen(false); }}
                           className="toc-dropdown-item"
                         >
-                          Note
+                          View
                         </button>
                       )}
                       <button
@@ -1609,13 +1651,13 @@ export default function DocumentViewer({ pdfUrl, fileId, isParentResizing = fals
                               onClick={() => { expandNote(); setTreeDropdownOpen(false); }}
                               className="toc-dropdown-item"
                             >
-                              Expand Note
+                              Expand View
                             </button>
                             <button
                               onClick={() => { collapseNote(); setTreeDropdownOpen(false); }}
                               className="toc-dropdown-item"
                             >
-                              Collapse Note
+                              Collapse View
                             </button>
                           </>
                         )}
@@ -1762,11 +1804,11 @@ export default function DocumentViewer({ pdfUrl, fileId, isParentResizing = fals
                 )}
               </div>
               <div className={`toc-tab-panel ${sidebarTab === 'pages' ? 'active' : ''}`}>
-                <h3>Pages ({totalPages} total)</h3>
+                <h3>Pages</h3>
                 {totalPages > 0 && renderPagesView()}
               </div>
               <div className={`toc-tab-panel ${sidebarTab === 'canvas' ? 'active' : ''}`}>
-                <h3>Canvas ({totalPages} total)</h3>
+                <h3>Loose</h3>
                 {totalPages > 0 && renderCanvasView()}
               </div>
             </div>
@@ -1785,7 +1827,7 @@ export default function DocumentViewer({ pdfUrl, fileId, isParentResizing = fals
           <div className="pdf-toolbar-left">
             {!showToc && (
               <button onClick={() => setShowToc(true)} className="pdf-toolbar-toc-btn">
-                ☰
+                Finder
               </button>
             )}
             <button onClick={handlePrevPage} disabled={currentPage <= 1}>
@@ -1824,7 +1866,7 @@ export default function DocumentViewer({ pdfUrl, fileId, isParentResizing = fals
             </button>
             {!showRightSidebar && (
               <button onClick={() => setShowRightSidebar(true)} className="pdf-toolbar-toc-btn">
-                ☰
+                Views
               </button>
             )}
           </div>
@@ -1855,24 +1897,14 @@ export default function DocumentViewer({ pdfUrl, fileId, isParentResizing = fals
         <div className={`toc-sidebar right-sidebar ${!showRightSidebar ? 'hidden' : ''}`} style={{ width: `${rightSidebarWidth}px` }}>
             <div className="toc-toolbar">
               <div className="toc-toolbar-top">
-                <h3 style={{ margin: '0', fontSize: '14px' }}>Notes</h3>
-                <button onClick={() => setShowRightSidebar(false)} className="toc-close-btn right-close-btn">☰</button>
+                <h3 style={{ margin: '0', fontSize: '14px' }}>Views</h3>
+                <button onClick={() => setShowRightSidebar(false)} className="toc-close-btn right-close-btn">Views</button>
               </div>
-              {activeNote && (
-                <div className="toc-toolbar-bottom">
-                  <button 
-                    className="toc-collapse-btn" 
-                    onClick={() => setActiveNote(null)}
-                  >
-                    Clear Selection
-                  </button>
-                </div>
-              )}
             </div>
             <div className="toc-content">
               {notes.length === 0 ? (
                 <p style={{ padding: '20px', color: '#888', textAlign: 'center' }}>
-                  No notes yet. Select TOC items and click "Create Note" to get started.
+                  No views yet. Select items and click "Create View" to get started.
                 </p>
               ) : (
                 <div className="notes-list">
@@ -1881,11 +1913,16 @@ export default function DocumentViewer({ pdfUrl, fileId, isParentResizing = fals
                       key={note.id} 
                       className={`note-item ${activeNote?.id === note.id ? 'active' : ''}`}
                       onClick={() => {
-                        setActiveNote(note);
-                        // Navigate to first page of the note
-                        if (note.pageRanges.length > 0) {
-                          const firstPage = Math.min(...note.pageRanges);
-                          setCurrentPage(firstPage);
+                        // Toggle selection: deselect if already active
+                        if (activeNote?.id === note.id) {
+                          setActiveNote(null);
+                        } else {
+                          setActiveNote(note);
+                          // Navigate to first page of the note
+                          if (note.pageRanges.length > 0) {
+                            const firstPage = Math.min(...note.pageRanges);
+                            setCurrentPage(firstPage);
+                          }
                         }
                       }}
                     >
@@ -1895,34 +1932,24 @@ export default function DocumentViewer({ pdfUrl, fileId, isParentResizing = fals
                           className="note-delete-btn"
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (confirm(`Delete note "${note.title}"?`)) {
+                            if (confirm(`Delete view "${note.title}"?`)) {
                               setNotes(prev => prev.filter(n => n.id !== note.id));
                               if (activeNote?.id === note.id) {
                                 setActiveNote(null);
                               }
                               // Delete from database
                               deleteNote(note.id).catch(err => {
-                                console.error('Failed to delete note:', err);
+                                console.error('Failed to delete view:', err);
                               });
                             }
                           }}
-                          title="Delete note"
+                          title="Delete view"
                         >
                           ×
                         </button>
                       </div>
                       <div className="note-info">
-                        <span className="note-toc-count">{note.tocPaths.size} TOC items</span>
-                        <span className="note-page-range">
-                          {note.pageRanges.length > 0 ? (
-                            <>Pages: {Math.min(...note.pageRanges)}-{Math.max(...note.pageRanges)}</>
-                          ) : (
-                            'No pages'
-                          )}
-                        </span>
-                      </div>
-                      <div className="note-date">
-                        {note.createdAt.toLocaleDateString()}
+                        <span className="note-page-count">{note.pageRanges.length} pages</span>
                       </div>
                     </div>
                   ))}

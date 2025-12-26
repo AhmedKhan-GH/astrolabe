@@ -5,10 +5,9 @@ import './FileManager.css'
 
 interface FileNavigatorProps {
   onFileSelect: (file: File) => void
-  onNavigateToCanvas: () => void
 }
 
-function FileManager({ onFileSelect, onNavigateToCanvas }: FileNavigatorProps) {
+function FileManager({ onFileSelect }: FileNavigatorProps) {
   const [files, setFiles] = useState<File[]>([])
   const [loading, setLoading] = useState(true)
   const [showWorkspaceMenu, setShowWorkspaceMenu] = useState(false)

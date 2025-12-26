@@ -8,7 +8,7 @@ interface ExcalidrawCanvasProps {
   fileId?: string
 }
 
-function NoteEditor({ onNavigateToFiles, fileId }: ExcalidrawCanvasProps) {
+function NoteEditor({fileId }: ExcalidrawCanvasProps) {
   const STORAGE_KEY = fileId ? `excalidraw-drawing-${fileId}` : 'excalidraw-drawing'
   const [initialData, setInitialData] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)

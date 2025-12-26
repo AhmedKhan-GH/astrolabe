@@ -140,6 +140,7 @@ function App() {
     if (!showNoteEditor) return
 
     let previousWindowWidth = window.innerWidth
+    let resizeTimeout: ReturnType<typeof setTimeout> | null = null
 
     const handleWindowResize = () => {
       const minPdfViewerWidth = 400
@@ -154,9 +155,6 @@ function App() {
       // Apply the same ratio to the new window width
       const newAvailableWidth = currentWindowWidth - resizeHandleWidth
       let newViewerWidth = viewerRatio * newAvailableWidth
-
-      // Calculate resulting note width
-      const newNoteWidth = newAvailableWidth - newViewerWidth
 
       // Clamp to ensure both panels meet minimum requirements
       const maxViewerWidth = newAvailableWidth - minNoteWidth
@@ -173,6 +171,9 @@ function App() {
     window.addEventListener('resize', handleWindowResize)
     return () => {
       window.removeEventListener('resize', handleWindowResize)
+      if (resizeTimeout) {
+        clearTimeout(resizeTimeout)
+      }
     }
   }, [showNoteEditor, viewerPanelWidth])
 
@@ -200,7 +201,7 @@ function App() {
             </button>
             <h2>{fileName}</h2>
             <button onClick={handleToggleNoteEditor} className="notes-button">
-              Note
+              Excalidraw
             </button>
           </div>
           <div className={`viewer-content ${showNoteEditor ? 'split-view' : ''} ${isResizingNote ? 'resizing' : ''}`}>
