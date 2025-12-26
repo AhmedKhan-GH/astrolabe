@@ -27,6 +27,10 @@
 
 .toc-resize-handle {
   width: 12px;
+  min-width: 12px;
+  max-width: 12px;
+  flex-shrink: 0;
+  flex-grow: 0;
   background-color: #2a2a2a;
   cursor: col-resize;
   transition: all 0.2s;
@@ -794,7 +798,8 @@
   align-items: center;
   background-color: #fff;
   position: relative;
-  min-width: 650px;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .pdf-toolbar-left,
@@ -803,14 +808,15 @@
   display: flex;
   gap: 10px;
   align-items: stretch;
+  flex-wrap: wrap;
 }
 
 .pdf-toolbar-center {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
   font-weight: 500;
   color: #525659;
+  flex: 1;
+  justify-content: center;
+  min-width: fit-content;
 }
 
 .page-input-form {

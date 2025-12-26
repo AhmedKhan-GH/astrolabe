@@ -871,9 +871,8 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
   const renderPageThumbnail = useCallback(async (pageNum: number, canvas: HTMLCanvasElement, renderScale: number = 0.25, displayScale: number = 1, forcePriority: boolean = false) => {
     if (!pdfDoc || !canvas) return;
 
-    // Only render if visible, within range of current page, in active note, or forced priority
-    const isInActiveNote = activeNote ? activeNote.pageRanges.includes(pageNum) : false;
-    const shouldRender = forcePriority || isInActiveNote || visibleThumbnails.has(pageNum) || Math.abs(pageNum - currentPage) <= 3;
+    // Only render if visible, within range of current page, or forced priority
+    const shouldRender = forcePriority || visibleThumbnails.has(pageNum) || Math.abs(pageNum - currentPage) <= 3;
     if (!shouldRender && sidebarTab !== 'toc') return;
 
     try {
@@ -888,11 +887,16 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
       canvas.width = Math.floor(viewport.width);
       canvas.height = Math.floor(viewport.height);
 
-      // Store dimensions for later sizing
-      setCanvasDimensions(prev => new Map(prev).set(pageNum, {
-        width: canvas.width,
-        height: canvas.height
-      }));
+      // Store dimensions for later sizing ONLY if not already stored
+      setCanvasDimensions(prev => {
+        if (!prev.has(pageNum)) {
+          return new Map(prev).set(pageNum, {
+            width: canvas.width,
+            height: canvas.height
+          });
+        }
+        return prev;
+      });
 
       // Display at larger size
       canvas.style.width = Math.floor(viewport.width * displayScale) + 'px';
@@ -910,7 +914,7 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
     } catch (err) {
       console.error(`Error rendering thumbnail for page ${pageNum}:`, err);
     }
-  }, [pdfDoc, visibleThumbnails, currentPage, sidebarTab, activeNote]);
+  }, [pdfDoc, visibleThumbnails, currentPage, sidebarTab]);
 
   // Set canvas ref and render thumbnail
   const setThumbnailRef = (pageNum: number) => (canvas: HTMLCanvasElement | null) => {
@@ -973,13 +977,28 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
           // Cap width at both grid cell size and available width - same as Pages
           const targetWidth = canvasZoom - 4;
           const constrainedWidth = Math.min(targetWidth, availableWidth);
-          canvas.style.width = `${constrainedWidth}px`;
-          canvas.style.height = `${constrainedWidth * aspectRatio}px`;
-          canvas.style.maxWidth = `${availableWidth}px`;
+          const newWidth = `${constrainedWidth}px`;
+          const newHeight = `${constrainedWidth * aspectRatio}px`;
+          const newMaxWidth = `${availableWidth}px`;
+
+          // Only update if dimensions actually changed
+          if (canvas.style.width !== newWidth || canvas.style.height !== newHeight || canvas.style.maxWidth !== newMaxWidth) {
+            canvas.style.width = newWidth;
+            canvas.style.height = newHeight;
+            canvas.style.maxWidth = newMaxWidth;
+          }
         }
       });
+
+      // After resizing, scroll to keep current page in view
+      setTimeout(() => {
+        const canvasItems = canvasGridRef.current?.querySelectorAll('.canvas-item');
+        if (canvasItems && canvasItems.length >= currentPage) {
+          canvasItems[currentPage - 1].scrollIntoView({ behavior: 'auto', block: 'center' });
+        }
+      }, 0);
     }
-  }, [sidebarTab, canvasZoom, mainThumbnailRefs, canvasDimensions, tocWidth]);
+  }, [sidebarTab, canvasZoom]);
 
   // Update Pages thumbnail sizes when switching tabs or zoom changes
   useEffect(() => {
@@ -996,13 +1015,27 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
           const aspectRatio = dims.height / dims.width;
           // Constrain width to not exceed available space - stop growing at sidebar limit
           const constrainedWidth = Math.min(pagesZoom, availableWidth);
-          canvas.style.width = `${constrainedWidth}px`;
-          canvas.style.height = `${constrainedWidth * aspectRatio}px`;
-          canvas.style.maxWidth = `${availableWidth}px`;
+          const newWidth = `${constrainedWidth}px`;
+          const newHeight = `${constrainedWidth * aspectRatio}px`;
+          const newMaxWidth = `${availableWidth}px`;
+
+          // Only update if dimensions actually changed
+          if (canvas.style.width !== newWidth || canvas.style.height !== newHeight || canvas.style.maxWidth !== newMaxWidth) {
+            canvas.style.width = newWidth;
+            canvas.style.height = newHeight;
+            canvas.style.maxWidth = newMaxWidth;
+          }
         }
       });
+
+      // After resizing, scroll to keep current page in view
+      setTimeout(() => {
+        if (currentPageThumbnailRef.current) {
+          currentPageThumbnailRef.current.scrollIntoView({ behavior: 'auto', block: 'center' });
+        }
+      }, 0);
     }
-  }, [sidebarTab, pagesZoom, thumbnailRefs, canvasDimensions, tocWidth]);
+  }, [sidebarTab, pagesZoom]);
 
   // Pre-render thumbnails for active note to ensure seamless transitions
   useEffect(() => {
@@ -1022,7 +1055,7 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
         renderPageThumbnail(pageNum, canvasCanvas, 0.25, 1, true);
       }
     });
-  }, [activeNote, pdfDoc, renderPageThumbnail, thumbnailRefs, mainThumbnailRefs]);
+  }, [activeNote?.id, pdfDoc]);
 
   // Auto-scroll when navigating via Previous/Next buttons
   useEffect(() => {
@@ -1272,7 +1305,10 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
       const newWidth = e.clientX;
       const minToolbarWidth = 650;
       const minTocWidth = 415; // Accommodate Create Note + Go To + Selection buttons
-      const maxTocWidth = window.innerWidth - minToolbarWidth - 12; // 12px for resize handle
+      const currentRightSidebarWidth = showRightSidebar ? rightSidebarWidth : 0;
+      const rightResizeHandle = showRightSidebar ? 12 : 0;
+      const leftResizeHandle = 12;
+      const maxTocWidth = window.innerWidth - currentRightSidebarWidth - rightResizeHandle - leftResizeHandle - minToolbarWidth;
       if (newWidth >= minTocWidth && newWidth <= maxTocWidth) {
         setTocWidth(newWidth);
       }
@@ -1292,7 +1328,10 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
     if (isResizingRight) {
       const newWidth = window.innerWidth - e.clientX;
       const minToolbarWidth = 650;
-      const maxRightWidth = window.innerWidth - minToolbarWidth - 12;
+      const leftSidebarWidth = showToc ? tocWidth : 0;
+      const leftResizeHandle = showToc ? 12 : 0;
+      const rightResizeHandle = 12;
+      const maxRightWidth = window.innerWidth - leftSidebarWidth - leftResizeHandle - rightResizeHandle - minToolbarWidth;
       if (newWidth >= 340 && newWidth <= maxRightWidth) {
         setRightSidebarWidth(newWidth);
       }
