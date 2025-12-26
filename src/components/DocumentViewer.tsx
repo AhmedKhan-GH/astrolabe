@@ -576,49 +576,124 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
     setSelectedNodes(new Set(allPaths));
   };
 
-  // Create note from selected TOC items
-  const createNoteFromSelection = () => {
-    if (selectedNodes.size === 0) {
-      alert('Please select at least one TOC item');
-      return;
-    }
+  // Find minimal TOC paths that comprehensively cover given pages
+  const findTocPathsForPages = (pages: Set<number>): Set<string> => {
+    if (pages.size === 0 || tocPageMap.size === 0) return new Set();
 
-    // Simply collect all pages from selected TOC items
-    const allPages = new Set<number>();
-    selectedNodes.forEach(path => {
-      const pages = tocPageMap.get(path);
-      if (pages) {
-        pages.forEach(p => allPages.add(p));
-      }
+    const coveredPaths = new Set<string>();
+
+    // Build a list of all TOC items with their page ranges
+    const tocItems: Array<{ path: string; pages: number[]; level: number }> = [];
+
+    tocPageMap.forEach((pageRange, path) => {
+      const level = path.split('/').filter(p => p).length;
+      tocItems.push({ path, pages: pageRange, level });
     });
 
-    const sortedPages = Array.from(allPages).sort((a, b) => a - b);
+    // Sort by level (prefer higher level/parent sections) and then by path
+    tocItems.sort((a, b) => {
+      if (a.level !== b.level) return a.level - b.level;
+      return a.path.localeCompare(b.path);
+    });
 
-    // Generate default title from first selected item
-    const firstPath = Array.from(selectedNodes)[0];
-    const pathParts = firstPath.split('/').filter(p => p);
+    // Greedy algorithm: pick the largest sections that cover the most uncovered pages
+    const uncoveredPages = new Set(pages);
+
+    for (const item of tocItems) {
+      if (uncoveredPages.size === 0) break;
+
+      // Check how many of our target pages this TOC item covers
+      const coveredByThis = item.pages.filter(p => uncoveredPages.has(p));
+
+      if (coveredByThis.length > 0) {
+        // Check if this item is already covered by a parent we've selected
+        const isChildOfSelected = Array.from(coveredPaths).some(selectedPath => 
+          item.path.startsWith(selectedPath + '/')
+        );
+
+        if (!isChildOfSelected) {
+          coveredPaths.add(item.path);
+          // Remove covered pages
+          coveredByThis.forEach(p => uncoveredPages.delete(p));
+
+          // Remove any children of this path that we might have added
+          const childrenToRemove = Array.from(coveredPaths).filter(path => 
+            path.startsWith(item.path + '/') && path !== item.path
+          );
+          childrenToRemove.forEach(path => coveredPaths.delete(path));
+        }
+      }
+    }
+
+    return coveredPaths;
+  };
+
+  // Create note from selected TOC items or pages
+  const createNoteFromSelection = () => {
+    let tocPaths: Set<string>;
+    let pageRanges: number[];
     let defaultTitle = 'New Note';
 
-    if (pathParts.length > 0) {
-      const findNodeByPath = (items: OutlineNode[], path: string): OutlineNode | null => {
-        const parts = path.split('/').filter(p => p).map(Number);
-        let current: OutlineNode[] = items;
-        let node: OutlineNode | null = null;
+    if (sidebarTab === 'toc') {
+      // Creating from TOC selection
+      if (selectedNodes.size === 0) {
+        alert('Please select at least one TOC item');
+        return;
+      }
 
-        for (const index of parts) {
-          if (index >= 0 && index < current.length) {
-            node = current[index];
-            current = node.items || [];
-          } else {
-            return null;
-          }
+      // Simply collect all pages from selected TOC items
+      const allPages = new Set<number>();
+      selectedNodes.forEach(path => {
+        const pages = tocPageMap.get(path);
+        if (pages) {
+          pages.forEach(p => allPages.add(p));
         }
-        return node;
-      };
+      });
 
-      const firstNode = findNodeByPath(outline, firstPath);
-      if (firstNode) {
-        defaultTitle = firstNode.title;
+      pageRanges = Array.from(allPages).sort((a, b) => a - b);
+      tocPaths = new Set(selectedNodes);
+
+      // Generate default title from first selected item
+      const firstPath = Array.from(selectedNodes)[0];
+      const pathParts = firstPath.split('/').filter(p => p);
+
+      if (pathParts.length > 0) {
+        const findNodeByPath = (items: OutlineNode[], path: string): OutlineNode | null => {
+          const parts = path.split('/').filter(p => p).map(Number);
+          let current: OutlineNode[] = items;
+          let node: OutlineNode | null = null;
+
+          for (const index of parts) {
+            if (index >= 0 && index < current.length) {
+              node = current[index];
+              current = node.items || [];
+            } else {
+              return null;
+            }
+          }
+          return node;
+        };
+
+        const firstNode = findNodeByPath(outline, firstPath);
+        if (firstNode) {
+          defaultTitle = firstNode.title;
+        }
+      }
+    } else {
+      // Creating from Pages or Canvas selection
+      if (selectedPages.size === 0) {
+        alert('Please select at least one page');
+        return;
+      }
+
+      pageRanges = Array.from(selectedPages).sort((a, b) => a - b);
+      tocPaths = findTocPathsForPages(selectedPages);
+
+      // Generate default title from page range
+      if (pageRanges.length === 1) {
+        defaultTitle = `Page ${pageRanges[0]}`;
+      } else {
+        defaultTitle = `Pages ${pageRanges[0]}-${pageRanges[pageRanges.length - 1]}`;
       }
     }
 
@@ -628,14 +703,15 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
     const newNote: Note = {
       id: Date.now().toString(),
       title: noteTitle,
-      tocPaths: new Set(selectedNodes),
-      pageRanges: sortedPages,
+      tocPaths: tocPaths,
+      pageRanges: pageRanges,
       createdAt: new Date(),
     };
 
     setNotes(prev => [...prev, newNote]);
     setActiveNote(newNote);
     setSelectedNodes(new Set());
+    setSelectedPages(new Set());
   };
 
   // Get all descendant node paths recursively
@@ -792,11 +868,12 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
   };
 
   // Render thumbnail for a page with configurable scale and display size
-  const renderPageThumbnail = useCallback(async (pageNum: number, canvas: HTMLCanvasElement, renderScale: number = 0.25, displayScale: number = 1) => {
+  const renderPageThumbnail = useCallback(async (pageNum: number, canvas: HTMLCanvasElement, renderScale: number = 0.25, displayScale: number = 1, forcePriority: boolean = false) => {
     if (!pdfDoc || !canvas) return;
 
-    // Only render if visible or within a small range of current page
-    const shouldRender = visibleThumbnails.has(pageNum) || Math.abs(pageNum - currentPage) <= 3;
+    // Only render if visible, within range of current page, in active note, or forced priority
+    const isInActiveNote = activeNote ? activeNote.pageRanges.includes(pageNum) : false;
+    const shouldRender = forcePriority || isInActiveNote || visibleThumbnails.has(pageNum) || Math.abs(pageNum - currentPage) <= 3;
     if (!shouldRender && sidebarTab !== 'toc') return;
 
     try {
@@ -833,7 +910,7 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
     } catch (err) {
       console.error(`Error rendering thumbnail for page ${pageNum}:`, err);
     }
-  }, [pdfDoc, visibleThumbnails, currentPage, sidebarTab]);
+  }, [pdfDoc, visibleThumbnails, currentPage, sidebarTab, activeNote]);
 
   // Set canvas ref and render thumbnail
   const setThumbnailRef = (pageNum: number) => (canvas: HTMLCanvasElement | null) => {
@@ -926,6 +1003,26 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
       });
     }
   }, [sidebarTab, pagesZoom, thumbnailRefs, canvasDimensions, tocWidth]);
+
+  // Pre-render thumbnails for active note to ensure seamless transitions
+  useEffect(() => {
+    if (!activeNote || !pdfDoc) return;
+
+    // Pre-render all thumbnails in the active note's page ranges
+    activeNote.pageRanges.forEach(pageNum => {
+      // Render for Pages view
+      const pagesCanvas = thumbnailRefs.get(pageNum);
+      if (pagesCanvas) {
+        renderPageThumbnail(pageNum, pagesCanvas, 0.5, 1, true);
+      }
+
+      // Render for Canvas view
+      const canvasCanvas = mainThumbnailRefs.get(pageNum);
+      if (canvasCanvas) {
+        renderPageThumbnail(pageNum, canvasCanvas, 0.25, 1, true);
+      }
+    });
+  }, [activeNote, pdfDoc, renderPageThumbnail, thumbnailRefs, mainThumbnailRefs]);
 
   // Auto-scroll when navigating via Previous/Next buttons
   useEffect(() => {
@@ -1059,7 +1156,13 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
           const nodePath = `${parentPath}/${index}`;
           const hasChildren = item.items && item.items.length > 0;
           const isExpanded = expandedNodes.has(nodePath);
-          const isInActiveNote = activeNote ? activeNote.tocPaths.has(nodePath) : false;
+          // Check if any of this node's pages overlap with the active note's page ranges
+          const isInActiveNote = activeNote ? (() => {
+            const nodePages = tocPageMap.get(nodePath);
+            if (!nodePages || nodePages.length === 0) return false;
+            // Check if any page in this node's range is in the active note's page ranges
+            return nodePages.some(page => activeNote.pageRanges.includes(page));
+          })() : false;
           const isGrayedOut = activeNote !== null && !isInActiveNote;
 
           return (
@@ -1265,7 +1368,10 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
                 <button 
                   className="toc-collapse-btn" 
                   onClick={createNoteFromSelection}
-                  disabled={sidebarTab !== 'toc' || selectedNodes.size === 0}
+                  disabled={
+                    (sidebarTab === 'toc' && selectedNodes.size === 0) ||
+                    ((sidebarTab === 'pages' || sidebarTab === 'canvas') && selectedPages.size === 0)
+                  }
                 >
                   Create Note
                 </button>
@@ -1357,6 +1463,32 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
                 )}
                 {sidebarTab === 'pages' && (
                   <div className="toc-dropdown">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setTreeDropdownOpen(!treeDropdownOpen); }}
+                      className="toc-dropdown-btn"
+                    >
+                      Selection {treeDropdownOpen ? '▼' : '▶'}
+                    </button>
+                    {treeDropdownOpen && (
+                      <div className="toc-dropdown-menu">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); selectAllPages(); setTreeDropdownOpen(false); }}
+                          className="toc-dropdown-item"
+                        >
+                          Select All
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); clearPageSelections(); setTreeDropdownOpen(false); }}
+                          className="toc-dropdown-item"
+                        >
+                          Deselect All
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {sidebarTab === 'canvas' && (
+                  <div className="toc-dropdown" ref={pagesDropdownRef}>
                     <button
                       onClick={(e) => { e.stopPropagation(); setTreeDropdownOpen(!treeDropdownOpen); }}
                       className="toc-dropdown-btn"
@@ -1536,7 +1668,14 @@ export default function DocumentViewer({ pdfUrl }: PDFViewerProps) {
                     <div 
                       key={note.id} 
                       className={`note-item ${activeNote?.id === note.id ? 'active' : ''}`}
-                      onClick={() => setActiveNote(note)}
+                      onClick={() => {
+                        setActiveNote(note);
+                        // Navigate to first page of the note
+                        if (note.pageRanges.length > 0) {
+                          const firstPage = Math.min(...note.pageRanges);
+                          setCurrentPage(firstPage);
+                        }
+                      }}
                     >
                       <div className="note-header">
                         <h4>{note.title}</h4>
