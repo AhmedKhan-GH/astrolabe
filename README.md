@@ -38,3 +38,6 @@ A PDF Reader for efficient workflow with Excalidraw
     cd astrolabe
     npm install
     npm run dev
+
+## Astrolabe Example
+![Astrolabe](astrolabe.png)
