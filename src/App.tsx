@@ -27,7 +27,7 @@ function App() {
       // Try to reload the file from IndexedDB
       import('./utils/fileStorage').then(({ getAllFiles }) => {
         getAllFiles().then(files => {
-          const file = files.find(f => `${f.name}-${f.size}` === savedFileId)
+          const file = files.find((f: File & { uniqueId?: string }) => f.uniqueId === savedFileId)
           if (file) {
             // Recreate blob URL
             const url = URL.createObjectURL(file)
@@ -50,8 +50,9 @@ function App() {
     }
   }, [])
 
-  const handleFileSelect = (file: File) => {
-    const newFileId = `${file.name}-${file.size}`
+  const handleFileSelect = (file: File & { uniqueId?: string }) => {
+    // Use the unique instance ID if available, otherwise generate one
+    const newFileId = file.uniqueId || `${Date.now()}-${file.name}`
     setFileName(file.name)
     setFileId(newFileId)
     setShowNoteEditor(false)

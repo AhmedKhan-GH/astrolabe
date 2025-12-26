@@ -203,19 +203,43 @@ function FileManager({ onFileSelect, onNavigateToCanvas }: FileNavigatorProps) {
 
   const handleReset = async () => {
     setShowWorkspaceMenu(false)
-    if (!confirm('Are you sure you want to delete all files? This cannot be undone.')) {
+    if (!confirm('Are you sure you want to delete all files and notes? This cannot be undone.')) {
       return
     }
 
     try {
+      console.log('Starting workspace reset...')
+
+      // Clear all files from IndexedDB
       await clearAllFiles()
+      console.log('Files cleared from IndexedDB')
+
+      // Clear all notes from IndexedDB
+      const { clearAllNotes } = await import('../utils/noteStorage')
+      await clearAllNotes()
+      console.log('Notes cleared from IndexedDB')
+
+      // Clear localStorage state related to current file
+      localStorage.removeItem('currentContext')
+      localStorage.removeItem('currentFileName')
+      localStorage.removeItem('currentFileId')
+      localStorage.removeItem('showNoteEditor')
+      console.log('Cleared file viewing state from localStorage')
+
+      // Reload files and reset workspace name
       await loadFiles()
       setWorkspaceName('New Workspace')
       localStorage.setItem('workspaceName', 'New Workspace')
 
+      console.log('Workspace reset complete')
+
       // Recalculate width as final step after reset
       calculateInputWidth('New Workspace')
+
+      // Show success message
+      alert('Workspace has been reset successfully!')
     } catch (error) {
+      console.error('Reset failed:', error)
       alert('Reset failed: ' + (error as Error).message)
     }
   }

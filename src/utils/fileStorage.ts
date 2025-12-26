@@ -69,9 +69,16 @@ export async function getAllFiles(): Promise<File[]> {
 
     request.onsuccess = () => {
       const storedFiles = request.result as StoredFile[]
-      const files = storedFiles.map(sf => 
-        new File([sf.blob], sf.name, { type: sf.type })
-      )
+      const files = storedFiles.map(sf => {
+        const file = new File([sf.blob], sf.name, { type: sf.type })
+        // Attach the unique ID to the file object for tracking
+        Object.defineProperty(file, 'uniqueId', {
+          value: sf.id,
+          writable: false,
+          enumerable: false
+        })
+        return file
+      })
       resolve(files)
     }
     request.onerror = () => reject(request.error)
@@ -116,7 +123,13 @@ export async function clearAllFiles(): Promise<void> {
     const store = transaction.objectStore(STORE_NAME)
     const request = store.clear()
 
-    request.onsuccess = () => resolve()
-    request.onerror = () => reject(request.error)
+    request.onsuccess = () => {
+      console.log('clearAllFiles: Successfully cleared all files from IndexedDB')
+      resolve()
+    }
+    request.onerror = () => {
+      console.error('clearAllFiles: Failed to clear files:', request.error)
+      reject(request.error)
+    }
   })
 }

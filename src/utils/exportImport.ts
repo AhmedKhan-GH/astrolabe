@@ -1,15 +1,18 @@
 import { getAllFiles } from './fileStorage'
+import { getAllNotes, type StoredNote } from './noteStorage'
 
 interface ExportData {
   version: string
   exportedAt: number
   workspaceName?: string
   files: Array<{
+    id: string
     name: string
     size: number
     type: string
     data: string // base64
   }>
+  notes: StoredNote[]
 }
 
 // Convert File to base64
@@ -41,10 +44,12 @@ function base64ToFile(base64: string, filename: string, type: string): File {
 export async function exportToJSON(workspaceName: string = 'New Workspace'): Promise<void> {
   try {
     const files = await getAllFiles()
+    const notes = await getAllNotes()
 
-    // Convert files to base64
+    // Convert files to base64, preserving their unique IDs
     const filesData = await Promise.all(
-      files.map(async (file) => ({
+      files.map(async (file: File & { uniqueId?: string }) => ({
+        id: file.uniqueId || `${Date.now()}-${file.name}`,
         name: file.name,
         size: file.size,
         type: file.type,
@@ -56,7 +61,8 @@ export async function exportToJSON(workspaceName: string = 'New Workspace'): Pro
       version: '1.0.0',
       exportedAt: Date.now(),
       workspaceName,
-      files: filesData
+      files: filesData,
+      notes: notes
     }
 
     const jsonString = JSON.stringify(exportData, null, 2)
@@ -92,15 +98,50 @@ export async function importFromJSON(file: File): Promise<string | undefined> {
     }
 
     // Import using dynamic import to avoid circular dependency
-    const { saveFile, clearAllFiles } = await import('./fileStorage')
+    const { clearAllFiles } = await import('./fileStorage')
+    const { saveNote, clearAllNotes } = await import('./noteStorage')
 
-    // Clear existing files
+    // Clear existing files and notes
     await clearAllFiles()
+    await clearAllNotes()
 
-    // Restore files from base64
+    // Restore files from base64 with their original IDs
+    // We need to manually save to IndexedDB to preserve the file IDs
+    const dbRequest = indexedDB.open('PDFViewerDB', 4)
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      dbRequest.onsuccess = () => resolve(dbRequest.result)
+      dbRequest.onerror = () => reject(dbRequest.error)
+    })
+
     for (const fileData of data.files) {
       const restoredFile = base64ToFile(fileData.data, fileData.name, fileData.type)
-      await saveFile(restoredFile)
+
+      // Store with the original ID if available (for backward compatibility)
+      const fileId = fileData.id || `${Date.now()}-${fileData.name}`
+
+      const storedFile = {
+        id: fileId,
+        name: fileData.name,
+        size: fileData.size,
+        type: fileData.type,
+        blob: restoredFile,
+        addedAt: Date.now()
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        const transaction = db.transaction(['files'], 'readwrite')
+        const store = transaction.objectStore('files')
+        const request = store.put(storedFile)
+        request.onsuccess = () => resolve()
+        request.onerror = () => reject(request.error)
+      })
+    }
+
+    // Restore notes if they exist (backward compatibility with old exports)
+    if (data.notes && Array.isArray(data.notes)) {
+      for (const note of data.notes) {
+        await saveNote(note)
+      }
     }
 
     // Return workspace name if available

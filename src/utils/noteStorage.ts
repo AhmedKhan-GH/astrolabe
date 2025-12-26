@@ -97,7 +97,13 @@ export async function clearAllNotes(): Promise<void> {
     const store = transaction.objectStore(NOTES_STORE_NAME)
     const request = store.clear()
 
-    request.onsuccess = () => resolve()
-    request.onerror = () => reject(request.error)
+    request.onsuccess = () => {
+      console.log('clearAllNotes: Successfully cleared all notes from IndexedDB')
+      resolve()
+    }
+    request.onerror = () => {
+      console.error('clearAllNotes: Failed to clear notes:', request.error)
+      reject(request.error)
+    }
   })
 }
