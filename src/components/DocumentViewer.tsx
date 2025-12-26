@@ -187,6 +187,11 @@ export default function DocumentViewer({ pdfUrl, fileId }: PDFViewerProps) {
         const pdfOutline = await pdf.getOutline();
         if (pdfOutline) {
           setOutline(pdfOutline);
+        } else {
+          // If no outline and currently on toc tab, switch to pages
+          if (sidebarTab === 'toc') {
+            setSidebarTab('pages');
+          }
         }
       } catch (err) {
         setError(`Error loading PDF: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -1500,14 +1505,14 @@ export default function DocumentViewer({ pdfUrl, fileId }: PDFViewerProps) {
               <div className="toc-toolbar-top">
                 <button onClick={() => setShowToc(false)} className="toc-close-btn">☰</button>
                 <div className="sidebar-tabs">
-                  {outline.length > 0 && (
-                    <button
-                      onClick={() => setSidebarTab('toc')}
-                      className={`sidebar-tab ${sidebarTab === 'toc' ? 'active' : ''}`}
-                    >
-                      Table
-                    </button>
-                  )}
+                  <button
+                    onClick={() => setSidebarTab('toc')}
+                    className={`sidebar-tab ${sidebarTab === 'toc' ? 'active' : ''}`}
+                    disabled={outline.length === 0}
+                    title={outline.length === 0 ? 'No table of contents available' : 'Table of contents'}
+                  >
+                    Table
+                  </button>
                   <button
                     onClick={() => setSidebarTab('pages')}
                     className={`sidebar-tab ${sidebarTab === 'pages' ? 'active' : ''}`}
@@ -1723,12 +1728,16 @@ export default function DocumentViewer({ pdfUrl, fileId }: PDFViewerProps) {
               )}
             </div>
             <div className="toc-content">
-              {outline.length > 0 && (
-                <div className={`toc-tab-panel ${sidebarTab === 'toc' ? 'active' : ''}`}>
-                  <h3>Table of Contents</h3>
-                  {renderOutlineItems(outline)}
-                </div>
-              )}
+              <div className={`toc-tab-panel ${sidebarTab === 'toc' ? 'active' : ''}`}>
+                <h3>Table of Contents</h3>
+                {outline.length > 0 ? (
+                  renderOutlineItems(outline)
+                ) : (
+                  <p style={{ padding: '20px', color: '#888', textAlign: 'center' }}>
+                    {pdfDoc ? 'This PDF does not have a table of contents.' : 'No PDF loaded.'}
+                  </p>
+                )}
+              </div>
               <div className={`toc-tab-panel ${sidebarTab === 'pages' ? 'active' : ''}`}>
                 <h3>Pages ({totalPages} total)</h3>
                 {totalPages > 0 && renderPagesView()}
