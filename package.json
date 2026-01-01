@@ -19,6 +19,7 @@
   "scripts": {
     "dev": "npm run reset:build && npm run db:generate && npm run build:electron && concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "start": "npm run build:electron && concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "serve": "vite",
     "reset:build": "rm -rf dist-electron dist",
     "reset:database": "rm -rf ~/Library/Application\\ Support/astrolabe/data drizzle",
     "reset:modules": "rm -rf node_modules package-lock.json",
