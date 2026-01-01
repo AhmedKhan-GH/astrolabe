@@ -27,7 +27,11 @@ export function useRecords() {
     try {
       setLoading(true);
       setError(null);
-      const newRecord = await window.electronAPI.records.create(input);
+      // Filter out undefined values to prevent database errors
+      const cleanInput = Object.fromEntries(
+        Object.entries(input).filter(([, value]) => value !== undefined)
+      ) as Partial<NewRecord>;
+      const newRecord = await window.electronAPI.records.create(cleanInput);
       await loadRecords(); // Refresh the list
       return newRecord;
     } catch (err) {
