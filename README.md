@@ -1,5 +1,14 @@
 # React + TypeScript + Vite
+# Astrolabe - Electron + React + Vite + SQLite + Drizzle
 
+A modern desktop application built with Electron, React, Vite, and SQLite with Drizzle ORM.
+
+## Prerequisites
+
+- Node.js 18+ 
+- npm
+
+## Installation
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:
