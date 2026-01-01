@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron';
 import { getDatabase } from './database';
-import { eq } from 'drizzle-orm';
+import { eq, like } from 'drizzle-orm';
 import * as schema from '../src/db/schema';
 
 /**
@@ -60,6 +60,46 @@ export function setupIpcHandlers() {
         throw new Error(`Operation "${operation}" not supported`);
     }
   });
+
+  // ============================================================================
+  // CUSTOM QUERY HANDLERS - Add your complex query implementations here
+  // ============================================================================
+  ipcMain.handle('db:custom', async (_event, { query, payload }: {
+    query: string;
+    payload?: unknown;
+  }) => {
+    const db = getDatabase();
+
+    switch (query) {
+      // Working example: Search records by title (case-insensitive)
+      case 'searchRecordsByTitle': {
+        const searchTerm = payload as string;
+        return db.select()
+          .from(schema.records)
+          .where(like(schema.records.title, `%${searchTerm}%`));
+      }
+
+      // Add more custom queries here:
+      // case 'getUserWithRecords': {
+      //   const userId = payload as number;
+      //   return db.select()
+      //     .from(schema.users)
+      //     .leftJoin(schema.records, eq(schema.records.userId, schema.users.id))
+      //     .where(eq(schema.users.id, userId));
+      // }
+      //
+      // case 'getRecordStats': {
+      //   return db.select({
+      //     total: count(),
+      //     avgValue: avg(schema.records.value)
+      //   }).from(schema.records);
+      // }
+
+      default:
+        throw new Error(`Custom query "${query}" not found`);
+    }
+  });
+  // ============================================================================
 
   console.log('IPC handlers ready - All schema tables automatically supported');
 }

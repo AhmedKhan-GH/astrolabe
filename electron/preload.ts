@@ -46,7 +46,25 @@ function generateTableAPIs() {
  * Exposed API - automatically includes all tables from TABLE_NAMES
  * Just add table names to the array above and they'll be exposed automatically!
  */
-const api = generateTableAPIs();
+const api = {
+  ...generateTableAPIs(),
+
+  // ============================================================================
+  // CUSTOM QUERIES - Add your complex queries here
+  // ============================================================================
+
+  // Working example: Search records by title (case-insensitive)
+  searchRecordsByTitle: (searchTerm: string) => 
+    ipcRenderer.invoke('db:custom', { query: 'searchRecordsByTitle', payload: searchTerm }),
+
+  // Add more custom queries here:
+  // getUserWithRecords: (userId: number) => 
+  //   ipcRenderer.invoke('db:custom', { query: 'getUserWithRecords', payload: userId }),
+  //
+  // getRecordStats: () => 
+  //   ipcRenderer.invoke('db:custom', { query: 'getRecordStats' }),
+  // ============================================================================
+};
 
 contextBridge.exposeInMainWorld('electronAPI', api);
 
