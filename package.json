@@ -3,13 +3,26 @@
   "private": true,
   "version": "0.0.0",
   "main": "dist-electron/electron/main.js",
+  "build": {
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "drizzle/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "drizzle",
+        "to": "drizzle"
+      }
+    ]
+  },
   "scripts": {
+    "dev": "npm run reset:build && npm run db:generate && npm run build:electron && concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "start": "npm run build:electron && concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "schema": "npm run db:generate && npm run start",
     "reset:build": "rm -rf dist-electron dist",
     "reset:database": "rm -rf ~/Library/Application\\ Support/astrolabe/data drizzle",
     "reset:modules": "rm -rf node_modules package-lock.json",
-    "reset:all": "npm run reset:build && npm run reset:database && npm run reset:modules",
+    "reset:all": "npm run reset:build && npm run reset:database && npm run reset:modules && npm install && npm run db:generate",
     "build": "npm run build:electron && npm run build:vite && electron-builder",
     "build:electron": "tsc -p tsconfig.electron.json",
     "build:vite": "tsc -b && vite build",
