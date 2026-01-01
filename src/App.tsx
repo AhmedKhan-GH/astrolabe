@@ -179,7 +179,7 @@ function App() {
                     {record.title}
                   </div>
                   <div style={{ fontSize: '14px', color: '#666' }}>
-                    {new Date(record.timestamp).toLocaleString()}
+                    {record.timestamp ? new Date(record.timestamp).toLocaleString() : 'N/A'}
                   </div>
                 </div>
                 <span style={{ 
