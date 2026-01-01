@@ -5,7 +5,8 @@
   "main": "dist-electron/electron/main.js",
   "scripts": {
     "dev": "vite",
-    "dev:electron": "concurrently \"npm run build:electron\" \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "dev:electron": "npm run build:electron && concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "start": "npm run dev:electron",
     "build": "npm run build:electron && npm run build:vite && electron-builder",
     "build:electron": "tsc -p tsconfig.electron.json",
     "build:vite": "tsc -b && vite build",
@@ -13,6 +14,12 @@
     "build:mac": "npm run build:electron && npm run build:vite && electron-builder --mac",
     "build:linux": "npm run build:electron && npm run build:vite && electron-builder --linux",
     "build:all": "npm run build:electron && npm run build:vite && electron-builder -mwl",
+    "clean": "rm -rf dist-electron",
+    "clean:all": "rm -rf dist-electron dist node_modules/.cache",
+    "clean:db": "rm -rf ~/Library/Application\\ Support/astrolabe/data",
+    "reset": "npm run clean && npm run dev:electron",
+    "reset:db": "npm run clean:db && npm run dev:electron",
+    "reset:all": "npm run clean:all && npm run clean:db && rm -rf drizzle && npm run db:generate && npm run dev:electron",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest",
@@ -24,6 +31,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
+    "db:update": "npm run db:generate && npm run dev:electron",
     "postinstall": "electron-builder install-app-deps && npm run rebuild"
   },
   "dependencies": {

@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import * as schema from '../src/shared/db/schema';
+import * as schema from '../src/db/schema';
 import { app } from 'electron';
 import path from 'path';
 import fs from 'fs';
@@ -26,12 +26,28 @@ export function initDatabase() {
 
     db = drizzle(sqlite, { schema });
 
-    // Run migrations
-    const migrationsFolder = path.join(process.cwd(), 'drizzle');
-    if (fs.existsSync(migrationsFolder)) {
-      migrate(db, { migrationsFolder });
-      console.log('Migrations applied successfully');
-    }
+    // Create tables if they don't exist (for development)
+    // In production, you should use proper migrations
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        email TEXT NOT NULL UNIQUE,
+        created_at INTEGER
+      );
+
+      CREATE TABLE IF NOT EXISTS notes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        content TEXT,
+        user_id INTEGER,
+        created_at INTEGER,
+        updated_at INTEGER,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      );
+    `);
+
+    console.log('Database initialized successfully');
 
     return db;
   } catch (error) {

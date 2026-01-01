@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron';
 import { getDatabase } from './database';
-import * as schema from '../src/shared/db/schema';
+import * as schema from '../src/db/schema';
 import { eq } from 'drizzle-orm';
 
 export function setupIpcHandlers() {
