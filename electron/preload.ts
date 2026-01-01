@@ -1,5 +1,10 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { Record, NewRecord, User, NewUser } from '../src/db/schema';
+
+/**
+ * List of all database tables
+ * Add new table names here (must match schema.ts) and they'll be auto-exposed
+ */
+const TABLE_NAMES = ['records', 'users'] as const;
 
 /**
  * Create type-safe table client for preload
@@ -24,14 +29,24 @@ function createTableClient<TSelect, TInsert>(tableName: string) {
 }
 
 /**
- * Exposed API - matches what frontend expects
- * Types flow from schema.ts automatically
+ * Automatically generate API clients for all tables
  */
-const api = {
-  records: createTableClient<Record, NewRecord>('records'),
-  users: createTableClient<User, NewUser>('users'),
-  // Add new tables here - one line per table
-};
+function generateTableAPIs() {
+  const api: Record<string, ReturnType<typeof createTableClient>> = {};
+
+  // Automatically create clients for all tables in TABLE_NAMES
+  for (const tableName of TABLE_NAMES) {
+    api[tableName] = createTableClient(tableName);
+  }
+
+  return api;
+}
+
+/**
+ * Exposed API - automatically includes all tables from TABLE_NAMES
+ * Just add table names to the array above and they'll be exposed automatically!
+ */
+const api = generateTableAPIs();
 
 contextBridge.exposeInMainWorld('electronAPI', api);
 
