@@ -18,6 +18,8 @@
   },
   "scripts": {
     "dev": "npm run reset:build && npm run db:generate && npm run build:electron && concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "dev:fresh": "npm run reset:build && npm run db:reset && npm run db:generate && npm run build:electron && concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "db:reset": "rm -f data/database.db",
     "start": "npm run build:electron && concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "reset:build": "rm -rf dist-electron dist",
     "reset:database": "rm -rf ~/Library/Application\\ Support/astrolabe/data drizzle",

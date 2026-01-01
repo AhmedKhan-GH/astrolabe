@@ -1,33 +1,14 @@
-import { useState, useEffect } from 'react'
 import './App.css'
-
-interface Record {
-  id: number;
-  timestamp: Date;
-}
+import { useRecords } from './hooks/useRecords'
 
 function App() {
-  const [records, setRecords] = useState<Record[]>([])
-
-  const loadRecords = async () => {
-    try {
-      const data = await window.electronAPI.records.getAll()
-      setRecords(data)
-    } catch (error) {
-      console.error('Error loading records:', error)
-    }
-  }
-
-  useEffect(() => {
-    loadRecords()
-  }, [])
+  const { records, loading, error, createRecord } = useRecords()
 
   const handleRecordTimestamp = async () => {
     try {
-      await window.electronAPI.records.create()
-      loadRecords()
+      await createRecord()
     } catch (error) {
-      console.error('Error creating record:', error)
+      // Error already logged in hook
     }
   }
 
@@ -40,22 +21,37 @@ function App() {
     }}>
       <h1 style={{ textAlign: 'center', marginBottom: '40px' }}>Timestamp Recorder</h1>
 
+      {error && (
+        <div style={{
+          padding: '15px',
+          marginBottom: '20px',
+          backgroundColor: '#ffebee',
+          color: '#c62828',
+          borderRadius: '8px',
+          border: '1px solid #ef9a9a'
+        }}>
+          Error: {error.message}
+        </div>
+      )}
+
       <button 
         onClick={handleRecordTimestamp}
+        disabled={loading}
         style={{ 
           width: '100%',
           padding: '20px',
           fontSize: '18px',
           fontWeight: 'bold',
-          backgroundColor: '#2196F3',
+          backgroundColor: loading ? '#90caf9' : '#2196F3',
           color: 'white',
           border: 'none',
           borderRadius: '8px',
-          cursor: 'pointer',
-          marginBottom: '30px'
+          cursor: loading ? 'not-allowed' : 'pointer',
+          marginBottom: '30px',
+          opacity: loading ? 0.7 : 1
         }}
       >
-        Record Timestamp
+        {loading ? 'Loading...' : 'Record Timestamp'}
       </button>
 
       <div>
