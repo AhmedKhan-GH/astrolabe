@@ -4,6 +4,7 @@ import * as schema from '../src/db/schema';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { getDataDirectory, promptForDataDirectory, resetDataDirectory } from './settings';
 
 export function setupIpcHandlers() {
   ipcMain.handle('selectAndUploadFiles', async () => {
@@ -22,8 +23,8 @@ export function setupIpcHandlers() {
     const db = getDatabase();
 
     // Create files directory adjacent to database
-    const userDataPath = app.getPath('userData');
-    const filesDir = path.join(userDataPath, 'files');
+    const dataDir = getDataDirectory();
+    const filesDir = path.join(dataDir, 'files');
 
     if (!fs.existsSync(filesDir)) {
       fs.mkdirSync(filesDir, { recursive: true });
@@ -62,6 +63,20 @@ export function setupIpcHandlers() {
   ipcMain.handle('getAllFiles', async () => {
     const db = getDatabase();
     return db.select().from(schema.files);
+  });
+
+  // Settings handlers
+  ipcMain.handle('getDataDirectory', () => {
+    return getDataDirectory();
+  });
+
+  ipcMain.handle('chooseDataDirectory', async () => {
+    return await promptForDataDirectory();
+  });
+
+  ipcMain.handle('resetDataDirectory', () => {
+    resetDataDirectory();
+    return getDataDirectory();
   });
 
   console.log('IPC handlers ready');

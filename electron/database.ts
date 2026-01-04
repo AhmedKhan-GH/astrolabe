@@ -5,24 +5,20 @@ import * as schema from '../src/db/schema';
 import { app } from 'electron';
 import path from 'path';
 import fs from 'fs';
+import { getDataDirectory } from './settings';
 
 let db: ReturnType<typeof drizzle> | null = null;
 
 export function initDatabase() {
   try {
-    // Ensure data directory exists
-    const userDataPath = app.getPath('userData');
-    const dataDir = path.join(userDataPath, 'data');
-
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
-    }
-
+    // Get data directory (settings.ts ensures it exists)
+    const dataDir = getDataDirectory();
     const dbPath = path.join(dataDir, 'astrolabe.db');
     console.log('Database path:', dbPath);
 
     const sqlite = new Database(dbPath);
-    sqlite.pragma('journal_mode = WAL');
+    // WAL mode disabled - single file database
+    // sqlite.pragma('journal_mode = WAL');
 
     db = drizzle(sqlite, { schema });
 
