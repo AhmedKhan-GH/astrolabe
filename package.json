@@ -17,13 +17,13 @@
     ]
   },
   "scripts": {
-    "dev": "npm run reset:build && npm run db:generate && npm run build:electron && concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "dev": "npm install && npm run db:generate && npm run build:electron && concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "start": "npm run build:electron && concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "serve": "vite",
-    "reset:build": "rm -rf dist-electron dist",
-    "reset:database": "rm -rf ~/Library/Application\\ Support/astrolabe/data drizzle",
-    "reset:modules": "rm -rf node_modules package-lock.json",
-    "reset:all": "npm run reset:build && npm run reset:database && npm run reset:modules && npm install && npm run db:generate",
+    "clean:build": "rm -rf dist-electron dist",
+    "clean:database": "rm -rf ~/Library/Application\\ Support/astrolabe/data drizzle",
+    "clean:modules": "rm -rf node_modules package-lock.json",
+    "clean:all": "npm run clean:build && npm run clean:database && npm run clean:modules",
     "build": "npm run build:electron && npm run build:vite && electron-builder",
     "build:electron": "tsc -p tsconfig.electron.json",
     "build:vite": "tsc -b && vite build",
