@@ -1,23 +1,17 @@
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import App from './App'
 
-const mockElectronAPI = {
-  getAllFiles: vi.fn(),
-  getDataDirectory: vi.fn(),
-  selectAndUploadFiles: vi.fn(),
-  chooseDataDirectory: vi.fn(),
-}
-
-beforeEach(() => {
-  global.window.electronAPI = mockElectronAPI
-  mockElectronAPI.getAllFiles.mockResolvedValue([])
-  mockElectronAPI.getDataDirectory.mockResolvedValue('/test/path')
+vi.stubGlobal('window', {
+    electronAPI: {
+        getAllFiles: vi.fn().mockResolvedValue([]),
+        getDataDirectory: vi.fn().mockResolvedValue(''),
+    },
 })
 
 describe('App', () => {
-  it('should render', () => {
-    render(<App />)
-    expect(screen.getByText('Astrolabe')).toBeInTheDocument()
-  })
+    it('renders', () => {
+        render(<App />)
+        expect(screen.getByText('Astrolabe')).toBeTruthy()
+    })
 })
