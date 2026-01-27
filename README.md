@@ -1,6 +1,6 @@
-# Astrolabe - Electron + React + Vite + SQLite + Drizzle
+# Astrolabe - Electron + React + Vite + Tailwind + SQLite + Drizzle
 
-A modern desktop application built with Electron, React, Vite, and SQLite with Drizzle ORM.
+A modern desktop application built with Electron, React, Vite, Tailwind CSS, and SQLite with Drizzle ORM.
 
 ## Prerequisites
 
@@ -38,6 +38,65 @@ npm run start
 
 This skips the migration generation and build cleanup for faster startup.
 
+## Styling with Tailwind CSS
+
+This project uses **Tailwind CSS** for styling, integrated with Vite for optimal performance.
+
+### Configuration
+
+Tailwind is configured in `tailwind.config.js`:
+```javascript
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+}
+```
+
+### Usage in React Components
+
+Use Tailwind utility classes directly in your JSX:
+```typescript
+function MyComponent() {
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <div className="p-6 bg-white rounded-lg shadow-lg">
+        <h1 className="text-2xl font-bold text-gray-800">Hello World</h1>
+        <p className="mt-2 text-gray-600">Styled with Tailwind CSS</p>
+      </div>
+    </div>
+  );
+}
+```
+
+### Importing Tailwind
+
+Tailwind directives are imported in your main CSS file:
+```css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+```
+
+### Custom Styles
+
+For custom CSS beyond Tailwind utilities, you can:
+1. Extend the theme in `tailwind.config.js`
+2. Use `@layer` directives for custom components
+3. Add regular CSS in your component-specific stylesheets
+
+```css
+@layer components {
+  .btn-primary {
+    @apply px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600;
+  }
+}
+```
 
 ## Type-Safe Database with Drizzle ORM
 
