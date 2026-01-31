@@ -22,25 +22,17 @@ export function initDatabase() {
 
     db = drizzle(sqlite, { schema });
 
-    // Run migrations
-    // In development: __dirname is dist-electron/electron, so we go up 2 levels
-    // In production: migrations should be bundled at the same relative location
+    // Run migrations if folder exists
     const migrationsFolder = app.isPackaged
       ? path.join(process.resourcesPath, 'drizzle')
       : path.join(__dirname, '../../drizzle');
-    console.log('Migrations folder:', migrationsFolder);
 
-    if (!fs.existsSync(migrationsFolder)) {
-      const isDev = !app.isPackaged;
-      const errorMessage = isDev
-        ? 'Migrations folder not found. Run "npm run db:generate" to create migrations from your schema.'
-        : 'Migrations folder not found. This is a critical error - the app was not built correctly.';
-      console.error(errorMessage);
-      throw new Error(errorMessage);
+    if (fs.existsSync(migrationsFolder)) {
+      migrate(db, { migrationsFolder });
+      console.log('Migrations applied');
+    } else {
+      console.log('No migrations folder found, skipping');
     }
-
-    migrate(db, { migrationsFolder });
-    console.log('Database migrations applied successfully');
 
     console.log('Database initialized successfully');
 

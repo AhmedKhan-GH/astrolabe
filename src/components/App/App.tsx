@@ -4,7 +4,7 @@ import Sidebar from '../Layout/Sidebar'
 import Workspace from '../Layout/Workspace'
 
 function App() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
 
   return (
     <div className="h-screen bg-slate-900 flex flex-col">
