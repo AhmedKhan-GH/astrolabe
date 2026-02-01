@@ -48,7 +48,7 @@ function TreeNodeComponent({ node, level, onNodeClick, onNodeContextMenu }: Tree
         ))}
 
         {/* Expand/collapse chevron */}
-        <div className="w-4 mr-2 flex-shrink-0 relative bg-slate-800 z-10">
+        <div className="w-4 mr-2 flex-shrink-0 relative z-10">
           {isFolder && hasChildren && (
             <svg
               className="w-4 h-4 text-slate-400"

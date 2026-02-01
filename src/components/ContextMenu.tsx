@@ -44,7 +44,7 @@ export default function ContextMenu({
     } else if (node.type === 'file') {
       const fileId = parseInt(node.id.replace('file-', ''))
       const file = allFiles.find(f => f.id === fileId)
-      hasRoot = !(file && (!file.folderIds || file.folderIds === null))
+      hasRoot = !(file && (!file.folderIds || false))
     }
 
     const availableFolders = allFolders.filter((f) => {
@@ -76,7 +76,7 @@ export default function ContextMenu({
           }`}
         >
           Move to
-          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <svg className="w-3 h-3 shrink-0 opacity-50" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
           </svg>
         </button>
@@ -91,7 +91,7 @@ export default function ContextMenu({
             }`}
           >
             Add to
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <svg className="w-3 h-3 shrink-0 opacity-50" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
           </button>
