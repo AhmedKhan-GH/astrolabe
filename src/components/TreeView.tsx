@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export interface TreeNode {
   id: string
@@ -12,12 +12,19 @@ interface TreeNodeComponentProps {
   level: number
   onNodeClick?: (node: TreeNode) => void
   onNodeContextMenu?: (node: TreeNode, e: React.MouseEvent) => void
+  expandedNodes?: Set<string>
 }
 
-function TreeNodeComponent({ node, level, onNodeClick, onNodeContextMenu }: TreeNodeComponentProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
+function TreeNodeComponent({ node, level, onNodeClick, onNodeContextMenu, expandedNodes }: TreeNodeComponentProps) {
+  const [isExpanded, setIsExpanded] = useState(expandedNodes?.has(node.id) || false)
   const isFolder = node.type === 'folder'
   const hasChildren = node.children && node.children.length > 0
+
+  useEffect(() => {
+    if (expandedNodes?.has(node.id)) {
+      setIsExpanded(true)
+    }
+  }, [expandedNodes, node.id])
 
   const handleClick = () => {
     if (isFolder) {
@@ -82,7 +89,7 @@ function TreeNodeComponent({ node, level, onNodeClick, onNodeContextMenu }: Tree
       {isFolder && isExpanded && hasChildren && (
         <div>
           {node.children!.map((child) => (
-            <TreeNodeComponent key={child.id} node={child} level={level + 1} onNodeClick={onNodeClick} onNodeContextMenu={onNodeContextMenu} />
+            <TreeNodeComponent key={child.id} node={child} level={level + 1} onNodeClick={onNodeClick} onNodeContextMenu={onNodeContextMenu} expandedNodes={expandedNodes} />
           ))}
         </div>
       )}
@@ -95,13 +102,14 @@ interface TreeViewProps {
   onNodeClick?: (node: TreeNode) => void
   onNodeContextMenu?: (node: TreeNode, e: React.MouseEvent) => void
   className?: string
+  expandedNodes?: Set<string>
 }
 
-export default function TreeView({ data, onNodeClick, onNodeContextMenu, className = '' }: TreeViewProps) {
+export default function TreeView({ data, onNodeClick, onNodeContextMenu, className = '', expandedNodes }: TreeViewProps) {
   return (
     <div className={`text-slate-300 relative isolate ${className}`}>
       {data.map((node) => (
-        <TreeNodeComponent key={node.id} node={node} level={0} onNodeClick={onNodeClick} onNodeContextMenu={onNodeContextMenu} />
+        <TreeNodeComponent key={node.id} node={node} level={0} onNodeClick={onNodeClick} onNodeContextMenu={onNodeContextMenu} expandedNodes={expandedNodes} />
       ))}
     </div>
   )

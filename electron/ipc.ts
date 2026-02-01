@@ -23,7 +23,22 @@ export function setupIpcHandlers() {
     return uploadFiles(result.filePaths);
   });
 
-  async function uploadFiles(filePaths: string[]) {
+  ipcMain.handle('selectAndUploadFilesToFolder', async (_, folderId: number) => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        { name: 'PDF Files', extensions: ['pdf'] }
+      ]
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return [];
+    }
+
+    return uploadFiles(result.filePaths, folderId);
+  });
+
+  async function uploadFiles(filePaths: string[], folderId?: number) {
     const db = getDatabase();
 
     // Create files directory adjacent to database
@@ -54,6 +69,7 @@ export function setupIpcHandlers() {
         filename,
         path: storedPath,
         filetype: ext ? ext.slice(1) : null, // Remove leading dot from extension
+        folderIds: folderId ? JSON.stringify([folderId]) : null,
       }).returning();
 
       uploadedFiles.push(inserted[0]);

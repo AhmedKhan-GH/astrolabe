@@ -9,6 +9,8 @@ interface ContextMenuProps {
   allFiles: any[]
   onMoveTo: (folderId: number | null) => void
   onAddTo?: (folderId: number) => void
+  onAddFolder?: (parentFolderId: number) => void
+  onAddFile?: (folderId: number) => void
   onDelete: () => void
   onClose: () => void
 }
@@ -21,6 +23,8 @@ export default function ContextMenu({
   allFiles,
   onMoveTo,
   onAddTo,
+  onAddFolder,
+  onAddFile,
   onDelete,
   onClose
 }: ContextMenuProps) {
@@ -94,6 +98,31 @@ export default function ContextMenu({
             <svg className="w-3 h-3 shrink-0 opacity-50" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
+          </button>
+        )}
+        {node.type === 'folder' && onAddFolder && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              const folderId = parseInt(node.id.replace('folder-', ''))
+              onAddFolder(folderId)
+            }}
+            className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600"
+          >
+            New Folder
+          </button>
+        )}
+        {node.type === 'folder' && onAddFile && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              const folderId = parseInt(node.id.replace('folder-', ''))
+              console.log('Import File clicked for folder:', folderId)
+              onAddFile(folderId)
+            }}
+            className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600"
+          >
+            Import File
           </button>
         )}
         <div className="h-px bg-slate-600 my-1" />
@@ -194,6 +223,7 @@ export default function ContextMenu({
           )}
         </div>
       )}
+
     </>
   )
 }

@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 const electronAPI = {
   selectAndUploadFiles: () => ipcRenderer.invoke('selectAndUploadFiles'),
+  selectAndUploadFilesToFolder: (folderId: number) => ipcRenderer.invoke('selectAndUploadFilesToFolder', folderId),
   getAllFiles: () => ipcRenderer.invoke('getAllFiles'),
   getAllFolders: () => ipcRenderer.invoke('getAllFolders'),
   createFolder: (name: string, parentId?: number) => ipcRenderer.invoke('createFolder', name, parentId),

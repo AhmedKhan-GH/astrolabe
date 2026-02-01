@@ -18,9 +18,11 @@ function Sidebar({ isOpen }: SidebarProps) {
   const [treeData, setTreeData] = useState<TreeNode[]>([])
   const [showFolderInput, setShowFolderInput] = useState(false)
   const [folderName, setFolderName] = useState('')
+  const [folderParentId, setFolderParentId] = useState<number | null>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [allFolders, setAllFolders] = useState<any[]>([])
   const [allFiles, setAllFiles] = useState<any[]>([])
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
 
   const loadTreeData = async () => {
     try {
@@ -181,15 +183,46 @@ function Sidebar({ isOpen }: SidebarProps) {
   }
 
   const handleCreateFolder = () => {
+    setFolderParentId(null)
     setShowFolderInput(true)
+  }
+
+  const handleAddFolderToParent = (parentFolderId: number) => {
+    setFolderParentId(parentFolderId)
+    setShowFolderInput(true)
+    setContextMenu(null)
+  }
+
+  const handleAddFileToFolder = async (folderId: number) => {
+    console.log('handleAddFileToFolder called with folderId:', folderId)
+    setContextMenu(null)
+    try {
+      console.log('Calling selectAndUploadFilesToFolder...')
+      const result = await window.electron.selectAndUploadFilesToFolder(folderId)
+      console.log('Upload result:', result)
+
+      // Expand the folder to show the newly added file
+      setExpandedNodes(prev => new Set(prev).add(`folder-${folderId}`))
+
+      await loadTreeData()
+    } catch (error) {
+      console.error('Failed to upload files:', error)
+    }
   }
 
   const submitFolder = async () => {
     if (folderName.trim()) {
       try {
-        await window.electron.createFolder(folderName.trim())
+        await window.electron.createFolder(folderName.trim(), folderParentId ?? undefined)
+
+        // If creating a subfolder, expand the parent
+        if (folderParentId !== null) {
+          setExpandedNodes(prev => new Set(prev).add(`folder-${folderParentId}`))
+        }
+
         await loadTreeData()
         setFolderName('')
+        setFolderParentId(null)
         setShowFolderInput(false)
       } catch (error: any) {
         console.error('Failed to create folder:', error)
@@ -200,6 +233,7 @@ function Sidebar({ isOpen }: SidebarProps) {
 
   const cancelFolder = () => {
     setFolderName('')
+    setFolderParentId(null)
     setShowFolderInput(false)
   }
 
@@ -297,7 +331,7 @@ function Sidebar({ isOpen }: SidebarProps) {
           </div>
         )}
 
-        <TreeView data={treeData} onNodeClick={handleNodeClick} onNodeContextMenu={handleNodeContextMenu} />
+        <TreeView data={treeData} onNodeClick={handleNodeClick} onNodeContextMenu={handleNodeContextMenu} expandedNodes={expandedNodes} />
 
         {contextMenu && (
           <ContextMenu
@@ -308,6 +342,8 @@ function Sidebar({ isOpen }: SidebarProps) {
             allFiles={allFiles}
             onMoveTo={handleMoveTo}
             onAddTo={contextMenu.node.type === 'file' ? handleAddTo : undefined}
+            onAddFolder={contextMenu.node.type === 'folder' ? handleAddFolderToParent : undefined}
+            onAddFile={contextMenu.node.type === 'folder' ? handleAddFileToFolder : undefined}
             onDelete={handleDeleteNode}
             onClose={() => setContextMenu(null)}
           />
