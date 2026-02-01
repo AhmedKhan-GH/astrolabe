@@ -11,9 +11,10 @@ interface TreeNodeComponentProps {
   node: TreeNode
   level: number
   onNodeClick?: (node: TreeNode) => void
+  onNodeContextMenu?: (node: TreeNode, e: React.MouseEvent) => void
 }
 
-function TreeNodeComponent({ node, level, onNodeClick }: TreeNodeComponentProps) {
+function TreeNodeComponent({ node, level, onNodeClick, onNodeContextMenu }: TreeNodeComponentProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const isFolder = node.type === 'folder'
   const hasChildren = node.children && node.children.length > 0
@@ -25,12 +26,17 @@ function TreeNodeComponent({ node, level, onNodeClick }: TreeNodeComponentProps)
     onNodeClick?.(node)
   }
 
+  const handleContextMenu = (e: React.MouseEvent) => {
+    onNodeContextMenu?.(node, e)
+  }
+
   return (
     <div className="relative">
       <div
         className="flex items-center py-1.5 hover:bg-slate-700/50 cursor-pointer text-sm relative"
         style={{ paddingLeft: `${level * 20 + 8}px` }}
         onClick={handleClick}
+        onContextMenu={handleContextMenu}
       >
         {/* Vertical lines for parent levels */}
         {Array.from({ length: level }).map((_, i) => (
@@ -76,7 +82,7 @@ function TreeNodeComponent({ node, level, onNodeClick }: TreeNodeComponentProps)
       {isFolder && isExpanded && hasChildren && (
         <div>
           {node.children!.map((child) => (
-            <TreeNodeComponent key={child.id} node={child} level={level + 1} onNodeClick={onNodeClick} />
+            <TreeNodeComponent key={child.id} node={child} level={level + 1} onNodeClick={onNodeClick} onNodeContextMenu={onNodeContextMenu} />
           ))}
         </div>
       )}
@@ -87,17 +93,15 @@ function TreeNodeComponent({ node, level, onNodeClick }: TreeNodeComponentProps)
 interface TreeViewProps {
   data: TreeNode[]
   onNodeClick?: (node: TreeNode) => void
+  onNodeContextMenu?: (node: TreeNode, e: React.MouseEvent) => void
   className?: string
 }
 
-export default function TreeView({ data, onNodeClick, className = '' }: TreeViewProps) {
+export default function TreeView({ data, onNodeClick, onNodeContextMenu, className = '' }: TreeViewProps) {
   return (
     <div className={`text-slate-300 relative isolate ${className}`}>
-      {/* Root vertical line */}
-      <div className="absolute top-0 bottom-0 left-2 w-px bg-slate-600" />
-
       {data.map((node) => (
-        <TreeNodeComponent key={node.id} node={node} level={0} onNodeClick={onNodeClick} />
+        <TreeNodeComponent key={node.id} node={node} level={0} onNodeClick={onNodeClick} onNodeContextMenu={onNodeContextMenu} />
       ))}
     </div>
   )

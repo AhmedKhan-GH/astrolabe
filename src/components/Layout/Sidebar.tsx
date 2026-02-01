@@ -1,8 +1,15 @@
 import { useState, useEffect } from 'react'
 import TreeView, { type TreeNode } from '../TreeView'
+import ContextMenu from '../ContextMenu'
 
 interface SidebarProps {
   isOpen: boolean
+}
+
+interface ContextMenuState {
+  node: TreeNode
+  x: number
+  y: number
 }
 
 function Sidebar({ isOpen }: SidebarProps) {
@@ -11,6 +18,9 @@ function Sidebar({ isOpen }: SidebarProps) {
   const [treeData, setTreeData] = useState<TreeNode[]>([])
   const [showFolderInput, setShowFolderInput] = useState(false)
   const [folderName, setFolderName] = useState('')
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const [allFolders, setAllFolders] = useState<any[]>([])
+  const [allFiles, setAllFiles] = useState<any[]>([])
 
   const loadTreeData = async () => {
     try {
@@ -18,6 +28,12 @@ function Sidebar({ isOpen }: SidebarProps) {
         window.electron.getAllFolders(),
         window.electron.getAllFiles()
       ])
+
+      console.log('Folders from DB:', folders)
+      console.log('Files from DB:', files)
+
+      setAllFolders(folders)
+      setAllFiles(files)
 
       // Build folder hierarchy
       const folderMap: Record<number, TreeNode> = {}
@@ -37,8 +53,10 @@ function Sidebar({ isOpen }: SidebarProps) {
       folders.forEach((folder: any) => {
         const node = folderMap[folder.id]
         if (folder.parentId && folderMap[folder.parentId]) {
+          console.log(`Adding folder ${folder.name} to parent ${folder.parentId}`)
           folderMap[folder.parentId].children!.push(node)
         } else {
+          console.log(`Adding folder ${folder.name} to root`)
           rootFolders.push(node)
         }
       })
@@ -53,17 +71,20 @@ function Sidebar({ isOpen }: SidebarProps) {
 
         if (file.folderIds) {
           const folderIds = JSON.parse(file.folderIds)
+          console.log(`File ${file.filename} has folderIds:`, folderIds)
           folderIds.forEach((folderId: number) => {
             if (folderMap[folderId]) {
+              console.log(`Adding file ${file.filename} to folder ${folderId}`)
               folderMap[folderId].children!.push(fileNode)
             }
           })
         } else {
-          // File not in any folder, add to root
+          console.log(`Adding file ${file.filename} to root`)
           rootFolders.push(fileNode)
         }
       })
 
+      console.log('Final tree data:', rootFolders)
       setTreeData(rootFolders)
     } catch (error) {
       console.error('Failed to load tree data:', error)
@@ -78,6 +99,77 @@ function Sidebar({ isOpen }: SidebarProps) {
     console.log('Clicked node:', node)
     // Handle file/folder click here
   }
+
+  const handleNodeContextMenu = (node: TreeNode, e: React.MouseEvent) => {
+    e.preventDefault()
+    setContextMenu({ node, x: e.clientX, y: e.clientY })
+  }
+
+  const handleMoveTo = async (targetFolderId: number | null) => {
+    if (!contextMenu) return
+
+    console.log('handleMoveTo called:', { nodeType: contextMenu.node.type, nodeId: contextMenu.node.id, targetFolderId })
+
+    try {
+      if (contextMenu.node.type === 'file') {
+        const numericFileId = parseInt(contextMenu.node.id.replace('file-', ''))
+        console.log('Moving file:', numericFileId, 'to folder:', targetFolderId)
+        await window.electron.moveFile(numericFileId, targetFolderId)
+      } else {
+        const numericFolderId = parseInt(contextMenu.node.id.replace('folder-', ''))
+        console.log('Moving folder:', numericFolderId, 'to parent:', targetFolderId)
+        await window.electron.moveFolder(numericFolderId, targetFolderId)
+      }
+      console.log('Move successful, reloading tree')
+      await loadTreeData()
+      setContextMenu(null)
+    } catch (error) {
+      console.error('Failed to move:', error)
+      alert('Failed to move: ' + error)
+    }
+  }
+
+  const handleAddTo = async (targetFolderId: number) => {
+    if (!contextMenu || contextMenu.node.type !== 'file') return
+
+    console.log('handleAddTo called:', { nodeId: contextMenu.node.id, targetFolderId })
+
+    try {
+      const numericFileId = parseInt(contextMenu.node.id.replace('file-', ''))
+      console.log('Adding file:', numericFileId, 'to folder:', targetFolderId)
+      await window.electron.includeFileInFolder(numericFileId, targetFolderId)
+      console.log('Add successful, reloading tree')
+      await loadTreeData()
+      setContextMenu(null)
+    } catch (error) {
+      console.error('Failed to add to folder:', error)
+      alert('Failed to add to folder: ' + error)
+    }
+  }
+
+  const handleDeleteNode = async () => {
+    if (!contextMenu) return
+
+    const confirmMessage = contextMenu.node.type === 'file'
+      ? `Are you sure you want to delete "${contextMenu.node.name}"?`
+      : `Are you sure you want to delete the folder "${contextMenu.node.name}"? This will not delete the files inside.`
+
+    if (window.confirm(confirmMessage)) {
+      try {
+        const id = parseInt(contextMenu.node.id.replace(/^(file|folder)-/, ''))
+        if (contextMenu.node.type === 'file') {
+          await window.electron.deleteFile(id)
+        } else {
+          await window.electron.deleteFolder(id)
+        }
+        await loadTreeData()
+        setContextMenu(null)
+      } catch (error) {
+        console.error('Failed to delete:', error)
+      }
+    }
+  }
+
 
   const handleUploadFile = async () => {
     try {
@@ -99,8 +191,9 @@ function Sidebar({ isOpen }: SidebarProps) {
         await loadTreeData()
         setFolderName('')
         setShowFolderInput(false)
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to create folder:', error)
+        alert(error.message || 'Failed to create folder')
       }
     }
   }
@@ -144,7 +237,7 @@ function Sidebar({ isOpen }: SidebarProps) {
     >
       <div className="flex-1 overflow-y-auto p-4">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-white text-lg font-semibold">Files</h2>
+          <h2 className="text-white text-lg font-semibold">Finder</h2>
           <div className="flex gap-1">
             <button
               onClick={handleUploadFile}
@@ -204,7 +297,21 @@ function Sidebar({ isOpen }: SidebarProps) {
           </div>
         )}
 
-        <TreeView data={treeData} onNodeClick={handleNodeClick} />
+        <TreeView data={treeData} onNodeClick={handleNodeClick} onNodeContextMenu={handleNodeContextMenu} />
+
+        {contextMenu && (
+          <ContextMenu
+            node={contextMenu.node}
+            x={contextMenu.x}
+            y={contextMenu.y}
+            allFolders={allFolders}
+            allFiles={allFiles}
+            onMoveTo={handleMoveTo}
+            onAddTo={contextMenu.node.type === 'file' ? handleAddTo : undefined}
+            onDelete={handleDeleteNode}
+            onClose={() => setContextMenu(null)}
+          />
+        )}
       </div>
       <div
         className="w-1 cursor-col-resize hover:bg-blue-500 transition-colors"
