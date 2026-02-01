@@ -9,7 +9,10 @@ import { getDataDirectory, promptForDataDirectory, resetDataDirectory } from './
 export function setupIpcHandlers() {
   ipcMain.handle('selectAndUploadFiles', async () => {
     const result = await dialog.showOpenDialog({
-      properties: ['openFile', 'multiSelections']
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        { name: 'PDF Files', extensions: ['pdf'] }
+      ]
     });
 
     if (result.canceled || result.filePaths.length === 0) {
@@ -48,10 +51,8 @@ export function setupIpcHandlers() {
       // Insert metadata into database
       const inserted = await db.insert(schema.files).values({
         filename,
-        originalPath: filePath,
-        storedPath,
-        size: stats.size,
-        mimeType: null, // Can add mime-type detection if needed
+        path: storedPath,
+        filetype: ext ? ext.slice(1) : null, // Remove leading dot from extension
       }).returning();
 
       uploadedFiles.push(inserted[0]);
@@ -63,6 +64,20 @@ export function setupIpcHandlers() {
   ipcMain.handle('getAllFiles', async () => {
     const db = getDatabase();
     return db.select().from(schema.files);
+  });
+
+  ipcMain.handle('getAllFolders', async () => {
+    const db = getDatabase();
+    return db.select().from(schema.folders);
+  });
+
+  ipcMain.handle('createFolder', async (_, name: string, parentId?: number) => {
+    const db = getDatabase();
+    const inserted = await db.insert(schema.folders).values({
+      name,
+      parentId: parentId || null,
+    }).returning();
+    return inserted[0];
   });
 
   // Settings handlers

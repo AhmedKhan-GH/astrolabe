@@ -1,126 +1,115 @@
 import { useState, useEffect } from 'react'
+import TreeView, { type TreeNode } from '../TreeView'
 
 interface SidebarProps {
   isOpen: boolean
 }
 
-interface TreeNode {
-  id: string
-  name: string
-  type: 'file' | 'folder'
-  children?: TreeNode[]
-}
-
-interface TreeNodeComponentProps {
-  node: TreeNode
-  level: number
-}
-
-function TreeNodeComponent({ node, level }: TreeNodeComponentProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
-  const isFolder = node.type === 'folder'
-  const hasChildren = node.children && node.children.length > 0
-
-  return (
-    <div className="relative">
-      <div
-        className="flex items-center py-1.5 hover:bg-slate-700/50 cursor-pointer text-sm relative"
-        style={{ paddingLeft: `${level * 20 + 8}px` }}
-        onClick={() => isFolder && setIsExpanded(!isExpanded)}
-      >
-        {/* Vertical lines for parent levels */}
-        {Array.from({ length: level }).map((_, i) => (
-          <div
-            key={i}
-            className="absolute top-0 bottom-0 w-px bg-slate-600"
-            style={{ left: `${i * 20 + 8 + 8}px` }}
-          />
-        ))}
-
-        {/* Expand/collapse chevron */}
-        <div className="w-4 mr-2 flex-shrink-0 relative bg-slate-800 z-10">
-          {isFolder && hasChildren && (
-            <svg
-              className="w-4 h-4 text-slate-400"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-            >
-              {isExpanded ? (
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              )}
-            </svg>
-          )}
-        </div>
-
-        {/* File/folder icon */}
-        {isFolder ? (
-          <svg className="w-4 h-4 mr-2 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-          </svg>
-        ) : (
-          <svg className="w-4 h-4 mr-2 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-          </svg>
-        )}
-
-        <span className="text-slate-200 truncate">{node.name}</span>
-      </div>
-      {isFolder && isExpanded && hasChildren && (
-        <div>
-          {node.children!.map((child) => (
-            <TreeNodeComponent key={child.id} node={child} level={level + 1} />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
 function Sidebar({ isOpen }: SidebarProps) {
   const [width, setWidth] = useState(250)
   const [isResizing, setIsResizing] = useState(false)
+  const [treeData, setTreeData] = useState<TreeNode[]>([])
+  const [showFolderInput, setShowFolderInput] = useState(false)
+  const [folderName, setFolderName] = useState('')
 
-  // Sample tree data - replace with your actual data
-  const treeData: TreeNode[] = [
-    {
-      id: '1',
-      name: 'src',
-      type: 'folder',
-      children: [
-        {
-          id: '2',
-          name: 'components',
+  const loadTreeData = async () => {
+    try {
+      const [folders, files] = await Promise.all([
+        window.electron.getAllFolders(),
+        window.electron.getAllFiles()
+      ])
+
+      // Build folder hierarchy
+      const folderMap: Record<number, TreeNode> = {}
+      const rootFolders: TreeNode[] = []
+
+      // Create folder nodes
+      folders.forEach((folder: any) => {
+        folderMap[folder.id] = {
+          id: `folder-${folder.id}`,
+          name: folder.name,
           type: 'folder',
-          children: [
-            { id: '3', name: 'Header.tsx', type: 'file' },
-            { id: '4', name: 'Footer.tsx', type: 'file' },
-          ],
-        },
-        {
-          id: '5',
-          name: 'utils',
-          type: 'folder',
-          children: [
-            { id: '6', name: 'helpers.ts', type: 'file' },
-          ],
-        },
-        { id: '7', name: 'App.tsx', type: 'file' },
-      ],
-    },
-    {
-      id: '8',
-      name: 'public',
-      type: 'folder',
-      children: [
-        { id: '9', name: 'index.html', type: 'file' },
-      ],
-    },
-    { id: '10', name: 'package.json', type: 'file' },
-  ]
+          children: []
+        }
+      })
+
+      // Build hierarchy
+      folders.forEach((folder: any) => {
+        const node = folderMap[folder.id]
+        if (folder.parentId && folderMap[folder.parentId]) {
+          folderMap[folder.parentId].children!.push(node)
+        } else {
+          rootFolders.push(node)
+        }
+      })
+
+      // Add files to their folders (or root if no folders specified)
+      files.forEach((file: any) => {
+        const fileNode: TreeNode = {
+          id: `file-${file.id}`,
+          name: file.filename,
+          type: 'file'
+        }
+
+        if (file.folderIds) {
+          const folderIds = JSON.parse(file.folderIds)
+          folderIds.forEach((folderId: number) => {
+            if (folderMap[folderId]) {
+              folderMap[folderId].children!.push(fileNode)
+            }
+          })
+        } else {
+          // File not in any folder, add to root
+          rootFolders.push(fileNode)
+        }
+      })
+
+      setTreeData(rootFolders)
+    } catch (error) {
+      console.error('Failed to load tree data:', error)
+    }
+  }
+
+  useEffect(() => {
+    loadTreeData()
+  }, [])
+
+  const handleNodeClick = (node: TreeNode) => {
+    console.log('Clicked node:', node)
+    // Handle file/folder click here
+  }
+
+  const handleUploadFile = async () => {
+    try {
+      await window.electron.selectAndUploadFiles()
+      await loadTreeData()
+    } catch (error) {
+      console.error('Failed to upload files:', error)
+    }
+  }
+
+  const handleCreateFolder = () => {
+    setShowFolderInput(true)
+  }
+
+  const submitFolder = async () => {
+    if (folderName.trim()) {
+      try {
+        await window.electron.createFolder(folderName.trim())
+        await loadTreeData()
+        setFolderName('')
+        setShowFolderInput(false)
+      } catch (error) {
+        console.error('Failed to create folder:', error)
+      }
+    }
+  }
+
+  const cancelFolder = () => {
+    setFolderName('')
+    setShowFolderInput(false)
+  }
+
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -154,12 +143,68 @@ function Sidebar({ isOpen }: SidebarProps) {
       style={{ width: `${width}px` }}
     >
       <div className="flex-1 overflow-y-auto p-4">
-        <h2 className="text-white text-lg font-semibold mb-4">Files</h2>
-        <div className="text-slate-300">
-          {treeData.map((node) => (
-            <TreeNodeComponent key={node.id} node={node} level={0} />
-          ))}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-white text-lg font-semibold">Files</h2>
+          <div className="flex gap-1">
+            <button
+              onClick={handleUploadFile}
+              className="flex items-center gap-1 px-1.5 py-1 rounded border border-slate-600 text-slate-300 hover:bg-slate-700/50 hover:text-white transition-colors"
+              title="Upload file"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+            </button>
+            <button
+              onClick={handleCreateFolder}
+              className="flex items-center gap-1 px-1.5 py-1 rounded border border-slate-600 text-slate-300 hover:bg-slate-700/50 hover:text-white transition-colors"
+              title="Create folder"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+              </svg>
+            </button>
+          </div>
         </div>
+
+        {showFolderInput && (
+          <div className="mb-4 p-3 bg-slate-700/50 rounded border border-slate-600">
+            <input
+              type="text"
+              value={folderName}
+              onChange={(e) => setFolderName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submitFolder()
+                if (e.key === 'Escape') cancelFolder()
+              }}
+              placeholder="Folder name"
+              autoFocus
+              className="w-full px-2 py-1 bg-slate-800 border border-slate-600 rounded text-slate-200 text-sm focus:outline-none focus:border-slate-500 mb-2"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={submitFolder}
+                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
+              >
+                Create
+              </button>
+              <button
+                onClick={cancelFolder}
+                className="px-3 py-1 bg-slate-600 hover:bg-slate-700 text-white text-sm rounded transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        <TreeView data={treeData} onNodeClick={handleNodeClick} />
       </div>
       <div
         className="w-1 cursor-col-resize hover:bg-blue-500 transition-colors"
