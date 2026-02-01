@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { type TreeNode } from './TreeView'
+import FolderPickerModal from './FolderPickerModal'
 
 interface ContextMenuProps {
   node: TreeNode
@@ -29,6 +30,8 @@ export default function ContextMenu({
   onClose
 }: ContextMenuProps) {
   const [submenuType, setSubmenuType] = useState<'move' | 'add' | null>(null)
+  const [showMovePicker, setShowMovePicker] = useState(false)
+  const [showAddPicker, setShowAddPicker] = useState(false)
 
   useEffect(() => {
     const handleClickOutside = () => {
@@ -67,37 +70,41 @@ export default function ContextMenu({
   return (
     <>
       <div
-        className="fixed bg-slate-700 border border-slate-600 rounded shadow-lg py-1 z-50 min-w-[160px]"
+        className="fixed bg-slate-700 border border-slate-600 rounded shadow-lg py-1 z-50 w-[140px]"
         style={{ left: `${x}px`, top: `${y}px` }}
       >
         <button
-          onMouseEnter={() => moveOptions.hasOptions && setSubmenuType('move')}
+          onClick={(e) => {
+            e.stopPropagation()
+            if (moveOptions.hasOptions) {
+              setShowMovePicker(true)
+            }
+          }}
           disabled={!moveOptions.hasOptions}
-          className={`w-full text-left px-3 py-1.5 text-sm flex items-center justify-between ${
+          className={`w-full text-left px-3 py-1.5 text-sm ${
             moveOptions.hasOptions
               ? 'text-slate-200 hover:bg-slate-600 cursor-pointer'
               : 'text-slate-500 cursor-not-allowed'
           }`}
         >
           Move to
-          <svg className="w-3 h-3 shrink-0 opacity-50" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-          </svg>
         </button>
         {node.type === 'file' && onAddTo && (
           <button
-            onMouseEnter={() => hasAddOptions && setSubmenuType('add')}
+            onClick={(e) => {
+              e.stopPropagation()
+              if (hasAddOptions) {
+                setShowAddPicker(true)
+              }
+            }}
             disabled={!hasAddOptions}
-            className={`w-full text-left px-3 py-1.5 text-sm flex items-center justify-between ${
+            className={`w-full text-left px-3 py-1.5 text-sm ${
               hasAddOptions
                 ? 'text-slate-200 hover:bg-slate-600 cursor-pointer'
                 : 'text-slate-500 cursor-not-allowed'
             }`}
           >
             Add to
-            <svg className="w-3 h-3 shrink-0 opacity-50" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
           </button>
         )}
         {node.type === 'folder' && onAddFolder && (
@@ -137,91 +144,45 @@ export default function ContextMenu({
         </button>
       </div>
 
-      {/* Move to submenu */}
-      {submenuType === 'move' && (
-        <div
-          className="fixed bg-slate-700 border border-slate-600 rounded shadow-lg py-1 z-50 min-w-[160px]"
-          style={{ left: `${x + 170}px`, top: `${y}px` }}
-          onMouseLeave={() => setSubmenuType(null)}
-        >
-          {(() => {
+      {/* Move to picker modal */}
+      {showMovePicker && (
+        <FolderPickerModal
+          allFolders={allFolders}
+          excludeFolderId={node.type === 'folder' ? parseInt(node.id.replace('folder-', '')) : undefined}
+          showRoot={(() => {
             // Check if node is already in root
-            let isInRoot = false
             if (node.type === 'folder') {
               const folderId = parseInt(node.id.replace('folder-', ''))
               const folder = allFolders.find(f => f.id === folderId)
-              isInRoot = folder && folder.parentId === null
+              return !(folder && folder.parentId === null)
             } else if (node.type === 'file') {
               const fileId = parseInt(node.id.replace('file-', ''))
               const file = allFiles.find(f => f.id === fileId)
-              isInRoot = file && (!file.folderIds || file.folderIds === null)
+              return !(file && (!file.folderIds || file.folderIds === null))
             }
-
-            return !isInRoot && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onMoveTo(null)
-                }}
-                className="w-full text-left px-3 py-1.5 text-slate-200 text-sm hover:bg-slate-600"
-              >
-                Root
-              </button>
-            )
+            return true
           })()}
-          {allFolders
-            .filter((f) => {
-              // For folders, exclude itself
-              if (node.type === 'folder') {
-                return f.id !== parseInt(node.id.replace('folder-', ''))
-              }
-              return true
-            })
-            .map((folder) => (
-              <button
-                key={folder.id}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onMoveTo(folder.id)
-                }}
-                className="w-full text-left px-3 py-1.5 text-slate-200 text-sm hover:bg-slate-600 flex items-center gap-2"
-              >
-                <svg className="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                </svg>
-                {folder.name}
-              </button>
-            ))}
-        </div>
+          onSelect={(folderId) => {
+            onMoveTo(folderId)
+            setShowMovePicker(false)
+          }}
+          onClose={() => setShowMovePicker(false)}
+        />
       )}
 
-      {/* Add to submenu */}
-      {submenuType === 'add' && node.type === 'file' && onAddTo && (
-        <div
-          className="fixed bg-slate-700 border border-slate-600 rounded shadow-lg py-1 z-50 min-w-[160px]"
-          style={{ left: `${x + 170}px`, top: `${y + 32}px` }}
-          onMouseLeave={() => setSubmenuType(null)}
-        >
-          {allFolders.length === 0 ? (
-            <div className="px-3 py-2 text-slate-400 text-sm">No folders available</div>
-          ) : (
-            allFolders.map((folder) => (
-              <button
-                key={folder.id}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onAddTo(folder.id)
-                }}
-                className="w-full text-left px-3 py-1.5 text-slate-200 text-sm hover:bg-slate-600 flex items-center gap-2"
-              >
-                <svg className="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                </svg>
-                {folder.name}
-              </button>
-            ))
-          )}
-        </div>
+      {/* Add to picker modal */}
+      {showAddPicker && node.type === 'file' && onAddTo && (
+        <FolderPickerModal
+          allFolders={allFolders}
+          showRoot={false}
+          onSelect={(folderId) => {
+            if (folderId !== null) {
+              onAddTo(folderId)
+            }
+            setShowAddPicker(false)
+          }}
+          onClose={() => setShowAddPicker(false)}
+        />
       )}
 
     </>

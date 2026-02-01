@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import TreeView, { type TreeNode } from '../TreeView'
 import ContextMenu from '../ContextMenu'
+import FolderPickerModal from '../FolderPickerModal'
 
 interface SidebarProps {
   isOpen: boolean
@@ -23,6 +24,8 @@ function Sidebar({ isOpen }: SidebarProps) {
   const [allFolders, setAllFolders] = useState<any[]>([])
   const [allFiles, setAllFiles] = useState<any[]>([])
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
+  const [showUploadPicker, setShowUploadPicker] = useState(false)
+  const [showNewFolderPicker, setShowNewFolderPicker] = useState(false)
 
   const loadTreeData = async () => {
     try {
@@ -174,8 +177,19 @@ function Sidebar({ isOpen }: SidebarProps) {
 
 
   const handleUploadFile = async () => {
+    setShowUploadPicker(true)
+  }
+
+  const handleUploadToFolder = async (folderId: number | null) => {
+    setShowUploadPicker(false)
     try {
-      await window.electron.selectAndUploadFiles()
+      if (folderId === null) {
+        await window.electron.selectAndUploadFiles()
+      } else {
+        await window.electron.selectAndUploadFilesToFolder(folderId)
+        // Expand the folder to show the newly added file
+        setExpandedNodes(prev => new Set(prev).add(`folder-${folderId}`))
+      }
       await loadTreeData()
     } catch (error) {
       console.error('Failed to upload files:', error)
@@ -183,7 +197,12 @@ function Sidebar({ isOpen }: SidebarProps) {
   }
 
   const handleCreateFolder = () => {
-    setFolderParentId(null)
+    setShowNewFolderPicker(true)
+  }
+
+  const handleCreateFolderInParent = (parentId: number | null) => {
+    setShowNewFolderPicker(false)
+    setFolderParentId(parentId)
     setShowFolderInput(true)
   }
 
@@ -271,7 +290,7 @@ function Sidebar({ isOpen }: SidebarProps) {
     >
       <div className="flex-1 overflow-y-auto p-4">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-white text-lg font-semibold">Finder</h2>
+          <h2 className="text-white text-lg font-semibold">Directory</h2>
           <div className="flex gap-1">
             <button
               onClick={handleUploadFile}
@@ -346,6 +365,26 @@ function Sidebar({ isOpen }: SidebarProps) {
             onAddFile={contextMenu.node.type === 'folder' ? handleAddFileToFolder : undefined}
             onDelete={handleDeleteNode}
             onClose={() => setContextMenu(null)}
+          />
+        )}
+
+        {/* Upload file picker modal */}
+        {showUploadPicker && (
+          <FolderPickerModal
+            allFolders={allFolders}
+            showRoot={true}
+            onSelect={handleUploadToFolder}
+            onClose={() => setShowUploadPicker(false)}
+          />
+        )}
+
+        {/* New folder picker modal */}
+        {showNewFolderPicker && (
+          <FolderPickerModal
+            allFolders={allFolders}
+            showRoot={true}
+            onSelect={handleCreateFolderInParent}
+            onClose={() => setShowNewFolderPicker(false)}
           />
         )}
       </div>
