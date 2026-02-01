@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import TreeView, { type TreeNode } from '../TreeView'
-import ContextMenu from '../ContextMenu'
-import FolderPickerModal from '../FolderPickerModal'
+import FileTreeView, { type TreeNode } from '../FileTree/FileTreeView'
+import ContextMenu from '../FileTree/ContextMenu'
+import FolderPickerModal from '../FileTree/FolderPickerModal'
 
 interface SidebarProps {
   isOpen: boolean
@@ -290,7 +290,7 @@ function Sidebar({ isOpen }: SidebarProps) {
     >
       <div className="flex-1 overflow-y-auto p-4">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-white text-lg font-semibold">Directory</h2>
+          <h2 className="text-white text-lg font-semibold">Files</h2>
           <div className="flex gap-1">
             <button
               onClick={handleUploadFile}
@@ -350,7 +350,7 @@ function Sidebar({ isOpen }: SidebarProps) {
           </div>
         )}
 
-        <TreeView data={treeData} onNodeClick={handleNodeClick} onNodeContextMenu={handleNodeContextMenu} expandedNodes={expandedNodes} />
+        <FileTreeView data={treeData} onNodeClick={handleNodeClick} onNodeContextMenu={handleNodeContextMenu} expandedNodes={expandedNodes} />
 
         {contextMenu && (
           <ContextMenu
