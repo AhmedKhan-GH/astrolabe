@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { type TreeNode } from './FileTreeView'
+import type { Folder, File } from '../../db/schema'
 import FolderPickerModal from './FolderPickerModal'
 
 interface ContextMenuProps {
   node: TreeNode
   x: number
   y: number
-  allFolders: any[]
-  allFiles: any[]
+  allFolders: Folder[]
+  allFiles: File[]
   onMoveTo: (folderId: number | null) => void
   onAddTo?: (folderId: number) => void
   onAddFolder?: (parentFolderId: number) => void
