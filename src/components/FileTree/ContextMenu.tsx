@@ -29,7 +29,6 @@ export default function ContextMenu({
   onDelete,
   onClose
 }: ContextMenuProps) {
-  const [submenuType, setSubmenuType] = useState<'move' | 'add' | null>(null)
   const [showMovePicker, setShowMovePicker] = useState(false)
   const [showAddPicker, setShowAddPicker] = useState(false)
 

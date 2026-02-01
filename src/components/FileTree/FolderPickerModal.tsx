@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
+import FileTreeView, { type TreeNode } from './FileTreeView'
 
 interface FolderPickerModalProps {
   allFolders: any[]
@@ -8,96 +9,37 @@ interface FolderPickerModalProps {
   onClose: () => void
 }
 
-interface FolderTreeNodeProps {
-  folder: any
-  level: number
-  onSelect: (folderId: number | null) => void
-  excludeFolderId?: number
-  children: any[]
-}
-
-function FolderTreeNode({ folder, level, onSelect, excludeFolderId, children }: FolderTreeNodeProps) {
-  const [isExpanded, setIsExpanded] = useState(true)
-  const hasChildren = children.length > 0
-  const isExcluded = excludeFolderId === folder.id
-
-  if (isExcluded) return null
-
-  return (
-    <div>
-      <div
-        className="flex items-center py-1.5 hover:bg-slate-600/50 cursor-pointer text-sm"
-        style={{ paddingLeft: `${level * 20 + 8}px` }}
-      >
-        <div className="w-4 mr-2 flex-shrink-0" onClick={() => hasChildren && setIsExpanded(!isExpanded)}>
-          {hasChildren && (
-            <svg
-              className="w-4 h-4 text-slate-400"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-            >
-              {isExpanded ? (
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              )}
-            </svg>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2 flex-1" onClick={() => onSelect(folder.id)}>
-          <svg className="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-          </svg>
-          <span className="text-slate-200">{folder.name}</span>
-        </div>
-      </div>
-
-      {isExpanded && hasChildren && (
-        <div>
-          {children.map((child) => (
-            <FolderTreeNode
-              key={child.id}
-              folder={child}
-              level={level + 1}
-              onSelect={onSelect}
-              excludeFolderId={excludeFolderId}
-              children={child.children || []}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
 export default function FolderPickerModal({ allFolders, excludeFolderId, showRoot = true, onSelect, onClose }: FolderPickerModalProps) {
-  // Build folder hierarchy
-  const buildFolderTree = () => {
-    const folderMap: Record<number, any> = {}
-    const rootFolders: any[] = []
+  // Build folder hierarchy and convert to TreeNode format
+  const folderTree = useMemo(() => {
+    const folderMap: Record<number, TreeNode> = {}
+    const rootFolders: TreeNode[] = []
 
-    // Create folder objects with children array
-    allFolders.forEach((folder) => {
-      folderMap[folder.id] = { ...folder, children: [] }
+    // Filter out excluded folder and convert to TreeNode format
+    const filteredFolders = allFolders.filter(f => f.id !== excludeFolderId)
+
+    // Create folder nodes
+    filteredFolders.forEach((folder) => {
+      folderMap[folder.id] = {
+        id: `folder-${folder.id}`,
+        name: folder.name,
+        type: 'folder',
+        children: []
+      }
     })
 
     // Build hierarchy
-    allFolders.forEach((folder) => {
+    filteredFolders.forEach((folder) => {
       const node = folderMap[folder.id]
       if (folder.parentId && folderMap[folder.parentId]) {
-        folderMap[folder.parentId].children.push(node)
+        folderMap[folder.parentId].children!.push(node)
       } else {
         rootFolders.push(node)
       }
     })
 
     return rootFolders
-  }
-
-  const folderTree = buildFolderTree()
+  }, [allFolders, excludeFolderId])
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -128,16 +70,14 @@ export default function FolderPickerModal({ allFolders, excludeFolderId, showRoo
             </div>
           )}
 
-          {folderTree.map((folder) => (
-            <FolderTreeNode
-              key={folder.id}
-              folder={folder}
-              level={0}
-              onSelect={onSelect}
-              excludeFolderId={excludeFolderId}
-              children={folder.children || []}
-            />
-          ))}
+          <FileTreeView
+            data={folderTree}
+            onNodeClick={(node) => {
+              // Extract folder ID from node.id (format: "folder-123")
+              const folderId = parseInt(node.id.replace('folder-', ''))
+              onSelect(folderId)
+            }}
+          />
         </div>
 
         <div className="px-4 py-3 border-t border-slate-600 flex justify-end">

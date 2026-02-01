@@ -74,6 +74,12 @@ function Sidebar({ isOpen }: SidebarProps) {
         console.log('Moving folder:', numericFolderId, 'to parent:', targetFolderId)
         await window.electron.moveFolder(numericFolderId, targetFolderId)
       }
+
+      // Expand the destination folder
+      if (targetFolderId !== null) {
+        setExpandedNodes(prev => new Set(prev).add(`folder-${targetFolderId}`))
+      }
+
       console.log('Move successful, reloading tree')
       await loadTreeData()
       setContextMenu(null)
@@ -92,6 +98,10 @@ function Sidebar({ isOpen }: SidebarProps) {
       const numericFileId = parseInt(contextMenu.node.id.replace('file-', ''))
       console.log('Adding file:', numericFileId, 'to folder:', targetFolderId)
       await window.electron.includeFileInFolder(numericFileId, targetFolderId)
+
+      // Expand the destination folder
+      setExpandedNodes(prev => new Set(prev).add(`folder-${targetFolderId}`))
+
       console.log('Add successful, reloading tree')
       await loadTreeData()
       setContextMenu(null)

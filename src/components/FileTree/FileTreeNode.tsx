@@ -27,6 +27,13 @@ export default function FileTreeNode({ node, level, onNodeClick, onNodeContextMe
     onNodeClick?.(node)
   }
 
+  const handleChevronClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (isFolder && hasChildren) {
+      setIsExpanded(!isExpanded)
+    }
+  }
+
   const handleContextMenu = (e: React.MouseEvent) => {
     onNodeContextMenu?.(node, e)
   }
@@ -49,7 +56,7 @@ export default function FileTreeNode({ node, level, onNodeClick, onNodeContextMe
         ))}
 
         {/* Expand/collapse chevron */}
-        <div className="w-4 mr-2 flex-shrink-0 relative z-10">
+        <div className="w-4 mr-2 flex-shrink-0 relative z-10" onClick={handleChevronClick}>
           {isFolder && hasChildren && (
             <svg
               className="w-4 h-4 text-slate-400"
@@ -69,8 +76,8 @@ export default function FileTreeNode({ node, level, onNodeClick, onNodeContextMe
 
         {/* File/folder icon */}
         {isFolder ? (
-          <svg className="w-4 h-4 mr-2 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+          <svg className="w-4 h-4 mr-2 text-slate-400 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
           </svg>
         ) : (
           <svg className="w-4 h-4 mr-2 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
