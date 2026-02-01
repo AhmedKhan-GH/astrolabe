@@ -92,13 +92,7 @@ export function setupIpcHandlers() {
     console.log('createFolder called with name:', name, 'parentId:', parentId);
     const db = getDatabase();
 
-    // Prevent "Root" as folder name (case-insensitive)
     const trimmedName = name.trim();
-    console.log('Checking if name is Root:', trimmedName.toLowerCase());
-    if (trimmedName.toLowerCase() === 'root') {
-      console.log('Rejecting folder named Root');
-      throw new Error('Cannot create folder named "Root"');
-    }
 
     // Check for duplicate folder name at the same level
     const parent = parentId || null;
