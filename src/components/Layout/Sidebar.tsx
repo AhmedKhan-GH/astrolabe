@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import FileTreeView, { type TreeNode } from '../FileTree/FileTreeView'
 import ContextMenu from '../FileTree/ContextMenu'
 import FolderPickerModal from '../FileTree/FolderPickerModal'
@@ -6,6 +6,7 @@ import { buildFileTree } from '../FileTree/buildFileTree'
 import DirectoryHeader from './DirectoryHeader'
 import FolderInputForm from './FolderInputForm'
 import { useResizable } from '../../hooks/useResizable'
+import type { Folder, File } from '../../db/schema'
 
 interface SidebarProps {
   isOpen: boolean
@@ -24,13 +25,13 @@ function Sidebar({ isOpen }: SidebarProps) {
   const [folderName, setFolderName] = useState('')
   const [folderParentId, setFolderParentId] = useState<number | null>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
-  const [allFolders, setAllFolders] = useState<any[]>([])
-  const [allFiles, setAllFiles] = useState<any[]>([])
+  const [allFolders, setAllFolders] = useState<Folder[]>([])
+  const [allFiles, setAllFiles] = useState<File[]>([])
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
   const [showUploadPicker, setShowUploadPicker] = useState(false)
   const [showNewFolderPicker, setShowNewFolderPicker] = useState(false)
 
-  const loadTreeData = async () => {
+  const loadTreeData = useCallback(async () => {
     try {
       const [folders, files] = await Promise.all([
         window.electron.getAllFolders(),
@@ -43,10 +44,33 @@ function Sidebar({ isOpen }: SidebarProps) {
     } catch (error) {
       console.error('Failed to load tree data:', error)
     }
-  }
+  }, [])
 
   useEffect(() => {
-    loadTreeData()
+    let isMounted = true
+
+    const fetchData = async () => {
+      try {
+        const [folders, files] = await Promise.all([
+          window.electron.getAllFolders(),
+          window.electron.getAllFiles()
+        ])
+
+        if (isMounted) {
+          setAllFolders(folders)
+          setAllFiles(files)
+          setTreeData(buildFileTree(folders, files))
+        }
+      } catch (error) {
+        console.error('Failed to load tree data:', error)
+      }
+    }
+
+    void fetchData()
+
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   const handleNodeClick = (node: TreeNode) => {
@@ -221,9 +245,9 @@ function Sidebar({ isOpen }: SidebarProps) {
       setFolderName('')
       setFolderParentId(null)
       setShowFolderInput(false)
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to create folder:', error)
-      alert(error.message || 'Failed to create folder')
+      alert(error instanceof Error ? error.message : 'Failed to create folder')
     }
   }
 
