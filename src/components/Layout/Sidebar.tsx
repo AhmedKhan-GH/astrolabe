@@ -59,6 +59,18 @@ function Sidebar({ isOpen }: SidebarProps) {
     setContextMenu({ node, x: e.clientX, y: e.clientY })
   }
 
+  const handleToggleExpand = (nodeId: string) => {
+    setExpandedNodes(prev => {
+      const next = new Set(prev)
+      if (next.has(nodeId)) {
+        next.delete(nodeId)
+      } else {
+        next.add(nodeId)
+      }
+      return next
+    })
+  }
+
   const handleMoveTo = async (targetFolderId: number | null) => {
     if (!contextMenu) return
 
@@ -235,7 +247,7 @@ function Sidebar({ isOpen }: SidebarProps) {
           />
         )}
 
-        <FileTreeView data={treeData} onNodeClick={handleNodeClick} onNodeContextMenu={handleNodeContextMenu} expandedNodes={expandedNodes} />
+        <FileTreeView data={treeData} onNodeClick={handleNodeClick} onNodeContextMenu={handleNodeContextMenu} expandedNodes={expandedNodes} onToggleExpand={handleToggleExpand} />
 
         {contextMenu && (
           <ContextMenu

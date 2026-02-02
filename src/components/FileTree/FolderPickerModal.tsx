@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import FileTreeView, { type TreeNode } from './FileTreeView'
 
 interface FolderPickerModalProps {
@@ -11,7 +11,7 @@ interface FolderPickerModalProps {
 
 export default function FolderPickerModal({ allFolders, excludeFolderId, showRoot = true, onSelect, onClose }: FolderPickerModalProps) {
   // Build folder hierarchy and convert to TreeNode format
-  const { folderTree, expandedNodes } = useMemo(() => {
+  const { folderTree, initialExpandedNodes } = useMemo(() => {
     const folderMap: Record<number, TreeNode> = {}
     const rootFolders: TreeNode[] = []
 
@@ -52,8 +52,22 @@ export default function FolderPickerModal({ allFolders, excludeFolderId, showRoo
       })
     }
 
-    return { folderTree: rootFolders, expandedNodes: expandedSet }
+    return { folderTree: rootFolders, initialExpandedNodes: expandedSet }
   }, [allFolders, excludeFolderId])
+
+  const [expandedNodes, setExpandedNodes] = useState(() => initialExpandedNodes)
+
+  const handleToggleExpand = (nodeId: string) => {
+    setExpandedNodes(prev => {
+      const next = new Set(prev)
+      if (next.has(nodeId)) {
+        next.delete(nodeId)
+      } else {
+        next.add(nodeId)
+      }
+      return next
+    })
+  }
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -92,6 +106,7 @@ export default function FolderPickerModal({ allFolders, excludeFolderId, showRoo
               onSelect(folderId)
             }}
             expandedNodes={expandedNodes}
+            onToggleExpand={handleToggleExpand}
           />
         </div>
 

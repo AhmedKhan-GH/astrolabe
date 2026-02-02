@@ -1,4 +1,3 @@
-import { useState, useMemo } from 'react'
 import { type TreeNode } from './FileTreeView'
 
 interface FileTreeNodeProps {
@@ -7,19 +6,17 @@ interface FileTreeNodeProps {
   onNodeClick?: (node: TreeNode) => void
   onNodeContextMenu?: (node: TreeNode, e: React.MouseEvent) => void
   expandedNodes?: Set<string>
+  onToggleExpand?: (nodeId: string) => void
 }
 
-export default function FileTreeNode({ node, level, onNodeClick, onNodeContextMenu, expandedNodes }: FileTreeNodeProps) {
+export default function FileTreeNode({ node, level, onNodeClick, onNodeContextMenu, expandedNodes, onToggleExpand }: FileTreeNodeProps) {
   const isFolder = node.type === 'folder'
   const hasChildren = node.children && node.children.length > 0
-
-  // Initialize from expandedNodes prop, then allow local toggling
-  const initialExpanded = useMemo(() => expandedNodes?.has(node.id) || false, [expandedNodes, node.id])
-  const [isExpanded, setIsExpanded] = useState(initialExpanded)
+  const isExpanded = expandedNodes?.has(node.id) || false
 
   const handleClick = () => {
     if (isFolder) {
-      setIsExpanded(!isExpanded)
+      onToggleExpand?.(node.id)
     }
     onNodeClick?.(node)
   }
@@ -27,7 +24,7 @@ export default function FileTreeNode({ node, level, onNodeClick, onNodeContextMe
   const handleChevronClick = (e: React.MouseEvent) => {
     e.stopPropagation()
     if (isFolder && hasChildren) {
-      setIsExpanded(!isExpanded)
+      onToggleExpand?.(node.id)
     }
   }
 
@@ -87,7 +84,7 @@ export default function FileTreeNode({ node, level, onNodeClick, onNodeContextMe
       {isFolder && isExpanded && hasChildren && (
         <div>
           {node.children!.map((child) => (
-            <FileTreeNode key={child.id} node={child} level={level + 1} onNodeClick={onNodeClick} onNodeContextMenu={onNodeContextMenu} expandedNodes={expandedNodes} />
+            <FileTreeNode key={child.id} node={child} level={level + 1} onNodeClick={onNodeClick} onNodeContextMenu={onNodeContextMenu} expandedNodes={expandedNodes} onToggleExpand={onToggleExpand} />
           ))}
         </div>
       )}
