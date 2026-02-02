@@ -22,7 +22,6 @@ export default function ContextMenu({
   x,
   y,
   allFolders,
-  allFiles,
   onMoveTo,
   onAddTo,
   onAddFolder,
@@ -41,30 +40,6 @@ export default function ContextMenu({
     return () => document.removeEventListener('click', handleClickOutside)
   }, [onClose])
 
-  // Calculate available move options
-  const getMoveOptions = () => {
-    let hasRoot = false
-    if (node.type === 'folder') {
-      const folderId = parseInt(node.id.replace('folder-', ''))
-      const folder = allFolders.find(f => f.id === folderId)
-      hasRoot = !(folder && folder.parentId === null)
-    } else if (node.type === 'file') {
-      const fileId = parseInt(node.id.replace('file-', ''))
-      const file = allFiles.find(f => f.id === fileId)
-      hasRoot = !(file && (!file.folderIds || false))
-    }
-
-    const availableFolders = allFolders.filter((f) => {
-      if (node.type === 'folder') {
-        return f.id !== parseInt(node.id.replace('folder-', ''))
-      }
-      return true
-    })
-
-    return { hasRoot, availableFolders, hasOptions: hasRoot || availableFolders.length > 0 }
-  }
-
-  const moveOptions = getMoveOptions()
   const hasAddOptions = allFolders.length > 0
 
   return (
@@ -76,16 +51,9 @@ export default function ContextMenu({
         <button
           onClick={(e) => {
             e.stopPropagation()
-            if (moveOptions.hasOptions) {
-              setShowMovePicker(true)
-            }
+            setShowMovePicker(true)
           }}
-          disabled={!moveOptions.hasOptions}
-          className={`w-full text-left px-3 py-1.5 text-sm ${
-            moveOptions.hasOptions
-              ? 'text-slate-200 hover:bg-slate-600 cursor-pointer'
-              : 'text-slate-500 cursor-not-allowed'
-          }`}
+          className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600 cursor-pointer"
         >
           Move to
         </button>
@@ -149,19 +117,7 @@ export default function ContextMenu({
         <FolderPickerModal
           allFolders={allFolders}
           excludeFolderId={node.type === 'folder' ? parseInt(node.id.replace('folder-', '')) : undefined}
-          showRoot={(() => {
-            // Check if node is already in root
-            if (node.type === 'folder') {
-              const folderId = parseInt(node.id.replace('folder-', ''))
-              const folder = allFolders.find(f => f.id === folderId)
-              return !(folder && folder.parentId === null)
-            } else if (node.type === 'file') {
-              const fileId = parseInt(node.id.replace('file-', ''))
-              const file = allFiles.find(f => f.id === fileId)
-              return !(file && (!file.folderIds || file.folderIds === null))
-            }
-            return true
-          })()}
+          showRoot={true}
           onSelect={(folderId) => {
             onMoveTo(folderId)
             setShowMovePicker(false)

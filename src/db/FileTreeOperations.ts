@@ -46,17 +46,22 @@ export class FileTreeOperations {
       throw new Error('Cannot move folder to itself');
     }
 
+    // Get folder to check current location and name collision
+    const folder = await this.getFolderById(folderId);
+    if (!folder) {
+      throw new Error('Folder not found');
+    }
+
+    // Rule: Cannot move folder to the same location
+    if (folder.parentId === newParentId) {
+      throw new Error('Folder is already in this location');
+    }
+
     // Rule: Cannot move folder to its own descendant
     if (newParentId !== null) {
       if (await this.isDescendantOf(newParentId, folderId)) {
         throw new Error('Cannot move folder to its own descendant');
       }
-    }
-
-    // Get folder to check name collision
-    const folder = await this.getFolderById(folderId);
-    if (!folder) {
-      throw new Error('Folder not found');
     }
 
     // Rule: No duplicate names at destination level
@@ -133,7 +138,15 @@ export class FileTreeOperations {
       throw new Error('File not found');
     }
 
+    // Check if file is already in this location
+    const currentFolderIds = this.parseFolderIds(file.folderIds);
     const newFolderIds = folderId !== null ? [folderId] : [];
+
+    if (currentFolderIds.length === newFolderIds.length &&
+        currentFolderIds.every((id, index) => id === newFolderIds[index])) {
+      throw new Error('File is already in this location');
+    }
+
     await this.updateFileFolderIds(fileId, newFolderIds);
   }
 
