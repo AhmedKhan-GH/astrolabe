@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { type } from 'react'
 import { type TreeNode } from './FileTreeView'
 
 interface FileTreeNodeProps {
@@ -10,15 +10,9 @@ interface FileTreeNodeProps {
 }
 
 export default function FileTreeNode({ node, level, onNodeClick, onNodeContextMenu, expandedNodes }: FileTreeNodeProps) {
-  const [isExpanded, setIsExpanded] = useState(expandedNodes?.has(node.id) || false)
   const isFolder = node.type === 'folder'
   const hasChildren = node.children && node.children.length > 0
-
-  useEffect(() => {
-    if (expandedNodes?.has(node.id)) {
-      setIsExpanded(true)
-    }
-  }, [expandedNodes, node.id])
+  const isExpanded = expandedNodes?.has(node.id) || false
 
   const handleClick = () => {
     if (isFolder) {
@@ -59,7 +53,7 @@ export default function FileTreeNode({ node, level, onNodeClick, onNodeContextMe
         <div className="w-4 mr-2 flex-shrink-0 relative z-10" onClick={handleChevronClick}>
           {isFolder && hasChildren && (
             <svg
-              className="w-4 h-4 text-slate-400"
+              className="w-4 h-4 text-slate-400 hover:border hover:border-slate-500 rounded"
               fill="none"
               stroke="currentColor"
               strokeWidth="2"

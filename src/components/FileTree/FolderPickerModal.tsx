@@ -11,15 +11,12 @@ interface FolderPickerModalProps {
 
 export default function FolderPickerModal({ allFolders, excludeFolderId, showRoot = true, onSelect, onClose }: FolderPickerModalProps) {
   // Build folder hierarchy and convert to TreeNode format
-  const folderTree = useMemo(() => {
+  const { folderTree, expandedNodes } = useMemo(() => {
     const folderMap: Record<number, TreeNode> = {}
     const rootFolders: TreeNode[] = []
 
-    // Filter out excluded folder and convert to TreeNode format
-    const filteredFolders = allFolders.filter(f => f.id !== excludeFolderId)
-
-    // Create folder nodes
-    filteredFolders.forEach((folder) => {
+    // Create folder nodes (include all folders, even the excluded one)
+    allFolders.forEach((folder) => {
       folderMap[folder.id] = {
         id: `folder-${folder.id}`,
         name: folder.name,
@@ -29,7 +26,7 @@ export default function FolderPickerModal({ allFolders, excludeFolderId, showRoo
     })
 
     // Build hierarchy
-    filteredFolders.forEach((folder) => {
+    allFolders.forEach((folder) => {
       const node = folderMap[folder.id]
       if (folder.parentId && folderMap[folder.parentId]) {
         folderMap[folder.parentId].children!.push(node)
@@ -38,7 +35,24 @@ export default function FolderPickerModal({ allFolders, excludeFolderId, showRoo
       }
     })
 
-    return rootFolders
+    // Find path to excluded folder and expand ancestors
+    const expandedSet = new Set<string>()
+    if (excludeFolderId !== undefined) {
+      const findPathToFolder = (folderId: number): number[] => {
+        const folder = allFolders.find(f => f.id === folderId)
+        if (!folder) return []
+        if (folder.parentId === null) return [folderId]
+        return [...findPathToFolder(folder.parentId), folderId]
+      }
+
+      const path = findPathToFolder(excludeFolderId)
+      // Expand all ancestors (not the folder itself)
+      path.slice(0, -1).forEach(id => {
+        expandedSet.add(`folder-${id}`)
+      })
+    }
+
+    return { folderTree: rootFolders, expandedNodes: expandedSet }
   }, [allFolders, excludeFolderId])
 
   useEffect(() => {
@@ -77,6 +91,7 @@ export default function FolderPickerModal({ allFolders, excludeFolderId, showRoo
               const folderId = parseInt(node.id.replace('folder-', ''))
               onSelect(folderId)
             }}
+            expandedNodes={expandedNodes}
           />
         </div>
 
