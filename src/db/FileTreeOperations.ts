@@ -109,7 +109,7 @@ export class FileTreeOperations {
 
     // Rule: File must only exist once in a specific folder
     if (folderIds.includes(folderId)) {
-      throw new Error('File already exists in this folder');
+      throw new Error('The file already exists in this folder');
     }
 
     folderIds.push(folderId);
@@ -204,8 +204,7 @@ export class FileTreeOperations {
 
       // Check if file already exists in this specific location (folder or root)
       if (folderIds.includes(folderId)) {
-        const location = folderId === 0 ? 'root' : 'this folder';
-        throw new Error(`File already exists in ${location}`);
+        throw new Error('File already exists in this location');
       }
 
       // Prompt user for confirmation

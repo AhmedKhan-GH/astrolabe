@@ -74,14 +74,18 @@ export function setupIpcHandlers() {
           ext ? ext.slice(1) : null,
           folderId !== undefined ? folderId : 0,
           async (existingFile) => {
-            // Show confirmation dialog to user
+            // Show confirmation dialog to user with details about existing file
+            const addedDate = existingFile.addedAt
+              ? new Date(existingFile.addedAt).toLocaleString()
+              : 'Unknown';
+
             const response = await dialog.showMessageBox({
               type: 'question',
               buttons: ['Cancel', 'Update'],
               defaultId: 1,
               title: 'File Already Exists',
               message: `File "${filename}" already exists in the database.`,
-              detail: 'Do you want to update the existing file entry and add it to this location?'
+              detail: `Existing file:\n• Path: ${existingFile.path}\n• Added: ${addedDate}\n\nDo you want to update the existing file entry with the new path and add it to this location?`
             });
             return response.response === 1; // 1 = Update button
           }
