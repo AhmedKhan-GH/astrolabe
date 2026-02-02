@@ -40,8 +40,6 @@ export default function ContextMenu({
     return () => document.removeEventListener('click', handleClickOutside)
   }, [onClose])
 
-  const hasAddOptions = allFolders.length > 0
-
   return (
     <>
       <div
@@ -61,16 +59,9 @@ export default function ContextMenu({
           <button
             onClick={(e) => {
               e.stopPropagation()
-              if (hasAddOptions) {
-                setShowAddPicker(true)
-              }
+              setShowAddPicker(true)
             }}
-            disabled={!hasAddOptions}
-            className={`w-full text-left px-3 py-1.5 text-sm ${
-              hasAddOptions
-                ? 'text-slate-200 hover:bg-slate-600 cursor-pointer'
-                : 'text-slate-500 cursor-not-allowed'
-            }`}
+            className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600 cursor-pointer"
           >
             Add to
           </button>
@@ -132,9 +123,7 @@ export default function ContextMenu({
           allFolders={allFolders}
           showRoot={false}
           onSelect={(folderId) => {
-            if (folderId !== null) {
-              onAddTo(folderId)
-            }
+            onAddTo(folderId)
             setShowAddPicker(false)
           }}
           onClose={() => setShowAddPicker(false)}

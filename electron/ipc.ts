@@ -150,6 +150,11 @@ export function setupIpcHandlers() {
     const db = getDatabase();
     const fileOps = new FileTreeOperations(db);
 
+    // Convert folderId = 0 (root) to proper handling
+    if (folderId === 0) {
+      throw new Error('Cannot add file to root. Use "Move to" instead.');
+    }
+
     await fileOps.addFileToFolder(fileId, folderId);
     console.log('File added to folder');
   });
