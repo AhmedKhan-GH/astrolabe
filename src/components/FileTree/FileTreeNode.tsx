@@ -1,4 +1,4 @@
-import { type } from 'react'
+import { useState, useMemo } from 'react'
 import { type TreeNode } from './FileTreeView'
 
 interface FileTreeNodeProps {
@@ -12,7 +12,10 @@ interface FileTreeNodeProps {
 export default function FileTreeNode({ node, level, onNodeClick, onNodeContextMenu, expandedNodes }: FileTreeNodeProps) {
   const isFolder = node.type === 'folder'
   const hasChildren = node.children && node.children.length > 0
-  const isExpanded = expandedNodes?.has(node.id) || false
+
+  // Initialize from expandedNodes prop, then allow local toggling
+  const initialExpanded = useMemo(() => expandedNodes?.has(node.id) || false, [expandedNodes, node.id])
+  const [isExpanded, setIsExpanded] = useState(initialExpanded)
 
   const handleClick = () => {
     if (isFolder) {
