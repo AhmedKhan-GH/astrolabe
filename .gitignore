@@ -62,3 +62,5 @@ drizzle/
 *.njsproj
 *.sln
 *.sw?
+
+.env

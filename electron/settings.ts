@@ -3,6 +3,11 @@ import { app, dialog } from 'electron';
 import path from 'path';
 import fs from 'fs';
 
+// Load .env in development
+if (!app.isPackaged) {
+  require('dotenv').config();
+}
+
 interface Settings {
   dataDirectory?: string;
 }
@@ -26,7 +31,15 @@ const store = new ElectronStore<Settings>({
  */
 export function getDataDirectory(): string {
   const customPath = store.get('dataDirectory');
-  const dataPath = customPath || path.join(app.getPath('userData'), 'data');
+
+  // Check for .env DATA_DIR in development
+  let dataPath: string;
+  if (!app.isPackaged && process.env.DATA_DIR) {
+    // Resolve relative path from app root
+    dataPath = path.resolve(app.getAppPath(), process.env.DATA_DIR);
+  } else {
+    dataPath = customPath || path.join(app.getPath('userData'), 'data');
+  }
 
   // Ensure the directory exists (creates .astro as a directory bundle)
   if (!fs.existsSync(dataPath)) {
