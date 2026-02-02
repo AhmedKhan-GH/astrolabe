@@ -33,13 +33,7 @@ release
 *.local
 
 # Database
-*.db
-*.db-shm
-*.db-wal
 data/
-
-# Drizzle
-drizzle/
 
 # Editor directories and files
 .vscode/*
