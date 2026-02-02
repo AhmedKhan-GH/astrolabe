@@ -65,15 +65,44 @@ export function setupIpcHandlers() {
       // Copy file to storage
       fs.copyFileSync(filePath, storedPath);
 
-      // Use FileTreeOperations to enforce constraints
-      const inserted = await fileOps.createFile(
-        filename,
-        storedPath,
-        ext ? ext.slice(1) : null,
-        folderId ? [folderId] : []
-      );
+      try {
+        // Use importFile to handle duplicates with user confirmation
+        // folderId = 0 means root, folderId > 0 means specific folder
+        const result = await fileOps.importFile(
+          filename,
+          storedPath,
+          ext ? ext.slice(1) : null,
+          folderId !== undefined ? folderId : 0,
+          async (existingFile) => {
+            // Show confirmation dialog to user
+            const response = await dialog.showMessageBox({
+              type: 'question',
+              buttons: ['Cancel', 'Update'],
+              defaultId: 1,
+              title: 'File Already Exists',
+              message: `File "${filename}" already exists in the database.`,
+              detail: 'Do you want to update the existing file entry and add it to this location?'
+            });
+            return response.response === 1; // 1 = Update button
+          }
+        );
 
-      uploadedFiles.push(inserted);
+        uploadedFiles.push(result.file);
+      } catch (error) {
+        // Show error dialog to user
+        await dialog.showMessageBox({
+          type: 'error',
+          buttons: ['OK'],
+          title: 'Import Failed',
+          message: `Failed to import "${filename}"`,
+          detail: error instanceof Error ? error.message : String(error)
+        });
+
+        // Clean up the copied file since import failed
+        if (fs.existsSync(storedPath)) {
+          fs.unlinkSync(storedPath);
+        }
+      }
     }
 
     return uploadedFiles;
@@ -96,17 +125,19 @@ export function setupIpcHandlers() {
     const db = getDatabase();
     const fileOps = new FileTreeOperations(db);
 
-    const inserted = await fileOps.createFolder(name, parentId || null);
+    // Convert parentId = 0 (root) to null for database operations
+    const inserted = await fileOps.createFolder(name, !parentId || parentId === 0 ? null : parentId);
     console.log('Folder created:', inserted);
     return inserted;
   });
 
-  ipcMain.handle('moveFile', async (_, fileId: number, folderId: number | null) => {
+  ipcMain.handle('moveFile', async (_, fileId: number, folderId: number) => {
     console.log('moveFile called:', { fileId, folderId });
     const db = getDatabase();
     const fileOps = new FileTreeOperations(db);
 
-    await fileOps.moveFile(fileId, folderId);
+    // Convert folderId = 0 (root) to null for database operations
+    await fileOps.moveFile(fileId, folderId === 0 ? null : folderId);
     console.log('File moved');
   });
 
@@ -119,12 +150,13 @@ export function setupIpcHandlers() {
     console.log('File added to folder');
   });
 
-  ipcMain.handle('moveFolder', async (_, folderId: number, newParentId: number | null) => {
+  ipcMain.handle('moveFolder', async (_, folderId: number, newParentId: number) => {
     console.log('moveFolder called:', { folderId, newParentId });
     const db = getDatabase();
     const fileOps = new FileTreeOperations(db);
 
-    await fileOps.moveFolder(folderId, newParentId);
+    // Convert newParentId = 0 (root) to null for database operations
+    await fileOps.moveFolder(folderId, newParentId === 0 ? null : newParentId);
     console.log('Folder moved');
   });
 

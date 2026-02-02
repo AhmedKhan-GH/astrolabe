@@ -26,7 +26,7 @@ export function buildFileTree(folders: Folder[], files: File[]): TreeNode[] {
     }
   })
 
-  // Add files to their folders (or root if no folders specified)
+  // Add files to their folders (or root if folderId = 0)
   files.forEach((file) => {
     const fileNode: TreeNode = {
       id: `file-${file.id}`,
@@ -37,11 +37,15 @@ export function buildFileTree(folders: Folder[], files: File[]): TreeNode[] {
     if (file.folderIds) {
       const folderIds = JSON.parse(file.folderIds)
       folderIds.forEach((folderId: number) => {
-        if (folderMap[folderId]) {
+        if (folderId === 0) {
+          // folderId = 0 means root
+          rootFolders.push(fileNode)
+        } else if (folderMap[folderId]) {
           folderMap[folderId].children!.push(fileNode)
         }
       })
     } else {
+      // Legacy: no folderIds means root
       rootFolders.push(fileNode)
     }
   })

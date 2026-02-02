@@ -175,6 +175,76 @@ export class FileTreeOperations {
     await this.updateFileFolderIds(fileId, newFolderIds);
   }
 
+  /**
+   * Imports a file by checking if a file with the same name exists
+   * If it exists, prompts user and updates the existing file entry
+   * Returns: { isUpdate: boolean, file: File, existingFile?: File }
+   * Note: folderId = 0 means root, folderId > 0 means specific folder
+   */
+  async importFile(
+    filename: string,
+    path: string,
+    filetype: string | null,
+    folderId: number,
+    confirmCallback: (existingFile: schema.File) => Promise<boolean>
+  ): Promise<{ isUpdate: boolean; file: schema.File; existingFile?: schema.File }> {
+    // Check if file with same name already exists
+    const existingFile = await this.getFileByFilename(filename);
+
+    if (existingFile) {
+      // Check if file already exists in this specific folder or root
+      const folderIds = this.parseFolderIds(existingFile.folderIds);
+
+      console.log('[importFile] Checking duplicate:', {
+        filename,
+        folderId,
+        existingFolderIds: folderIds,
+        folderIdsLength: folderIds.length
+      });
+
+      // Check if file already exists in this specific location (folder or root)
+      if (folderIds.includes(folderId)) {
+        const location = folderId === 0 ? 'root' : 'this folder';
+        throw new Error(`File already exists in ${location}`);
+      }
+
+      // Prompt user for confirmation
+      const shouldUpdate = await confirmCallback(existingFile);
+
+      if (!shouldUpdate) {
+        throw new Error('Import cancelled by user');
+      }
+
+      // Update existing file's path and filetype
+      await this.db.update(schema.files)
+        .set({
+          path,
+          filetype
+        })
+        .where(eq(schema.files.id, existingFile.id));
+
+      // Add folder/root reference (keep existing folders)
+      folderIds.push(folderId);
+      await this.updateFileFolderIds(existingFile.id, folderIds);
+
+      // Fetch updated file
+      const updatedFile = await this.getFileById(existingFile.id);
+      return {
+        isUpdate: true,
+        file: updatedFile!,
+        existingFile
+      };
+    }
+
+    // No existing file - create new one
+    const newFile = await this.createFile(filename, path, filetype, [folderId]);
+
+    return {
+      isUpdate: false,
+      file: newFile
+    };
+  }
+
   // ============ Helper Methods ============
 
   private async validateNoDuplicateFolderName(
@@ -243,8 +313,12 @@ export class FileTreeOperations {
     // Rule: No duplicate folder IDs (deduplicate using Set)
     const uniqueIds = Array.from(new Set(folderIds));
 
-    // Rule: All folder IDs must reference existing folders
+    // Rule: All folder IDs must reference existing folders (except 0 which is root)
     for (const folderId of uniqueIds) {
+      if (folderId === 0) {
+        // 0 is a special ID for root, skip validation
+        continue;
+      }
       const folder = await this.getFolderById(folderId);
       if (!folder) {
         throw new Error(`Folder with ID ${folderId} does not exist`);
@@ -281,6 +355,13 @@ export class FileTreeOperations {
   private async getFileById(fileId: number): Promise<schema.File | undefined> {
     const result = await this.db.select().from(schema.files)
       .where(eq(schema.files.id, fileId))
+      .limit(1);
+    return result[0];
+  }
+
+  private async getFileByFilename(filename: string): Promise<schema.File | undefined> {
+    const result = await this.db.select().from(schema.files)
+      .where(eq(schema.files.filename, filename))
       .limit(1);
     return result[0];
   }

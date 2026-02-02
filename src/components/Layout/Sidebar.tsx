@@ -87,8 +87,8 @@ function Sidebar({ isOpen }: SidebarProps) {
         await window.electron.moveFolder(numericFolderId, targetFolderId)
       }
 
-      // Expand the destination folder
-      if (targetFolderId !== null) {
+      // Expand the destination folder (if not root)
+      if (targetFolderId !== 0) {
         setExpandedNodes(prev => new Set(prev).add(`folder-${targetFolderId}`))
       }
 
@@ -201,23 +201,29 @@ function Sidebar({ isOpen }: SidebarProps) {
   }
 
   const submitFolder = async () => {
-    if (folderName.trim()) {
-      try {
-        await window.electron.createFolder(folderName.trim(), folderParentId ?? undefined)
+    if (!folderName.trim()) {
+      alert('Folder name cannot be empty')
+      setFolderName('')
+      setShowFolderInput(false)
+      setFolderParentId(null)
+      return
+    }
 
-        // If creating a subfolder, expand the parent
-        if (folderParentId !== null) {
-          setExpandedNodes(prev => new Set(prev).add(`folder-${folderParentId}`))
-        }
+    try {
+      await window.electron.createFolder(folderName.trim(), folderParentId ?? undefined)
 
-        await loadTreeData()
-        setFolderName('')
-        setFolderParentId(null)
-        setShowFolderInput(false)
-      } catch (error: any) {
-        console.error('Failed to create folder:', error)
-        alert(error.message || 'Failed to create folder')
+      // If creating a subfolder, expand the parent
+      if (folderParentId !== null) {
+        setExpandedNodes(prev => new Set(prev).add(`folder-${folderParentId}`))
       }
+
+      await loadTreeData()
+      setFolderName('')
+      setFolderParentId(null)
+      setShowFolderInput(false)
+    } catch (error: any) {
+      console.error('Failed to create folder:', error)
+      alert(error.message || 'Failed to create folder')
     }
   }
 
