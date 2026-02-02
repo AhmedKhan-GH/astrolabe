@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import FileTreeView, { type TreeNode } from './FileTreeView'
+import type { Folder } from '../../db/schema'
 
 interface FolderPickerModalProps {
-  allFolders: any[]
+  allFolders: Folder[]
   excludeFolderId?: number
   showRoot?: boolean
   onSelect: (folderId: number) => void
@@ -28,7 +29,7 @@ export default function FolderPickerModal({ allFolders, excludeFolderId, showRoo
     // Build hierarchy
     allFolders.forEach((folder) => {
       const node = folderMap[folder.id]
-      if (folder.parentId && folderMap[folder.parentId]) {
+      if (folder.parentId !== 0 && folderMap[folder.parentId]) {
         folderMap[folder.parentId].children!.push(node)
       } else {
         rootFolders.push(node)
@@ -41,7 +42,7 @@ export default function FolderPickerModal({ allFolders, excludeFolderId, showRoo
       const findPathToFolder = (folderId: number): number[] => {
         const folder = allFolders.find(f => f.id === folderId)
         if (!folder) return []
-        if (folder.parentId === null) return [folderId]
+        if (folder.parentId === 0) return [folderId]
         return [...findPathToFolder(folder.parentId), folderId]
       }
 

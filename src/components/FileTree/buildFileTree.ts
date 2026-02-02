@@ -19,7 +19,7 @@ export function buildFileTree(folders: Folder[], files: File[]): TreeNode[] {
   // Build hierarchy
   folders.forEach((folder) => {
     const node = folderMap[folder.id]
-    if (folder.parentId && folderMap[folder.parentId]) {
+    if (folder.parentId !== 0 && folderMap[folder.parentId]) {
       folderMap[folder.parentId].children!.push(node)
     } else {
       rootFolders.push(node)

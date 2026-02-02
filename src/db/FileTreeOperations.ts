@@ -1,4 +1,4 @@
-import { eq, isNull } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema';
 
@@ -18,8 +18,9 @@ export class FileTreeOperations {
   /**
    * Creates a folder with validation
    * Enforces: No duplicate names at the same level
+   * Note: parentId = 0 represents root
    */
-  async createFolder(name: string, parentId: number | null = null): Promise<schema.Folder> {
+  async createFolder(name: string, parentId: number = 0): Promise<schema.Folder> {
     const trimmedName = name.trim();
     if (!trimmedName) {
       throw new Error('Folder name cannot be empty');
@@ -39,8 +40,9 @@ export class FileTreeOperations {
   /**
    * Moves a folder to a new parent
    * Enforces: No self-reference, no circular ancestry, no duplicate names
+   * Note: newParentId = 0 represents root
    */
-  async moveFolder(folderId: number, newParentId: number | null): Promise<void> {
+  async moveFolder(folderId: number, newParentId: number): Promise<void> {
     // Rule: Cannot move folder to itself
     if (folderId === newParentId) {
       throw new Error('Cannot move folder to itself');
@@ -58,7 +60,7 @@ export class FileTreeOperations {
     }
 
     // Rule: Cannot move folder to its own descendant
-    if (newParentId !== null) {
+    if (newParentId !== 0) {
       if (await this.isDescendantOf(newParentId, folderId)) {
         throw new Error('Cannot move folder to its own descendant');
       }
@@ -123,10 +125,11 @@ export class FileTreeOperations {
 
   /**
    * Moves a file to a folder (replaces all folder associations)
-   * Enforces: Valid folder reference or null for root
+   * Enforces: Valid folder reference (0 for root, >0 for specific folder)
+   * Note: folderId = 0 represents root
    */
-  async moveFile(fileId: number, folderId: number | null): Promise<void> {
-    if (folderId !== null) {
+  async moveFile(fileId: number, folderId: number): Promise<void> {
+    if (folderId !== 0) {
       const folder = await this.getFolderById(folderId);
       if (!folder) {
         throw new Error('Target folder not found');
@@ -140,7 +143,7 @@ export class FileTreeOperations {
 
     // Check if file is already in this location
     const currentFolderIds = this.parseFolderIds(file.folderIds);
-    const newFolderIds = folderId !== null ? [folderId] : [];
+    const newFolderIds = [folderId];
 
     if (currentFolderIds.length === newFolderIds.length &&
         currentFolderIds.every((id, index) => id === newFolderIds[index])) {
@@ -261,12 +264,10 @@ export class FileTreeOperations {
 
   private async validateNoDuplicateFolderName(
     name: string,
-    parentId: number | null,
+    parentId: number,
     excludeFolderId?: number
   ): Promise<void> {
-    const siblings = parentId === null
-      ? await this.db.select().from(schema.folders).where(isNull(schema.folders.parentId))
-      : await this.db.select().from(schema.folders).where(eq(schema.folders.parentId, parentId));
+    const siblings = await this.db.select().from(schema.folders).where(eq(schema.folders.parentId, parentId));
 
     const duplicate = siblings.find(
       f => f.name.toLowerCase() === name.toLowerCase() && f.id !== excludeFolderId
@@ -281,7 +282,7 @@ export class FileTreeOperations {
     const folder = await this.getFolderById(potentialDescendantId);
     if (!folder) return false;
     if (folder.parentId === ancestorId) return true;
-    if (folder.parentId === null) return false;
+    if (folder.parentId === 0) return false;
     return this.isDescendantOf(folder.parentId, ancestorId);
   }
 
@@ -299,7 +300,7 @@ export class FileTreeOperations {
 
   private async cleanupFileReferences(
     folderIdsToDelete: number[],
-    parentFolderId: number | null
+    parentFolderId: number
   ): Promise<void> {
     const files = await this.db.select().from(schema.files);
 
@@ -312,7 +313,7 @@ export class FileTreeOperations {
       // Only update if something changed
       if (folderIds.length !== newFolderIds.length) {
         // If file loses all folders, move to parent of deleted folder
-        if (newFolderIds.length === 0 && parentFolderId !== null) {
+        if (newFolderIds.length === 0) {
           newFolderIds.push(parentFolderId);
         }
 

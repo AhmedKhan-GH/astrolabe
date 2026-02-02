@@ -95,7 +95,7 @@ function Sidebar({ isOpen }: SidebarProps) {
     })
   }
 
-  const handleMoveTo = async (targetFolderId: number | null) => {
+  const handleMoveTo = async (targetFolderId: number) => {
     if (!contextMenu) return
 
     console.log('handleMoveTo called:', { nodeType: contextMenu.node.type, nodeId: contextMenu.node.id, targetFolderId })
@@ -175,10 +175,10 @@ function Sidebar({ isOpen }: SidebarProps) {
     setShowUploadPicker(true)
   }
 
-  const handleUploadToFolder = async (folderId: number | null) => {
+  const handleUploadToFolder = async (folderId: number) => {
     setShowUploadPicker(false)
     try {
-      if (folderId === null) {
+      if (folderId === 0) {
         await window.electron.selectAndUploadFiles()
       } else {
         await window.electron.selectAndUploadFilesToFolder(folderId)
@@ -195,9 +195,10 @@ function Sidebar({ isOpen }: SidebarProps) {
     setShowNewFolderPicker(true)
   }
 
-  const handleCreateFolderInParent = (parentId: number | null) => {
+  const handleCreateFolderInParent = (parentId: number) => {
     setShowNewFolderPicker(false)
-    setFolderParentId(parentId)
+    // Convert 0 (root) to null for internal state
+    setFolderParentId(parentId === 0 ? null : parentId)
     setShowFolderInput(true)
   }
 
@@ -234,10 +235,12 @@ function Sidebar({ isOpen }: SidebarProps) {
     }
 
     try {
-      await window.electron.createFolder(folderName.trim(), folderParentId ?? undefined)
+      // Convert null to 0 for API consistency (0 = root)
+      const parentIdForApi = folderParentId ?? 0
+      await window.electron.createFolder(folderName.trim(), parentIdForApi)
 
       // If creating a subfolder, expand the parent
-      if (folderParentId !== null) {
+      if (folderParentId !== null && folderParentId !== 0) {
         setExpandedNodes(prev => new Set(prev).add(`folder-${folderParentId}`))
       }
 

@@ -3,7 +3,7 @@ import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core';
 export const folders = sqliteTable('folders', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   name: text('name').notNull(),
-  parentId: integer('parent_id').references((): any => folders.id, { onDelete: 'cascade' }),
+  parentId: integer('parent_id').notNull().default(0),
   createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
 });
 

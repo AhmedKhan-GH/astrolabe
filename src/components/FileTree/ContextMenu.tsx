@@ -9,7 +9,7 @@ interface ContextMenuProps {
   y: number
   allFolders: Folder[]
   allFiles: File[]
-  onMoveTo: (folderId: number | null) => void
+  onMoveTo: (folderId: number) => void
   onAddTo?: (folderId: number) => void
   onAddFolder?: (parentFolderId: number) => void
   onAddFile?: (folderId: number) => void

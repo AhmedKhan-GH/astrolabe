@@ -129,8 +129,9 @@ export function setupIpcHandlers() {
     const db = getDatabase();
     const fileOps = new FileTreeOperations(db);
 
-    // Convert parentId = 0 (root) to null for database operations
-    const inserted = await fileOps.createFolder(name, !parentId || parentId === 0 ? null : parentId);
+    // Ensure parentId is 0 if undefined or null is passed
+    const normalizedParentId = parentId ?? 0;
+    const inserted = await fileOps.createFolder(name, normalizedParentId);
     console.log('Folder created:', inserted);
     return inserted;
   });
@@ -140,8 +141,7 @@ export function setupIpcHandlers() {
     const db = getDatabase();
     const fileOps = new FileTreeOperations(db);
 
-    // Convert folderId = 0 (root) to null for database operations
-    await fileOps.moveFile(fileId, folderId === 0 ? null : folderId);
+    await fileOps.moveFile(fileId, folderId);
     console.log('File moved');
   });
 
@@ -164,8 +164,7 @@ export function setupIpcHandlers() {
     const db = getDatabase();
     const fileOps = new FileTreeOperations(db);
 
-    // Convert newParentId = 0 (root) to null for database operations
-    await fileOps.moveFolder(folderId, newParentId === 0 ? null : newParentId);
+    await fileOps.moveFolder(folderId, newParentId);
     console.log('Folder moved');
   });
 
