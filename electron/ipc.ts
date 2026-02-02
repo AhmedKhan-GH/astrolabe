@@ -1,7 +1,6 @@
-import { ipcMain, app, dialog } from 'electron';
+import { ipcMain, dialog } from 'electron';
 import { getDatabase } from './database';
-import * as schema from '../src/db/schema';
-import { eq, isNull } from 'drizzle-orm';
+
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
@@ -54,7 +53,7 @@ export function setupIpcHandlers() {
     const uploadedFiles = [];
 
     for (const filePath of filePaths) {
-      const stats = fs.statSync(filePath);
+
       const filename = path.basename(filePath);
 
       // Generate unique filename to avoid collisions
