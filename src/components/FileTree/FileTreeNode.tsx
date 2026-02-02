@@ -53,7 +53,7 @@ export default function FileTreeNode({ node, level, onNodeClick, onNodeContextMe
         <div className="w-4 mr-2 flex-shrink-0 relative z-10" onClick={handleChevronClick}>
           {isFolder && hasChildren && (
             <svg
-              className="w-4 h-4 text-slate-400 hover:border hover:border-slate-500 rounded"
+              className="w-4 h-4 text-slate-400 border border-transparent hover:border-slate-600 hover:bg-slate-700/50 hover:text-white rounded transition-all"
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
