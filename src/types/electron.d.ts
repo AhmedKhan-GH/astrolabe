@@ -18,6 +18,14 @@ export interface ElectronAPI {
   resetDataDirectory: () => Promise<string>;
   openFileInDefaultApp: (filePath: string) => Promise<void>;
   toggleFolderExpanded: (folderId: number) => Promise<void>;
+  selectDatabaseFile: () => Promise<string | null>;
+  createDatabaseFile: () => Promise<string | null>;
+  getDatabaseHealth: () => Promise<{
+    dataDirectory: string;
+    databasePath: string;
+    exists: boolean;
+    isConnected: boolean;
+  }>;
 }
 
 declare global {

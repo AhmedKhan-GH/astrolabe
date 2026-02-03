@@ -18,6 +18,9 @@ const electronAPI = {
   resetDataDirectory: () => ipcRenderer.invoke('resetDataDirectory'),
   openFileInDefaultApp: (filePath: string) => ipcRenderer.invoke('openFileInDefaultApp', filePath),
   toggleFolderExpanded: (folderId: number) => ipcRenderer.invoke('toggleFolderExpanded', folderId),
+  selectDatabaseFile: () => ipcRenderer.invoke('selectDatabaseFile'),
+  createDatabaseFile: () => ipcRenderer.invoke('createDatabaseFile'),
+  getDatabaseHealth: () => ipcRenderer.invoke('getDatabaseHealth'),
 };
 
 contextBridge.exposeInMainWorld('electron', electronAPI);

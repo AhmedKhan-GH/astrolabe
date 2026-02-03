@@ -1,10 +1,11 @@
 import { ipcMain, dialog, shell } from 'electron';
-import { getDatabase } from './database';
+import { getDatabase, reinitDatabase } from './database';
+import { getMainWindow } from './main';
 
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { getDataDirectory, promptForDataDirectory, resetDataDirectory } from './settings';
+import { getDataDirectory, promptForDataDirectory, resetDataDirectory, selectDatabaseFile, createDatabaseFile } from './settings';
 import { FileTreeOperations } from '../src/db/FileTreeOperations';
 
 /**
@@ -337,6 +338,86 @@ export function setupIpcHandlers() {
     const db = getDatabase();
     const fileOps = new FileTreeOperations(db);
     await fileOps.toggleFolderExpanded(folderId);
+  });
+
+  // Database picker handlers
+  ipcMain.handle('selectDatabaseFile', async () => {
+    console.log('[IPC] selectDatabaseFile called');
+    const result = await selectDatabaseFile();
+    console.log('[IPC] selectDatabaseFile result:', result);
+    if (result) {
+      console.log('[IPC] Switching to database:', result);
+      // Reinitialize database with new path
+      reinitDatabase();
+
+      // Reload the window after a small delay to ensure database is ready
+      console.log('[IPC] Setting timeout for window reload...');
+      setTimeout(() => {
+        const mainWindow = getMainWindow();
+        console.log('[IPC] mainWindow:', mainWindow ? 'exists' : 'null');
+        if (mainWindow) {
+          console.log('[IPC] Reloading window with new database');
+          mainWindow.webContents.reloadIgnoringCache();
+        } else {
+          console.error('[IPC] mainWindow is null, cannot reload');
+        }
+      }, 100);
+    } else {
+      console.log('[IPC] No database selected (user cancelled)');
+    }
+    return result;
+  });
+
+  ipcMain.handle('createDatabaseFile', async () => {
+    console.log('[IPC] createDatabaseFile called');
+    const result = await createDatabaseFile();
+    console.log('[IPC] createDatabaseFile result:', result);
+    if (result) {
+      console.log('[IPC] Created new database:', result);
+      // Reinitialize database with new path
+      reinitDatabase();
+
+      // Reload the window after a small delay to ensure database is ready
+      console.log('[IPC] Setting timeout for window reload...');
+      setTimeout(() => {
+        const mainWindow = getMainWindow();
+        console.log('[IPC] mainWindow:', mainWindow ? 'exists' : 'null');
+        if (mainWindow) {
+          console.log('[IPC] Reloading window with new database');
+          mainWindow.webContents.reloadIgnoringCache();
+        } else {
+          console.error('[IPC] mainWindow is null, cannot reload');
+        }
+      }, 100);
+    } else {
+      console.log('[IPC] No database created (user cancelled)');
+    }
+    return result;
+  });
+
+  // Health check to verify current database path
+  ipcMain.handle('getDatabaseHealth', () => {
+    const dataDir = getDataDirectory();
+    const dbPath = path.join(dataDir, 'astrolabe.db');
+    const exists = fs.existsSync(dbPath);
+
+    console.log('[Health Check] Current database path:', dbPath);
+    console.log('[Health Check] Database exists:', exists);
+
+    let isConnected = false;
+    try {
+      const db = getDatabase();
+      isConnected = db !== null;
+    } catch (error) {
+      console.log('[Health Check] Database not connected:', error);
+    }
+
+    return {
+      dataDirectory: dataDir,
+      databasePath: dbPath,
+      exists,
+      isConnected
+    };
   });
 
   console.log('IPC handlers ready');

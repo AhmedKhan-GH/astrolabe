@@ -1,10 +1,12 @@
-const path = require('path');
-const fs = require('fs');
-const os = require('os');
-require('dotenv').config();
+import path from 'path';
+import fs from 'fs';
+import os from 'os';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 // Get the data directory path
-function getDataDir() {
+function getDataDir(): string {
   if (process.env.DATA_DIR) {
     // Resolve relative paths from project root
     return path.resolve(__dirname, '..', process.env.DATA_DIR);
@@ -12,7 +14,7 @@ function getDataDir() {
 
   // Default based on OS (same logic as Electron's app.getPath('userData'))
   const appName = 'astrolabe';
-  let userDataPath;
+  let userDataPath: string;
 
   if (process.platform === 'darwin') {
     userDataPath = path.join(os.homedir(), 'Library', 'Application Support', appName);

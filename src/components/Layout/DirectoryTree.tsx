@@ -27,10 +27,17 @@ function DirectoryTree() {
 
   const loadTreeData = useCallback(async () => {
     try {
+      // Health check to verify we're loading from the correct database
+      const health = await window.electron.getDatabaseHealth();
+      console.log('[DirectoryTree] Database health check:', health);
+      console.log('[DirectoryTree] Loading data from:', health.databasePath);
+
       const [folders, files] = await Promise.all([
         window.electron.getAllFolders(),
         window.electron.getAllFiles()
       ])
+
+      console.log('[DirectoryTree] Loaded folders:', folders.length, 'files:', files.length);
 
       setAllFolders(folders)
       setAllFiles(files)

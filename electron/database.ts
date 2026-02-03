@@ -8,15 +8,24 @@ import fs from 'fs';
 import { getDataDirectory } from './settings';
 
 let db: BetterSQLite3Database<typeof schema> | null = null;
+let sqlite: Database.Database | null = null;
 
 export function initDatabase() {
   try {
+    // Close existing connection if any
+    if (sqlite) {
+      console.log('Closing existing database connection');
+      sqlite.close();
+      sqlite = null;
+      db = null;
+    }
+
     // Get data directory (settings.ts ensures it exists)
     const dataDir = getDataDirectory();
     const dbPath = path.join(dataDir, 'astrolabe.db');
     console.log('Database path:', dbPath);
 
-    const sqlite = new Database(dbPath);
+    sqlite = new Database(dbPath);
     // WAL mode disabled - single file database
     // sqlite.pragma('journal_mode = WAL');
 
@@ -48,4 +57,12 @@ export function getDatabase() {
     throw new Error('Database not initialized. Call initDatabase first.');
   }
   return db;
+}
+
+/**
+ * Reinitialize database connection (useful when switching databases)
+ */
+export function reinitDatabase() {
+  console.log('Reinitializing database...');
+  return initDatabase();
 }

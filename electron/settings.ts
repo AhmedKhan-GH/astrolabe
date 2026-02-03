@@ -26,20 +26,32 @@ const store = new ElectronStore<Settings>({
 }) as StoreType;
 
 /**
- * Get the data directory path. If not set by user, returns default location.
- * Creates the .astro directory bundle if it doesn't exist.
+ * Get the data directory path with correct precedence:
+ * 1. Custom user selection (from database picker)
+ * 2. .env DATA_DIR (development only)
+ * 3. Default OS location
  */
 export function getDataDirectory(): string {
   const customPath = store.get('dataDirectory');
+  console.log('[getDataDirectory] Custom path from store:', customPath);
 
-  // Check for .env DATA_DIR in development
+  // Precedence: custom > .env > default
   let dataPath: string;
-  if (!app.isPackaged && process.env.DATA_DIR) {
-    // Resolve relative path from app root
+  if (customPath) {
+    // User explicitly selected a database location
+    console.log('[getDataDirectory] Using custom path');
+    dataPath = customPath;
+  } else if (!app.isPackaged && process.env.DATA_DIR) {
+    // Development mode with .env override
+    console.log('[getDataDirectory] Using .env DATA_DIR');
     dataPath = path.resolve(app.getAppPath(), process.env.DATA_DIR);
   } else {
-    dataPath = customPath || path.join(app.getPath('userData'), 'data');
+    // Default location
+    console.log('[getDataDirectory] Using default path');
+    dataPath = path.join(app.getPath('userData'), 'data');
   }
+
+  console.log('[getDataDirectory] Final path:', dataPath);
 
   // Ensure the directory exists (creates .astro as a directory bundle)
   if (!fs.existsSync(dataPath)) {
@@ -53,6 +65,7 @@ export function getDataDirectory(): string {
  * Set a custom data directory path
  */
 export function setDataDirectory(dirPath: string): void {
+  console.log('[setDataDirectory] Setting custom database path to:', dirPath);
   store.set('dataDirectory', dirPath);
 }
 
@@ -87,3 +100,90 @@ export async function promptForDataDirectory(): Promise<string | null> {
 export function resetDataDirectory(): void {
   store.delete('dataDirectory');
 }
+
+/**
+ * Select an existing .astro database directory
+ * Note: On macOS with Info.plist, .astro appears as a package but we select it as a directory
+ */
+export async function selectDatabaseFile(): Promise<string | null> {
+  const result = await dialog.showOpenDialog({
+    title: 'Open Astrolabe Database',
+    buttonLabel: 'Open',
+    properties: ['openDirectory'],
+    message: 'Select an .astro database directory'
+  });
+
+  if (result.canceled || !result.filePaths[0]) {
+    return null;
+  }
+
+  const selectedPath = result.filePaths[0];
+
+  // Verify it's an .astro directory
+  if (!selectedPath.endsWith('.astro')) {
+    const response = await dialog.showMessageBox({
+      type: 'question',
+      buttons: ['Cancel', 'Use Anyway'],
+      defaultId: 0,
+      title: 'Not an .astro Database',
+      message: 'The selected directory does not have a .astro extension.',
+      detail: 'Do you want to use it anyway? This may cause issues.'
+    });
+
+    if (response.response === 0) {
+      return null;
+    }
+  }
+
+  setDataDirectory(selectedPath);
+  return selectedPath;
+}
+
+/**
+ * Create a new .astro database directory as a macOS package bundle
+ */
+export async function createDatabaseFile(): Promise<string | null> {
+  const result = await dialog.showSaveDialog({
+    title: 'Create Astrolabe Database',
+    buttonLabel: 'Create',
+    defaultPath: 'MyDatabase.astro',
+    message: 'Create a new .astro database directory'
+  });
+
+  if (result.canceled || !result.filePath) {
+    return null;
+  }
+
+  let selectedPath = result.filePath;
+
+  // Ensure .astro extension
+  if (!selectedPath.endsWith('.astro')) {
+    selectedPath += '.astro';
+  }
+
+  // Create the directory if it doesn't exist
+  if (!fs.existsSync(selectedPath)) {
+    fs.mkdirSync(selectedPath, { recursive: true });
+
+    // Create Info.plist to make it a macOS package bundle
+    const plistContent = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>com.astrolabe.database</string>
+    <key>CFBundleName</key>
+    <string>Astrolabe Database</string>
+    <key>CFBundlePackageType</key>
+    <string>BNDL</string>
+</dict>
+</plist>`;
+
+    const plistPath = path.join(selectedPath, 'Info.plist');
+    fs.writeFileSync(plistPath, plistContent, 'utf8');
+  }
+
+  setDataDirectory(selectedPath);
+  return selectedPath;
+}
+
