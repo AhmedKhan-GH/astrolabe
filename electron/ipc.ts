@@ -7,6 +7,16 @@ import crypto from 'crypto';
 import { getDataDirectory, promptForDataDirectory, resetDataDirectory } from './settings';
 import { FileTreeOperations } from '../src/db/FileTreeOperations';
 
+/**
+ * Constructs full file path from hash and filename
+ * Structure: data/files/{hash}/{filename}
+ */
+function getFilePathFromHash(hash: string, filename: string): string {
+  const dataDir = getDataDirectory();
+  const filesDir = path.join(dataDir, 'files');
+  return path.join(filesDir, hash, filename);
+}
+
 export function setupIpcHandlers() {
   ipcMain.handle('selectAndUploadFiles', async () => {
     const result = await dialog.showOpenDialog({
@@ -56,11 +66,17 @@ export function setupIpcHandlers() {
 
       const filename = path.basename(filePath);
 
-      // Generate unique filename to avoid collisions
+      // Generate hash for folder name
       const hash = crypto.randomBytes(8).toString('hex');
-      const ext = path.extname(filePath);
-      const storedFilename = `${hash}${ext}`;
-      const storedPath = path.join(filesDir, storedFilename);
+      const hashDir = path.join(filesDir, hash);
+
+      // Create hash directory
+      if (!fs.existsSync(hashDir)) {
+        fs.mkdirSync(hashDir, { recursive: true });
+      }
+
+      // Store file with original filename inside hash directory
+      const storedPath = path.join(hashDir, filename);
 
       // Copy file to storage
       fs.copyFileSync(filePath, storedPath);
@@ -68,9 +84,11 @@ export function setupIpcHandlers() {
       try {
         // Use importFile to handle duplicates with user confirmation
         // folderId = 0 means root, folderId > 0 means specific folder
+        // Store only the hash as path (hashDir contains: file, thumbnail, metadata, etc)
+        const ext = path.extname(filePath);
         const result = await fileOps.importFile(
           filename,
-          storedPath,
+          hash,  // Store only hash path
           ext ? ext.slice(1) : null,
           folderId !== undefined ? folderId : 0,
           async (existingFile) => {
@@ -85,7 +103,7 @@ export function setupIpcHandlers() {
               defaultId: 1,
               title: 'File Already Exists',
               message: `File "${filename}" already exists in the database.`,
-              detail: `Existing file:\n• Path: ${existingFile.path}\n• Added: ${addedDate}\n\nDo you want to update the existing file entry with the new path and add it to this location?`
+              detail: `Existing file:\n• Hash: ${existingFile.path}\n• Added: ${addedDate}\n\nDo you want to update the existing file entry with the new path and add it to this location?`
             });
             return response.response === 1; // 1 = Update button
           }
@@ -102,9 +120,16 @@ export function setupIpcHandlers() {
           detail: error instanceof Error ? error.message : String(error)
         });
 
-        // Clean up the copied file since import failed
+        // Clean up the copied file and hash directory since import failed
         if (fs.existsSync(storedPath)) {
           fs.unlinkSync(storedPath);
+        }
+        if (fs.existsSync(hashDir)) {
+          try {
+            fs.rmdirSync(hashDir);
+          } catch (error) {
+            console.error('Error cleaning up hash directory:', error);
+          }
         }
       }
     }
@@ -176,9 +201,22 @@ export function setupIpcHandlers() {
     // Get file info first to delete physical file
     const file = await fileOps.deleteFile(fileId);
     if (file && file.path) {
-      // Delete physical file
-      if (fs.existsSync(file.path)) {
-        fs.unlinkSync(file.path);
+      // Construct hash directory path from stored hash
+      const dataDir = getDataDirectory();
+      const filesDir = path.join(dataDir, 'files');
+      const hashDir = path.join(filesDir, file.path);
+
+      // Delete entire hash directory (contains file, thumbnail, metadata, etc)
+      if (fs.existsSync(hashDir)) {
+        try {
+          const files = fs.readdirSync(hashDir);
+          for (const f of files) {
+            fs.unlinkSync(path.join(hashDir, f));
+          }
+          fs.rmdirSync(hashDir);
+        } catch (error) {
+          console.error('Error deleting hash directory:', error);
+        }
       }
     }
 
