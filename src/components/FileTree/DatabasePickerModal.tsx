@@ -8,6 +8,7 @@ interface DatabasePickerModalProps {
 export default function DatabasePickerModal({ onSelect, onClose }: DatabasePickerModalProps) {
   const [databases, setDatabases] = useState<string[]>([])
   const [currentDatabase, setCurrentDatabase] = useState<string | null>(null)
+  const [defaultDatabase, setDefaultDatabase] = useState<string | null>(null)
   const [deleteConfirmDatabase, setDeleteConfirmDatabase] = useState<string | null>(null)
   const [deleteConfirmInput, setDeleteConfirmInput] = useState('')
 
@@ -15,8 +16,14 @@ export default function DatabasePickerModal({ onSelect, onClose }: DatabasePicke
     const loadDatabases = async () => {
       const dbList = await window.electron.getDatabasesList()
       const current = await window.electron.getCurrentDatabase()
-      setDatabases(dbList)
+      const defaultPath = await window.electron.getDefaultDatabasePath()
+
+      // Filter out system default from the list
+      const customDatabases = dbList.filter(db => getDatabaseName(db) !== 'data')
+
+      setDatabases(customDatabases)
       setCurrentDatabase(current)
+      setDefaultDatabase(defaultPath)
     }
     loadDatabases()
   }, [])
@@ -59,15 +66,6 @@ export default function DatabasePickerModal({ onSelect, onClose }: DatabasePicke
       // The IPC handler will reload the window, so onSelect won't be called
     } catch (error) {
       console.error('Failed to switch database:', error)
-    }
-  }
-
-  const handleSwitchToDefault = async () => {
-    try {
-      await window.electron.switchToDefaultDatabase()
-      // The IPC handler will reload the window
-    } catch (error) {
-      console.error('Failed to switch to default database:', error)
     }
   }
 
@@ -178,28 +176,50 @@ export default function DatabasePickerModal({ onSelect, onClose }: DatabasePicke
               className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white text-sm rounded transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
               </svg>
               <span>Import Existing Database</span>
-            </button>
-
-            <button
-              onClick={handleSwitchToDefault}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-700 hover:bg-green-600 text-white text-sm rounded transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
-              <span>Open System Default</span>
             </button>
           </div>
 
           {/* Databases List */}
-          {databases.length > 0 && (
-            <div className="mt-4">
-              <h4 className="text-slate-300 text-sm font-medium mb-2">Databases</h4>
-              <div className="space-y-1 max-h-[300px] overflow-y-auto">
-                {databases.map((dbPath, index) => (
+          <div className="mt-4">
+            <h4 className="text-slate-300 text-sm font-medium mb-2">Databases</h4>
+            <div className="space-y-1 max-h-[300px] overflow-y-auto">
+              {/* System Default Database - Always First */}
+              {defaultDatabase && (
+                <div
+                  className={`relative group rounded text-sm transition-colors ${
+                    defaultDatabase === currentDatabase
+                      ? 'bg-green-600/30 border border-green-500/60 text-green-200'
+                      : 'bg-green-700/20 border border-green-600/30 text-green-300 hover:bg-green-700/30'
+                  }`}
+                >
+                  <button
+                    onClick={() => handleSwitchToDatabase(defaultDatabase)}
+                    disabled={defaultDatabase === currentDatabase}
+                    className="w-full flex items-center gap-2 px-3 py-2 pr-10 text-left cursor-pointer disabled:cursor-default"
+                    title={defaultDatabase}
+                  >
+                    <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                    </svg>
+                    <span className="truncate flex-1">System Default</span>
+                  </button>
+                  <button
+                    onClick={(e) => handleDeleteDatabase(defaultDatabase, e)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-600/30 transition-all z-10"
+                    title="Reset default database"
+                  >
+                    <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+
+              {/* Custom Databases */}
+              {databases.map((dbPath, index) => (
                   <div
                     key={index}
                     className={`relative group rounded text-sm transition-colors ${
@@ -230,9 +250,8 @@ export default function DatabasePickerModal({ onSelect, onClose }: DatabasePicke
                     </button>
                   </div>
                 ))}
-              </div>
             </div>
-          )}
+          </div>
         </div>
 
         <div className="px-4 py-3 border-t border-slate-600 flex justify-end">

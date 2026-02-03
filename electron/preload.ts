@@ -23,6 +23,7 @@ const electronAPI = {
   getDatabaseHealth: () => ipcRenderer.invoke('getDatabaseHealth'),
   getDatabasesList: () => ipcRenderer.invoke('getDatabasesList'),
   getCurrentDatabase: () => ipcRenderer.invoke('getCurrentDatabase'),
+  getDefaultDatabasePath: () => ipcRenderer.invoke('getDefaultDatabasePath'),
   switchToDatabase: (dbPath: string) => ipcRenderer.invoke('switchToDatabase', dbPath),
   switchToDefaultDatabase: () => ipcRenderer.invoke('switchToDefaultDatabase'),
   deleteDatabase: (dbPath: string) => ipcRenderer.invoke('deleteDatabase', dbPath),

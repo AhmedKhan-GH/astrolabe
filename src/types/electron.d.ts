@@ -28,6 +28,7 @@ export interface ElectronAPI {
   }>;
   getDatabasesList: () => Promise<string[]>;
   getCurrentDatabase: () => Promise<string | null>;
+  getDefaultDatabasePath: () => Promise<string>;
   switchToDatabase: (dbPath: string) => Promise<string>;
   switchToDefaultDatabase: () => Promise<string>;
   deleteDatabase: (dbPath: string) => Promise<void>;

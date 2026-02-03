@@ -5,7 +5,7 @@ import { getMainWindow } from './main';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { getDataDirectory, promptForDataDirectory, resetDataDirectory, selectDatabaseFile, createDatabaseFile, getDatabasesList, getCurrentDatabase, setDataDirectory, resetToDefaultDatabase, deleteDatabase } from './settings';
+import { getDataDirectory, promptForDataDirectory, resetDataDirectory, selectDatabaseFile, createDatabaseFile, getDatabasesList, getCurrentDatabase, setDataDirectory, resetToDefaultDatabase, deleteDatabase, getDefaultDatabasePath } from './settings';
 import { FileTreeOperations } from '../src/db/FileTreeOperations';
 
 /**
@@ -426,6 +426,10 @@ export function setupIpcHandlers() {
 
   ipcMain.handle('getCurrentDatabase', () => {
     return getCurrentDatabase();
+  });
+
+  ipcMain.handle('getDefaultDatabasePath', () => {
+    return getDefaultDatabasePath();
   });
 
   ipcMain.handle('switchToDatabase', async (_, dbPath: string) => {
