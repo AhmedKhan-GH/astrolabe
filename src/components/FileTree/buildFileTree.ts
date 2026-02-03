@@ -31,7 +31,8 @@ export function buildFileTree(folders: Folder[], files: File[]): TreeNode[] {
     const fileNode: TreeNode = {
       id: `file-${file.id}`,
       name: file.filename,
-      type: 'file'
+      type: 'file',
+      storageType: (file.fileStorageType || 'import') as 'import' | 'reference'
     }
 
     if (file.folderIds) {

@@ -13,6 +13,7 @@ export const files = sqliteTable('files', {
   path: text('path').notNull(),
   filetype: text('filetype'),
   folderIds: text('folder_ids'), // JSON array: [1, 2, 3]
+  fileStorageType: text('file_storage_type').notNull().default('import'), // 'import' or 'reference'
   addedAt: integer('added_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
 });
 

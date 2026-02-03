@@ -1,4 +1,5 @@
 import { type TreeNode } from './FileTreeView'
+import { FilledDocumentIcon, OutlinedDocumentIcon, DatabaseBadge, LinkBadge, FolderIconLarge } from '../icons/FileIcons'
 
 interface FileTreeNodeProps {
   node: TreeNode
@@ -70,13 +71,29 @@ export default function FileTreeNode({ node, level, onNodeClick, onNodeContextMe
 
         {/* File/folder icon */}
         {isFolder ? (
-          <svg className="w-4 h-4 mr-2 text-slate-400 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-          </svg>
+          <div className="mr-2 flex-shrink-0">
+            <FolderIconLarge />
+          </div>
         ) : (
-          <svg className="w-4 h-4 mr-2 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-          </svg>
+          <div className="relative mr-2 flex-shrink-0">
+            {node.storageType === 'import' ? (
+              // Imported file: filled document with database badge
+              <>
+                <FilledDocumentIcon />
+                <div className="absolute -bottom-0.5 -right-0.5 bg-slate-800 rounded-full p-px">
+                  <DatabaseBadge />
+                </div>
+              </>
+            ) : (
+              // Referenced file: outlined document with link badge
+              <>
+                <OutlinedDocumentIcon />
+                <div className="absolute -bottom-0.5 -right-0.5 bg-slate-800 rounded-full p-px">
+                  <LinkBadge />
+                </div>
+              </>
+            )}
+          </div>
         )}
 
         <span className="text-slate-200 truncate">{node.name}</span>

@@ -161,7 +161,8 @@ export class FileTreeOperations {
     filename: string,
     path: string,
     filetype: string | null,
-    folderIds: number[] = []
+    folderIds: number[] = [],
+    storageType: 'import' | 'reference' = 'import'
   ): Promise<schema.File> {
     // Validate and deduplicate folder IDs
     const validatedFolderIds = await this.validateAndDeduplicateFolderIds(folderIds);
@@ -171,6 +172,7 @@ export class FileTreeOperations {
       path,
       filetype,
       folderIds: validatedFolderIds.length > 0 ? JSON.stringify(validatedFolderIds) : null,
+      fileStorageType: storageType,
     }).returning();
 
     return inserted[0];
@@ -192,7 +194,7 @@ export class FileTreeOperations {
   }
 
   /**
-   * Imports a file by checking if a file with the same name exists
+   * Imports a file by checking if a file with the same name and storage type exists
    * If it exists, prompts user and updates the existing file entry
    * Returns: { isUpdate: boolean, file: File, existingFile?: File }
    * Note: folderId = 0 means root, folderId > 0 means specific folder
@@ -202,10 +204,11 @@ export class FileTreeOperations {
     path: string,
     filetype: string | null,
     folderId: number,
-    confirmCallback: (existingFile: schema.File) => Promise<boolean>
+    confirmCallback: (existingFile: schema.File) => Promise<boolean>,
+    storageType: 'import' | 'reference' = 'import'
   ): Promise<{ isUpdate: boolean; file: schema.File; existingFile?: schema.File }> {
-    // Check if file with same name already exists
-    const existingFile = await this.getFileByFilename(filename);
+    // Check if file with same name AND storage type already exists
+    const existingFile = await this.getFileByFilenameAndStorageType(filename, storageType);
 
     if (existingFile) {
       // Check if file already exists in this specific folder or root
@@ -213,6 +216,7 @@ export class FileTreeOperations {
 
       console.log('[importFile] Checking duplicate:', {
         filename,
+        storageType,
         folderId,
         existingFolderIds: folderIds,
         folderIdsLength: folderIds.length
@@ -230,11 +234,12 @@ export class FileTreeOperations {
         throw new Error('Import cancelled by user');
       }
 
-      // Update existing file's path and filetype
+      // Update existing file's path, filetype, and storage type
       await this.db.update(schema.files)
         .set({
           path,
-          filetype
+          filetype,
+          fileStorageType: storageType
         })
         .where(eq(schema.files.id, existingFile.id));
 
@@ -252,7 +257,7 @@ export class FileTreeOperations {
     }
 
     // No existing file - create new one
-    const newFile = await this.createFile(filename, path, filetype, [folderId]);
+    const newFile = await this.createFile(filename, path, filetype, [folderId], storageType);
 
     return {
       isUpdate: false,
@@ -377,6 +382,17 @@ export class FileTreeOperations {
       .where(eq(schema.files.filename, filename))
       .limit(1);
     return result[0];
+  }
+
+  private async getFileByFilenameAndStorageType(
+    filename: string,
+    storageType: 'import' | 'reference'
+  ): Promise<schema.File | undefined> {
+    const allFiles = await this.db.select().from(schema.files)
+      .where(eq(schema.files.filename, filename));
+
+    // Filter by storage type
+    return allFiles.find(file => file.fileStorageType === storageType);
   }
 
   // ============ Query Methods ============

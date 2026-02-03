@@ -1,0 +1,1 @@
+ALTER TABLE `files` ADD `file_storage_type` text DEFAULT 'import' NOT NULL;

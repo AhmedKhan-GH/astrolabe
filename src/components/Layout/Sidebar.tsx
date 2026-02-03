@@ -28,7 +28,8 @@ function Sidebar({ isOpen }: SidebarProps) {
   const [allFolders, setAllFolders] = useState<Folder[]>([])
   const [allFiles, setAllFiles] = useState<File[]>([])
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
-  const [showUploadPicker, setShowUploadPicker] = useState(false)
+  const [showImportPicker, setShowImportPicker] = useState(false)
+  const [showReferencePicker, setShowReferencePicker] = useState(false)
   const [showNewFolderPicker, setShowNewFolderPicker] = useState(false)
 
   const loadTreeData = useCallback(async () => {
@@ -171,23 +172,43 @@ function Sidebar({ isOpen }: SidebarProps) {
   }
 
 
-  const handleUploadFile = async () => {
-    setShowUploadPicker(true)
+  const handleImportFile = async () => {
+    setShowImportPicker(true)
   }
 
-  const handleUploadToFolder = async (folderId: number) => {
-    setShowUploadPicker(false)
+  const handleImportToFolder = async (folderId: number) => {
+    setShowImportPicker(false)
     try {
       if (folderId === 0) {
-        await window.electron.selectAndUploadFiles()
+        await window.electron.selectAndImportFiles()
       } else {
-        await window.electron.selectAndUploadFilesToFolder(folderId)
+        await window.electron.selectAndImportFilesToFolder(folderId)
         // Expand the folder to show the newly added file
         setExpandedNodes(prev => new Set(prev).add(`folder-${folderId}`))
       }
       await loadTreeData()
     } catch (error) {
-      console.error('Failed to upload files:', error)
+      console.error('Failed to import files:', error)
+    }
+  }
+
+  const handleReferenceFile = async () => {
+    setShowReferencePicker(true)
+  }
+
+  const handleReferenceToFolder = async (folderId: number) => {
+    setShowReferencePicker(false)
+    try {
+      if (folderId === 0) {
+        await window.electron.selectAndReferenceFiles()
+      } else {
+        await window.electron.selectAndReferenceFilesToFolder(folderId)
+        // Expand the folder to show the newly added file
+        setExpandedNodes(prev => new Set(prev).add(`folder-${folderId}`))
+      }
+      await loadTreeData()
+    } catch (error) {
+      console.error('Failed to reference files:', error)
     }
   }
 
@@ -212,16 +233,33 @@ function Sidebar({ isOpen }: SidebarProps) {
     console.log('handleAddFileToFolder called with folderId:', folderId)
     setContextMenu(null)
     try {
-      console.log('Calling selectAndUploadFilesToFolder...')
-      const result = await window.electron.selectAndUploadFilesToFolder(folderId)
-      console.log('Upload result:', result)
+      console.log('Calling selectAndImportFilesToFolder...')
+      const result = await window.electron.selectAndImportFilesToFolder(folderId)
+      console.log('Import result:', result)
 
       // Expand the folder to show the newly added file
       setExpandedNodes(prev => new Set(prev).add(`folder-${folderId}`))
 
       await loadTreeData()
     } catch (error) {
-      console.error('Failed to upload files:', error)
+      console.error('Failed to import files:', error)
+    }
+  }
+
+  const handleReferenceFileToFolder = async (folderId: number) => {
+    console.log('handleReferenceFileToFolder called with folderId:', folderId)
+    setContextMenu(null)
+    try {
+      console.log('Calling selectAndReferenceFilesToFolder...')
+      const result = await window.electron.selectAndReferenceFilesToFolder(folderId)
+      console.log('Reference result:', result)
+
+      // Expand the folder to show the newly added file
+      setExpandedNodes(prev => new Set(prev).add(`folder-${folderId}`))
+
+      await loadTreeData()
+    } catch (error) {
+      console.error('Failed to reference files:', error)
     }
   }
 
@@ -268,8 +306,8 @@ function Sidebar({ isOpen }: SidebarProps) {
       className="bg-slate-800 border-r border-slate-700 flex"
       style={{ width: `${width}px` }}
     >
-      <div className="flex-1 overflow-y-auto p-4">
-        <DirectoryHeader onUploadFile={handleUploadFile} onCreateFolder={handleCreateFolder} />
+      <div className="flex-1 overflow-y-auto px-2 py-4">
+        <DirectoryHeader onUploadFile={handleImportFile} onReferenceFile={handleReferenceFile} onCreateFolder={handleCreateFolder} />
 
         {showFolderInput && (
           <FolderInputForm
@@ -293,18 +331,29 @@ function Sidebar({ isOpen }: SidebarProps) {
             onAddTo={contextMenu.node.type === 'file' ? handleAddTo : undefined}
             onAddFolder={contextMenu.node.type === 'folder' ? handleAddFolderToParent : undefined}
             onAddFile={contextMenu.node.type === 'folder' ? handleAddFileToFolder : undefined}
+            onReferenceFile={contextMenu.node.type === 'folder' ? handleReferenceFileToFolder : undefined}
             onDelete={handleDeleteNode}
             onClose={() => setContextMenu(null)}
           />
         )}
 
-        {/* Upload file picker modal */}
-        {showUploadPicker && (
+        {/* Import file picker modal */}
+        {showImportPicker && (
           <FolderPickerModal
             allFolders={allFolders}
             showRoot={true}
-            onSelect={handleUploadToFolder}
-            onClose={() => setShowUploadPicker(false)}
+            onSelect={handleImportToFolder}
+            onClose={() => setShowImportPicker(false)}
+          />
+        )}
+
+        {/* Reference file picker modal */}
+        {showReferencePicker && (
+          <FolderPickerModal
+            allFolders={allFolders}
+            showRoot={true}
+            onSelect={handleReferenceToFolder}
+            onClose={() => setShowReferencePicker(false)}
           />
         )}
 

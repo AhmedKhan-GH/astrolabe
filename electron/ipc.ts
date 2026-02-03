@@ -18,7 +18,8 @@ function getFilePathFromHash(hash: string, filename: string): string {
 }
 
 export function setupIpcHandlers() {
-  ipcMain.handle('selectAndUploadFiles', async () => {
+
+  ipcMain.handle('selectAndImportFiles', async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openFile', 'multiSelections'],
       filters: [
@@ -30,10 +31,10 @@ export function setupIpcHandlers() {
       return [];
     }
 
-    return uploadFiles(result.filePaths);
+    return importFiles(result.filePaths);
   });
 
-  ipcMain.handle('selectAndUploadFilesToFolder', async (_, folderId: number) => {
+  ipcMain.handle('selectAndImportFilesToFolder', async (_, folderId: number) => {
     const result = await dialog.showOpenDialog({
       properties: ['openFile', 'multiSelections'],
       filters: [
@@ -45,10 +46,40 @@ export function setupIpcHandlers() {
       return [];
     }
 
-    return uploadFiles(result.filePaths, folderId);
+    return importFiles(result.filePaths, folderId);
   });
 
-  async function uploadFiles(filePaths: string[], folderId?: number) {
+  ipcMain.handle('selectAndReferenceFiles', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        { name: 'PDF Files', extensions: ['pdf'] }
+      ]
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return [];
+    }
+
+    return referenceFiles(result.filePaths);
+  });
+
+  ipcMain.handle('selectAndReferenceFilesToFolder', async (_, folderId: number) => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        { name: 'PDF Files', extensions: ['pdf'] }
+      ]
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return [];
+    }
+
+    return referenceFiles(result.filePaths, folderId);
+  });
+
+  async function importFiles(filePaths: string[], folderId?: number) {
     const db = getDatabase();
     const fileOps = new FileTreeOperations(db);
 
@@ -60,7 +91,7 @@ export function setupIpcHandlers() {
       fs.mkdirSync(filesDir, { recursive: true });
     }
 
-    const uploadedFiles = [];
+    const importedFiles = [];
 
     for (const filePath of filePaths) {
 
@@ -109,7 +140,7 @@ export function setupIpcHandlers() {
           }
         );
 
-        uploadedFiles.push(result.file);
+        importedFiles.push(result.file);
       } catch (error) {
         // Show error dialog to user
         await dialog.showMessageBox({
@@ -134,7 +165,59 @@ export function setupIpcHandlers() {
       }
     }
 
-    return uploadedFiles;
+    return importedFiles;
+  }
+
+  async function referenceFiles(filePaths: string[], folderId?: number) {
+    const db = getDatabase();
+    const fileOps = new FileTreeOperations(db);
+
+    const referencedFiles = [];
+
+    for (const filePath of filePaths) {
+      const filename = path.basename(filePath);
+      const ext = path.extname(filePath);
+
+      try {
+        // Store full system path as reference
+        const result = await fileOps.importFile(
+          filename,
+          filePath,  // Store full system path
+          ext ? ext.slice(1) : null,
+          folderId !== undefined ? folderId : 0,
+          async (existingFile) => {
+            // Show confirmation dialog to user with details about existing file
+            const addedDate = existingFile.addedAt
+              ? new Date(existingFile.addedAt).toLocaleString()
+              : 'Unknown';
+
+            const response = await dialog.showMessageBox({
+              type: 'question',
+              buttons: ['Cancel', 'Update'],
+              defaultId: 1,
+              title: 'File Already Exists',
+              message: `File "${filename}" already exists in the database.`,
+              detail: `Existing file:\n• Path: ${existingFile.path}\n• Added: ${addedDate}\n\nDo you want to update the existing file entry with the new path and add it to this location?`
+            });
+            return response.response === 1; // 1 = Update button
+          },
+          'reference'  // Mark as reference type
+        );
+
+        referencedFiles.push(result.file);
+      } catch (error) {
+        // Show error dialog to user
+        await dialog.showMessageBox({
+          type: 'error',
+          buttons: ['OK'],
+          title: 'Reference Failed',
+          message: `Failed to reference "${filename}"`,
+          detail: error instanceof Error ? error.message : String(error)
+        });
+      }
+    }
+
+    return referencedFiles;
   }
 
   ipcMain.handle('getAllFiles', async () => {

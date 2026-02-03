@@ -13,6 +13,7 @@ interface ContextMenuProps {
   onAddTo?: (folderId: number) => void
   onAddFolder?: (parentFolderId: number) => void
   onAddFile?: (folderId: number) => void
+  onReferenceFile?: (folderId: number) => void
   onDelete: () => void
   onClose: () => void
 }
@@ -26,6 +27,7 @@ export default function ContextMenu({
   onAddTo,
   onAddFolder,
   onAddFile,
+  onReferenceFile,
   onDelete,
   onClose
 }: ContextMenuProps) {
@@ -89,6 +91,19 @@ export default function ContextMenu({
             className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600"
           >
             Import File
+          </button>
+        )}
+        {node.type === 'folder' && onReferenceFile && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              const folderId = parseInt(node.id.replace('folder-', ''))
+              console.log('Reference File clicked for folder:', folderId)
+              onReferenceFile(folderId)
+            }}
+            className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600"
+          >
+            Reference File
           </button>
         )}
         <div className="h-px bg-slate-600 my-1" />

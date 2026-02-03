@@ -1,8 +1,10 @@
 import type { File } from '../db/schema';
 
 export interface ElectronAPI {
-  selectAndUploadFiles: () => Promise<File[]>;
-  selectAndUploadFilesToFolder: (folderId: number) => Promise<File[]>;
+  selectAndImportFiles: () => Promise<File[]>;
+  selectAndImportFilesToFolder: (folderId: number) => Promise<File[]>;
+  selectAndReferenceFiles: () => Promise<File[]>;
+  selectAndReferenceFilesToFolder: (folderId: number) => Promise<File[]>;
   getAllFiles: () => Promise<File[]>;
   getAllFolders: () => Promise<any[]>;
   createFolder: (name: string, parentId?: number) => Promise<any>;

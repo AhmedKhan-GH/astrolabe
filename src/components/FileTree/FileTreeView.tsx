@@ -4,6 +4,7 @@ export interface TreeNode {
   id: string
   name: string
   type: 'file' | 'folder'
+  storageType?: 'import' | 'reference' // Only for files
   children?: TreeNode[]
 }
 
