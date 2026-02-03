@@ -25,6 +25,7 @@ const electronAPI = {
   getCurrentDatabase: () => ipcRenderer.invoke('getCurrentDatabase'),
   switchToDatabase: (dbPath: string) => ipcRenderer.invoke('switchToDatabase', dbPath),
   switchToDefaultDatabase: () => ipcRenderer.invoke('switchToDefaultDatabase'),
+  deleteDatabase: (dbPath: string) => ipcRenderer.invoke('deleteDatabase', dbPath),
 };
 
 contextBridge.exposeInMainWorld('electron', electronAPI);

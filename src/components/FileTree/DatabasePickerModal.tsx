@@ -89,12 +89,20 @@ export default function DatabasePickerModal({ onSelect, onClose }: DatabasePicke
     if (deleteConfirmInput !== dbName) return
 
     try {
+      const wasCurrentDatabase = deleteConfirmDatabase === currentDatabase
       await window.electron.deleteDatabase(deleteConfirmDatabase)
       setDeleteConfirmDatabase(null)
       setDeleteConfirmInput('')
-      // Reload databases list
-      const dbList = await window.electron.getDatabasesList()
-      setDatabases(dbList)
+
+      // If we deleted the current database, switch to system default
+      if (wasCurrentDatabase) {
+        await window.electron.switchToDefaultDatabase()
+        // Window will reload, so no need to update local state
+      } else {
+        // Reload databases list
+        const dbList = await window.electron.getDatabasesList()
+        setDatabases(dbList)
+      }
     } catch (error) {
       console.error('Failed to delete database:', error)
     }
@@ -125,6 +133,7 @@ export default function DatabasePickerModal({ onSelect, onClose }: DatabasePicke
             type="text"
             value={deleteConfirmInput}
             onChange={(e) => setDeleteConfirmInput(e.target.value)}
+            onPaste={(e) => e.preventDefault()}
             className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm focus:outline-none focus:border-red-500 mb-4"
             placeholder="Type database name"
             autoFocus
@@ -191,31 +200,31 @@ export default function DatabasePickerModal({ onSelect, onClose }: DatabasePicke
               <h4 className="text-slate-300 text-sm font-medium mb-2">Databases</h4>
               <div className="space-y-1 max-h-[300px] overflow-y-auto">
                 {databases.map((dbPath, index) => (
-                  <div key={index} className="relative group">
+                  <div
+                    key={index}
+                    className={`relative group rounded text-sm transition-colors ${
+                      dbPath === currentDatabase
+                        ? 'bg-blue-600/20 border border-blue-500/50 text-blue-300'
+                        : 'bg-slate-700/50 hover:bg-slate-700 text-slate-300 hover:text-white'
+                    }`}
+                  >
                     <button
                       onClick={() => handleSwitchToDatabase(dbPath)}
                       disabled={dbPath === currentDatabase}
-                      className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm text-left transition-colors ${
-                        dbPath === currentDatabase
-                          ? 'bg-blue-600/20 border border-blue-500/50 text-blue-300 cursor-default'
-                          : 'bg-slate-700/50 hover:bg-slate-700 text-slate-300 hover:text-white cursor-pointer'
-                      }`}
+                      className="w-full flex items-center gap-2 px-3 py-2 pr-10 text-left cursor-pointer disabled:cursor-default"
                       title={dbPath}
                     >
                       <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
                       </svg>
                       <span className="truncate flex-1">{getDatabaseName(dbPath)}</span>
-                      {dbPath === currentDatabase && (
-                        <span className="text-xs text-blue-400 flex-shrink-0">Active</span>
-                      )}
                     </button>
                     <button
                       onClick={(e) => handleDeleteDatabase(dbPath, e)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-600/20 transition-opacity"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-600/30 transition-all z-10"
                       title="Delete database"
                     >
-                      <svg className="w-4 h-4 text-red-400 hover:text-red-300" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
                     </button>

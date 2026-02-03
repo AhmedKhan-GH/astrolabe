@@ -5,7 +5,7 @@ import { getMainWindow } from './main';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { getDataDirectory, promptForDataDirectory, resetDataDirectory, selectDatabaseFile, createDatabaseFile, getDatabasesList, getCurrentDatabase, setDataDirectory, resetToDefaultDatabase } from './settings';
+import { getDataDirectory, promptForDataDirectory, resetDataDirectory, selectDatabaseFile, createDatabaseFile, getDatabasesList, getCurrentDatabase, setDataDirectory, resetToDefaultDatabase, deleteDatabase } from './settings';
 import { FileTreeOperations } from '../src/db/FileTreeOperations';
 
 /**
@@ -472,6 +472,12 @@ export function setupIpcHandlers() {
     }, 100);
 
     return defaultPath;
+  });
+
+  ipcMain.handle('deleteDatabase', async (_, dbPath: string) => {
+    console.log('[IPC] deleteDatabase called with:', dbPath);
+    deleteDatabase(dbPath);
+    console.log('[IPC] Database deleted');
   });
 
   console.log('IPC handlers ready');

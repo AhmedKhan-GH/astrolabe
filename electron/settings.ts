@@ -245,3 +245,38 @@ export async function createDatabaseFile(): Promise<string | null> {
   return selectedPath;
 }
 
+/**
+ * Delete a database from the list and optionally delete its files
+ * If it's the system default, reset it instead of deleting
+ */
+export function deleteDatabase(dbPath: string): void {
+  const defaultPath = getDefaultDatabasePath();
+
+  // If deleting system default, just reset it
+  if (dbPath === defaultPath || path.basename(dbPath) === 'data') {
+    // Remove all contents from the data directory
+    if (fs.existsSync(dbPath)) {
+      const files = fs.readdirSync(dbPath);
+      for (const file of files) {
+        const filePath = path.join(dbPath, file);
+        const stat = fs.statSync(filePath);
+        if (stat.isDirectory()) {
+          fs.rmSync(filePath, { recursive: true, force: true });
+        } else {
+          fs.unlinkSync(filePath);
+        }
+      }
+    }
+  } else {
+    // Delete the database file/directory
+    if (fs.existsSync(dbPath)) {
+      fs.rmSync(dbPath, { recursive: true, force: true });
+    }
+
+    // Remove from databases list
+    const databases = getDatabasesList();
+    const filtered = databases.filter(db => db !== dbPath);
+    store.set('databases', filtered);
+  }
+}
+
