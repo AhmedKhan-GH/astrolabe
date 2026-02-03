@@ -377,12 +377,6 @@ export class FileTreeOperations {
     return result[0];
   }
 
-  private async getFileByFilename(filename: string): Promise<schema.File | undefined> {
-    const result = await this.db.select().from(schema.files)
-      .where(eq(schema.files.filename, filename))
-      .limit(1);
-    return result[0];
-  }
 
   private async getFileByFilenameAndStorageType(
     filename: string,
