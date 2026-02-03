@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import DatabasePickerModal from '../FileTree/DatabasePickerModal'
 
 interface HeaderProps {
@@ -7,6 +7,15 @@ interface HeaderProps {
 
 function Header({ onToggleSidebar }: HeaderProps) {
   const [showDatabasePicker, setShowDatabasePicker] = useState(false)
+  const [currentDatabase, setCurrentDatabase] = useState<string | null>(null)
+
+  useEffect(() => {
+    const loadCurrentDatabase = async () => {
+      const current = await window.electron.getCurrentDatabase()
+      setCurrentDatabase(current)
+    }
+    loadCurrentDatabase()
+  }, [])
 
   const handleDatabaseSelect = async (dbPath: string) => {
     console.log('Selected database:', dbPath)
@@ -15,17 +24,23 @@ function Header({ onToggleSidebar }: HeaderProps) {
     window.location.reload()
   }
 
+  const getDatabaseName = (dbPath: string | null) => {
+    if (!dbPath) return 'Database'
+    // Extract filename from path (works cross-platform)
+    return dbPath.split(/[\\/]/).pop() || 'Database'
+  }
+
   return (
     <>
       <div className="flex items-center justify-between gap-2 p-2 bg-slate-800 border-b border-slate-700">
         <div className="flex gap-2">
           <button
             onClick={onToggleSidebar}
-            className="flex items-center gap-1 px-1.5 py-1 rounded border border-slate-600 text-slate-300 hover:bg-slate-700/50 hover:text-white transition-colors"
+            className="flex items-center gap-1 px-3 py-1 rounded border border-slate-600 text-slate-300 hover:bg-slate-700/50 hover:text-white transition-colors"
             title="Toggle sidebar"
           >
             <svg
-              className="w-3 h-3"
+              className="w-4 h-4"
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
@@ -44,12 +59,12 @@ function Header({ onToggleSidebar }: HeaderProps) {
         <button
           onClick={() => setShowDatabasePicker(true)}
           className="flex items-center gap-2 px-3 py-1 rounded border border-slate-600 text-slate-300 hover:bg-slate-700/50 hover:text-white transition-colors"
-          title="Select or create database"
+          title={currentDatabase ? `Current database: ${currentDatabase}` : "Select or create database"}
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
           </svg>
-          <span className="text-sm">Database</span>
+          <span className="text-sm">{getDatabaseName(currentDatabase)}</span>
         </button>
       </div>
 

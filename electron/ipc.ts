@@ -5,7 +5,7 @@ import { getMainWindow } from './main';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { getDataDirectory, promptForDataDirectory, resetDataDirectory, selectDatabaseFile, createDatabaseFile } from './settings';
+import { getDataDirectory, promptForDataDirectory, resetDataDirectory, selectDatabaseFile, createDatabaseFile, getDatabasesList, getCurrentDatabase, setDataDirectory, resetToDefaultDatabase } from './settings';
 import { FileTreeOperations } from '../src/db/FileTreeOperations';
 
 /**
@@ -418,6 +418,60 @@ export function setupIpcHandlers() {
       exists,
       isConnected
     };
+  });
+
+  ipcMain.handle('getDatabasesList', () => {
+    return getDatabasesList();
+  });
+
+  ipcMain.handle('getCurrentDatabase', () => {
+    return getCurrentDatabase();
+  });
+
+  ipcMain.handle('switchToDatabase', async (_, dbPath: string) => {
+    console.log('[IPC] switchToDatabase called with:', dbPath);
+    setDataDirectory(dbPath);
+
+    // Reinitialize database with new path
+    reinitDatabase();
+
+    // Reload the window after a small delay to ensure database is ready
+    console.log('[IPC] Setting timeout for window reload...');
+    setTimeout(() => {
+      const mainWindow = getMainWindow();
+      console.log('[IPC] mainWindow:', mainWindow ? 'exists' : 'null');
+      if (mainWindow) {
+        console.log('[IPC] Reloading window with new database');
+        mainWindow.webContents.reloadIgnoringCache();
+      } else {
+        console.error('[IPC] mainWindow is null, cannot reload');
+      }
+    }, 100);
+
+    return dbPath;
+  });
+
+  ipcMain.handle('switchToDefaultDatabase', async () => {
+    console.log('[IPC] switchToDefaultDatabase called');
+    const defaultPath = resetToDefaultDatabase();
+
+    // Reinitialize database with default path
+    reinitDatabase();
+
+    // Reload the window after a small delay to ensure database is ready
+    console.log('[IPC] Setting timeout for window reload...');
+    setTimeout(() => {
+      const mainWindow = getMainWindow();
+      console.log('[IPC] mainWindow:', mainWindow ? 'exists' : 'null');
+      if (mainWindow) {
+        console.log('[IPC] Reloading window with default database');
+        mainWindow.webContents.reloadIgnoringCache();
+      } else {
+        console.error('[IPC] mainWindow is null, cannot reload');
+      }
+    }, 100);
+
+    return defaultPath;
   });
 
   console.log('IPC handlers ready');

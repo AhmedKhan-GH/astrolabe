@@ -26,6 +26,10 @@ export interface ElectronAPI {
     exists: boolean;
     isConnected: boolean;
   }>;
+  getDatabasesList: () => Promise<string[]>;
+  getCurrentDatabase: () => Promise<string | null>;
+  switchToDatabase: (dbPath: string) => Promise<string>;
+  switchToDefaultDatabase: () => Promise<string>;
 }
 
 declare global {

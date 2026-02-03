@@ -5,7 +5,7 @@ import * as schema from '../src/db/schema';
 import { app } from 'electron';
 import path from 'path';
 import fs from 'fs';
-import { getDataDirectory } from './settings';
+import { getDataDirectory, addDatabaseToList } from './settings';
 
 let db: BetterSQLite3Database<typeof schema> | null = null;
 let sqlite: Database.Database | null = null;
@@ -24,6 +24,9 @@ export function initDatabase() {
     const dataDir = getDataDirectory();
     const dbPath = path.join(dataDir, 'astrolabe.db');
     console.log('Database path:', dbPath);
+
+    // Add the data directory to the databases list if not already present
+    addDatabaseToList(dataDir);
 
     sqlite = new Database(dbPath);
     // WAL mode disabled - single file database

@@ -21,6 +21,10 @@ const electronAPI = {
   selectDatabaseFile: () => ipcRenderer.invoke('selectDatabaseFile'),
   createDatabaseFile: () => ipcRenderer.invoke('createDatabaseFile'),
   getDatabaseHealth: () => ipcRenderer.invoke('getDatabaseHealth'),
+  getDatabasesList: () => ipcRenderer.invoke('getDatabasesList'),
+  getCurrentDatabase: () => ipcRenderer.invoke('getCurrentDatabase'),
+  switchToDatabase: (dbPath: string) => ipcRenderer.invoke('switchToDatabase', dbPath),
+  switchToDefaultDatabase: () => ipcRenderer.invoke('switchToDefaultDatabase'),
 };
 
 contextBridge.exposeInMainWorld('electron', electronAPI);

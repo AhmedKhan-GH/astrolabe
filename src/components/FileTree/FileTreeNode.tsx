@@ -41,7 +41,7 @@ export default function FileTreeNode({ node, level, onNodeClick, onNodeDoubleCli
     <div className="relative">
       <div
         className="flex items-center py-1.5 hover:bg-slate-700/50 cursor-pointer text-sm relative"
-        style={{ paddingLeft: `${level * 20 + 8}px` }}
+        style={{ paddingLeft: `${level * 20 + 14}px` }}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
         onContextMenu={handleContextMenu}
@@ -51,7 +51,7 @@ export default function FileTreeNode({ node, level, onNodeClick, onNodeDoubleCli
           <div
             key={i}
             className="absolute top-0 bottom-0 w-px bg-slate-600"
-            style={{ left: `${i * 20 + 8 + 8}px` }}
+            style={{ left: `${i * 20 + 14 + 8}px` }}
           />
         ))}
 

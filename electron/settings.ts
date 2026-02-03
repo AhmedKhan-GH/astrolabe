@@ -10,6 +10,7 @@ if (!app.isPackaged) {
 
 interface Settings {
   dataDirectory?: string;
+  databases?: string[];
 }
 
 type StoreType = ElectronStore<Settings> & {
@@ -21,7 +22,8 @@ type StoreType = ElectronStore<Settings> & {
 const store = new ElectronStore<Settings>({
   name: 'settings',
   defaults: {
-    dataDirectory: undefined
+    dataDirectory: undefined,
+    databases: []
   }
 }) as StoreType;
 
@@ -102,6 +104,60 @@ export function resetDataDirectory(): void {
 }
 
 /**
+ * Add a database path to the list if it doesn't already exist
+ */
+export function addDatabaseToList(dbPath: string): void {
+  const databases = store.get('databases') || [];
+  if (!databases.includes(dbPath)) {
+    databases.push(dbPath);
+    store.set('databases', databases);
+  }
+}
+
+/**
+ * Get the list of all databases
+ */
+export function getDatabasesList(): string[] {
+  return store.get('databases') || [];
+}
+
+/**
+ * Get the current database path
+ */
+export function getCurrentDatabase(): string | null {
+  return store.get('dataDirectory') || null;
+}
+
+/**
+ * Get the default system database path (without custom override)
+ */
+export function getDefaultDatabasePath(): string {
+  let dataPath: string;
+  if (!app.isPackaged && process.env.DATA_DIR) {
+    // Development mode with .env override
+    dataPath = path.resolve(app.getAppPath(), process.env.DATA_DIR);
+  } else {
+    // Default location
+    dataPath = path.join(app.getPath('userData'), 'data');
+  }
+
+  // Ensure the directory exists
+  if (!fs.existsSync(dataPath)) {
+    fs.mkdirSync(dataPath, { recursive: true });
+  }
+
+  return dataPath;
+}
+
+/**
+ * Reset to system default database
+ */
+export function resetToDefaultDatabase(): string {
+  store.delete('dataDirectory');
+  return getDefaultDatabasePath();
+}
+
+/**
  * Select an existing .astro database directory
  * Note: On macOS with Info.plist, .astro appears as a package but we select it as a directory
  */
@@ -136,6 +192,7 @@ export async function selectDatabaseFile(): Promise<string | null> {
   }
 
   setDataDirectory(selectedPath);
+  addDatabaseToList(selectedPath);
   return selectedPath;
 }
 
@@ -184,6 +241,7 @@ export async function createDatabaseFile(): Promise<string | null> {
   }
 
   setDataDirectory(selectedPath);
+  addDatabaseToList(selectedPath);
   return selectedPath;
 }
 
