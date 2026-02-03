@@ -4,6 +4,7 @@ export const folders = sqliteTable('folders', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   name: text('name').notNull(),
   parentId: integer('parent_id').notNull().default(0),
+  isExpanded: integer('is_expanded', { mode: 'boolean' }).notNull().default(false),
   createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
 });
 

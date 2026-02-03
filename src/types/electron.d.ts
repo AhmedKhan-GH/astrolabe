@@ -16,6 +16,8 @@ export interface ElectronAPI {
   getDataDirectory: () => Promise<string>;
   chooseDataDirectory: () => Promise<string | null>;
   resetDataDirectory: () => Promise<string>;
+  openFileInDefaultApp: (filePath: string) => Promise<void>;
+  toggleFolderExpanded: (folderId: number) => Promise<void>;
 }
 
 declare global {

@@ -1,4 +1,4 @@
-import { ipcMain, dialog } from 'electron';
+import { ipcMain, dialog, shell } from 'electron';
 import { getDatabase } from './database';
 
 import fs from 'fs';
@@ -327,6 +327,16 @@ export function setupIpcHandlers() {
   ipcMain.handle('resetDataDirectory', () => {
     resetDataDirectory();
     return getDataDirectory();
+  });
+
+  ipcMain.handle('openFileInDefaultApp', async (_, filePath: string) => {
+    await shell.openPath(filePath);
+  });
+
+  ipcMain.handle('toggleFolderExpanded', async (_, folderId: number) => {
+    const db = getDatabase();
+    const fileOps = new FileTreeOperations(db);
+    await fileOps.toggleFolderExpanded(folderId);
   });
 
   console.log('IPC handlers ready');

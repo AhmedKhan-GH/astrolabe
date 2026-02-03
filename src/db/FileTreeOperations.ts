@@ -412,4 +412,15 @@ export class FileTreeOperations {
     }
     return file;
   }
+
+  async toggleFolderExpanded(folderId: number): Promise<void> {
+    const folder = await this.getFolderById(folderId);
+    if (!folder) {
+      throw new Error('Folder not found');
+    }
+
+    await this.db.update(schema.folders)
+      .set({ isExpanded: !folder.isExpanded })
+      .where(eq(schema.folders.id, folderId));
+  }
 }

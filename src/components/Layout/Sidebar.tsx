@@ -27,7 +27,6 @@ function Sidebar({ isOpen }: SidebarProps) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [allFolders, setAllFolders] = useState<Folder[]>([])
   const [allFiles, setAllFiles] = useState<File[]>([])
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
   const [showImportPicker, setShowImportPicker] = useState(false)
   const [showReferencePicker, setShowReferencePicker] = useState(false)
   const [showNewFolderPicker, setShowNewFolderPicker] = useState(false)
@@ -74,9 +73,22 @@ function Sidebar({ isOpen }: SidebarProps) {
     }
   }, [])
 
-  const handleNodeClick = (node: TreeNode) => {
+  const handleNodeClick = async (node: TreeNode) => {
     console.log('Clicked node:', node)
-    // Handle file/folder click here
+
+    if (node.type === 'file' && node.storageType === 'reference') {
+      // Get the file from the database to get its path
+      const fileId = parseInt(node.id.replace('file-', ''))
+      const file = allFiles.find(f => f.id === fileId)
+
+      if (file?.path) {
+        try {
+          await window.electron.openFileInDefaultApp(file.path)
+        } catch (error) {
+          console.error('Failed to open file:', error)
+        }
+      }
+    }
   }
 
   const handleNodeContextMenu = (node: TreeNode, e: React.MouseEvent) => {
@@ -84,16 +96,10 @@ function Sidebar({ isOpen }: SidebarProps) {
     setContextMenu({ node, x: e.clientX, y: e.clientY })
   }
 
-  const handleToggleExpand = (nodeId: string) => {
-    setExpandedNodes(prev => {
-      const next = new Set(prev)
-      if (next.has(nodeId)) {
-        next.delete(nodeId)
-      } else {
-        next.add(nodeId)
-      }
-      return next
-    })
+  const handleToggleExpand = async (nodeId: string) => {
+    const folderId = parseInt(nodeId.replace('folder-', ''))
+    await window.electron.toggleFolderExpanded(folderId)
+    await loadTreeData()
   }
 
   const handleMoveTo = async (targetFolderId: number) => {
@@ -110,11 +116,6 @@ function Sidebar({ isOpen }: SidebarProps) {
         const numericFolderId = parseInt(contextMenu.node.id.replace('folder-', ''))
         console.log('Moving folder:', numericFolderId, 'to parent:', targetFolderId)
         await window.electron.moveFolder(numericFolderId, targetFolderId)
-      }
-
-      // Expand the destination folder (if not root)
-      if (targetFolderId !== 0) {
-        setExpandedNodes(prev => new Set(prev).add(`folder-${targetFolderId}`))
       }
 
       console.log('Move successful, reloading tree')
@@ -135,9 +136,6 @@ function Sidebar({ isOpen }: SidebarProps) {
       const numericFileId = parseInt(contextMenu.node.id.replace('file-', ''))
       console.log('Adding file:', numericFileId, 'to folder:', targetFolderId)
       await window.electron.includeFileInFolder(numericFileId, targetFolderId)
-
-      // Expand the destination folder
-      setExpandedNodes(prev => new Set(prev).add(`folder-${targetFolderId}`))
 
       console.log('Add successful, reloading tree')
       await loadTreeData()
@@ -183,8 +181,6 @@ function Sidebar({ isOpen }: SidebarProps) {
         await window.electron.selectAndImportFiles()
       } else {
         await window.electron.selectAndImportFilesToFolder(folderId)
-        // Expand the folder to show the newly added file
-        setExpandedNodes(prev => new Set(prev).add(`folder-${folderId}`))
       }
       await loadTreeData()
     } catch (error) {
@@ -203,8 +199,6 @@ function Sidebar({ isOpen }: SidebarProps) {
         await window.electron.selectAndReferenceFiles()
       } else {
         await window.electron.selectAndReferenceFilesToFolder(folderId)
-        // Expand the folder to show the newly added file
-        setExpandedNodes(prev => new Set(prev).add(`folder-${folderId}`))
       }
       await loadTreeData()
     } catch (error) {
@@ -237,9 +231,6 @@ function Sidebar({ isOpen }: SidebarProps) {
       const result = await window.electron.selectAndImportFilesToFolder(folderId)
       console.log('Import result:', result)
 
-      // Expand the folder to show the newly added file
-      setExpandedNodes(prev => new Set(prev).add(`folder-${folderId}`))
-
       await loadTreeData()
     } catch (error) {
       console.error('Failed to import files:', error)
@@ -253,9 +244,6 @@ function Sidebar({ isOpen }: SidebarProps) {
       console.log('Calling selectAndReferenceFilesToFolder...')
       const result = await window.electron.selectAndReferenceFilesToFolder(folderId)
       console.log('Reference result:', result)
-
-      // Expand the folder to show the newly added file
-      setExpandedNodes(prev => new Set(prev).add(`folder-${folderId}`))
 
       await loadTreeData()
     } catch (error) {
@@ -276,11 +264,6 @@ function Sidebar({ isOpen }: SidebarProps) {
       // Convert null to 0 for API consistency (0 = root)
       const parentIdForApi = folderParentId ?? 0
       await window.electron.createFolder(folderName.trim(), parentIdForApi)
-
-      // If creating a subfolder, expand the parent
-      if (folderParentId !== null && folderParentId !== 0) {
-        setExpandedNodes(prev => new Set(prev).add(`folder-${folderParentId}`))
-      }
 
       await loadTreeData()
       setFolderName('')
@@ -318,7 +301,7 @@ function Sidebar({ isOpen }: SidebarProps) {
           />
         )}
 
-        <FileTreeView data={treeData} onNodeClick={handleNodeClick} onNodeContextMenu={handleNodeContextMenu} expandedNodes={expandedNodes} onToggleExpand={handleToggleExpand} />
+        <FileTreeView data={treeData} onNodeClick={handleNodeClick} onNodeContextMenu={handleNodeContextMenu} onToggleExpand={handleToggleExpand} />
 
         {contextMenu && (
           <ContextMenu

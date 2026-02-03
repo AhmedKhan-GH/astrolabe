@@ -1,0 +1,1 @@
+ALTER TABLE `folders` ADD `is_expanded` integer DEFAULT false NOT NULL;

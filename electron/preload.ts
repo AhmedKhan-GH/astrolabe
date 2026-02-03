@@ -16,6 +16,8 @@ const electronAPI = {
   getDataDirectory: () => ipcRenderer.invoke('getDataDirectory'),
   chooseDataDirectory: () => ipcRenderer.invoke('chooseDataDirectory'),
   resetDataDirectory: () => ipcRenderer.invoke('resetDataDirectory'),
+  openFileInDefaultApp: (filePath: string) => ipcRenderer.invoke('openFileInDefaultApp', filePath),
+  toggleFolderExpanded: (folderId: number) => ipcRenderer.invoke('toggleFolderExpanded', folderId),
 };
 
 contextBridge.exposeInMainWorld('electron', electronAPI);

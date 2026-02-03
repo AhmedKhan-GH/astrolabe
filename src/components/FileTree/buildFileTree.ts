@@ -6,13 +6,14 @@ export function buildFileTree(folders: Folder[], files: File[]): TreeNode[] {
   const folderMap: Record<number, TreeNode> = {}
   const rootFolders: TreeNode[] = []
 
-  // Create folder nodes
+  // Create folder nodes with expanded state from database
   folders.forEach((folder) => {
     folderMap[folder.id] = {
       id: `folder-${folder.id}`,
       name: folder.name,
       type: 'folder',
-      children: []
+      children: [],
+      isExpanded: folder.isExpanded
     }
   })
 

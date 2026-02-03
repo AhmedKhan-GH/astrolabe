@@ -6,14 +6,13 @@ interface FileTreeNodeProps {
   level: number
   onNodeClick?: (node: TreeNode) => void
   onNodeContextMenu?: (node: TreeNode, e: React.MouseEvent) => void
-  expandedNodes?: Set<string>
   onToggleExpand?: (nodeId: string) => void
 }
 
-export default function FileTreeNode({ node, level, onNodeClick, onNodeContextMenu, expandedNodes, onToggleExpand }: FileTreeNodeProps) {
+export default function FileTreeNode({ node, level, onNodeClick, onNodeContextMenu, onToggleExpand }: FileTreeNodeProps) {
   const isFolder = node.type === 'folder'
   const hasChildren = node.children && node.children.length > 0
-  const isExpanded = expandedNodes?.has(node.id) || false
+  const isExpanded = node.isExpanded || false
 
   const handleClick = () => {
     if (isFolder) {
@@ -101,7 +100,7 @@ export default function FileTreeNode({ node, level, onNodeClick, onNodeContextMe
       {isFolder && isExpanded && hasChildren && (
         <div>
           {node.children!.map((child) => (
-            <FileTreeNode key={child.id} node={child} level={level + 1} onNodeClick={onNodeClick} onNodeContextMenu={onNodeContextMenu} expandedNodes={expandedNodes} onToggleExpand={onToggleExpand} />
+            <FileTreeNode key={child.id} node={child} level={level + 1} onNodeClick={onNodeClick} onNodeContextMenu={onNodeContextMenu} onToggleExpand={onToggleExpand} />
           ))}
         </div>
       )}
