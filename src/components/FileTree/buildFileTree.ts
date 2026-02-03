@@ -4,7 +4,7 @@ import type { Folder, File } from '../../db/schema'
 export function buildFileTree(folders: Folder[], files: File[]): TreeNode[] {
   // Build folder hierarchy
   const folderMap: Record<number, TreeNode> = {}
-  const rootFolders: TreeNode[] = []
+  const rootChildren: TreeNode[] = []
 
   // Create folder nodes with expanded state from database
   folders.forEach((folder) => {
@@ -23,7 +23,7 @@ export function buildFileTree(folders: Folder[], files: File[]): TreeNode[] {
     if (folder.parentId !== 0 && folderMap[folder.parentId]) {
       folderMap[folder.parentId].children!.push(node)
     } else {
-      rootFolders.push(node)
+      rootChildren.push(node)
     }
   })
 
@@ -41,16 +41,26 @@ export function buildFileTree(folders: Folder[], files: File[]): TreeNode[] {
       folderIds.forEach((folderId: number) => {
         if (folderId === 0) {
           // folderId = 0 means root
-          rootFolders.push(fileNode)
+          rootChildren.push(fileNode)
         } else if (folderMap[folderId]) {
           folderMap[folderId].children!.push(fileNode)
         }
       })
     } else {
       // Legacy: no folderIds means root
-      rootFolders.push(fileNode)
+      rootChildren.push(fileNode)
     }
   })
 
-  return rootFolders
+  // Create System Root node that contains everything
+  const systemRootNode: TreeNode = {
+    id: 'folder-0',
+    name: 'System Root',
+    type: 'folder',
+    children: rootChildren,
+    isExpanded: true,
+    isSystemRoot: true
+  }
+
+  return [systemRootNode]
 }
