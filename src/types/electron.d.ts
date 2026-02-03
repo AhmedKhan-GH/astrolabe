@@ -30,6 +30,7 @@ export interface ElectronAPI {
   getCurrentDatabase: () => Promise<string | null>;
   switchToDatabase: (dbPath: string) => Promise<string>;
   switchToDefaultDatabase: () => Promise<string>;
+  deleteDatabase: (dbPath: string) => Promise<void>;
 }
 
 declare global {
