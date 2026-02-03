@@ -197,12 +197,11 @@ export default function DatabasePickerModal({ onSelect, onClose }: DatabasePicke
                 >
                   <button
                     onClick={() => handleSwitchToDatabase(defaultDatabase)}
-                    disabled={defaultDatabase === currentDatabase}
-                    className="w-full flex items-center gap-2 px-3 py-2 pr-10 text-left cursor-pointer disabled:cursor-default"
+                    className="w-full flex items-center gap-2 px-3 py-2 pr-10 text-left cursor-pointer"
                     title={defaultDatabase}
                   >
                     <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
                     </svg>
                     <span className="truncate flex-1">System Default</span>
                   </button>
@@ -230,8 +229,7 @@ export default function DatabasePickerModal({ onSelect, onClose }: DatabasePicke
                   >
                     <button
                       onClick={() => handleSwitchToDatabase(dbPath)}
-                      disabled={dbPath === currentDatabase}
-                      className="w-full flex items-center gap-2 px-3 py-2 pr-10 text-left cursor-pointer disabled:cursor-default"
+                      className="w-full flex items-center gap-2 px-3 py-2 pr-10 text-left cursor-pointer"
                       title={dbPath}
                     >
                       <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
