@@ -12,16 +12,17 @@ export interface TreeNode {
 interface FileTreeViewProps {
   data: TreeNode[]
   onNodeClick?: (node: TreeNode) => void
+  onNodeDoubleClick?: (node: TreeNode) => void
   onNodeContextMenu?: (node: TreeNode, e: React.MouseEvent) => void
   className?: string
   onToggleExpand?: (nodeId: string) => void
 }
 
-export default function FileTreeView({ data, onNodeClick, onNodeContextMenu, className = '', onToggleExpand }: FileTreeViewProps) {
+export default function FileTreeView({ data, onNodeClick, onNodeDoubleClick, onNodeContextMenu, className = '', onToggleExpand }: FileTreeViewProps) {
   return (
     <div className={`text-slate-300 relative isolate ${className}`}>
       {data.map((node) => (
-        <FileTreeNode key={node.id} node={node} level={0} onNodeClick={onNodeClick} onNodeContextMenu={onNodeContextMenu} onToggleExpand={onToggleExpand} />
+        <FileTreeNode key={node.id} node={node} level={0} onNodeClick={onNodeClick} onNodeDoubleClick={onNodeDoubleClick} onNodeContextMenu={onNodeContextMenu} onToggleExpand={onToggleExpand} />
       ))}
     </div>
   )

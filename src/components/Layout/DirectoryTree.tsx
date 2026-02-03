@@ -69,6 +69,10 @@ function DirectoryTree() {
 
   const handleNodeClick = async (node: TreeNode) => {
     console.log('Clicked node:', node)
+  }
+
+  const handleNodeDoubleClick = async (node: TreeNode) => {
+    console.log('Double-clicked node:', node)
 
     if (node.type === 'file' && node.storageType === 'reference') {
       const fileId = parseInt(node.id.replace('file-', ''))
@@ -284,7 +288,7 @@ function DirectoryTree() {
         />
       )}
 
-      <FileTreeView data={treeData} onNodeClick={handleNodeClick} onNodeContextMenu={handleNodeContextMenu} onToggleExpand={handleToggleExpand} />
+      <FileTreeView data={treeData} onNodeClick={handleNodeClick} onNodeDoubleClick={handleNodeDoubleClick} onNodeContextMenu={handleNodeContextMenu} onToggleExpand={handleToggleExpand} />
 
       {contextMenu && (
         <ContextMenu

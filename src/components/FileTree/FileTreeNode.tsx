@@ -5,11 +5,12 @@ interface FileTreeNodeProps {
   node: TreeNode
   level: number
   onNodeClick?: (node: TreeNode) => void
+  onNodeDoubleClick?: (node: TreeNode) => void
   onNodeContextMenu?: (node: TreeNode, e: React.MouseEvent) => void
   onToggleExpand?: (nodeId: string) => void
 }
 
-export default function FileTreeNode({ node, level, onNodeClick, onNodeContextMenu, onToggleExpand }: FileTreeNodeProps) {
+export default function FileTreeNode({ node, level, onNodeClick, onNodeDoubleClick, onNodeContextMenu, onToggleExpand }: FileTreeNodeProps) {
   const isFolder = node.type === 'folder'
   const hasChildren = node.children && node.children.length > 0
   const isExpanded = node.isExpanded || false
@@ -19,6 +20,10 @@ export default function FileTreeNode({ node, level, onNodeClick, onNodeContextMe
       onToggleExpand?.(node.id)
     }
     onNodeClick?.(node)
+  }
+
+  const handleDoubleClick = () => {
+    onNodeDoubleClick?.(node)
   }
 
   const handleChevronClick = (e: React.MouseEvent) => {
@@ -38,6 +43,7 @@ export default function FileTreeNode({ node, level, onNodeClick, onNodeContextMe
         className="flex items-center py-1.5 hover:bg-slate-700/50 cursor-pointer text-sm relative"
         style={{ paddingLeft: `${level * 20 + 8}px` }}
         onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
         onContextMenu={handleContextMenu}
       >
         {/* Vertical lines for parent levels */}
@@ -100,7 +106,7 @@ export default function FileTreeNode({ node, level, onNodeClick, onNodeContextMe
       {isFolder && isExpanded && hasChildren && (
         <div>
           {node.children!.map((child) => (
-            <FileTreeNode key={child.id} node={child} level={level + 1} onNodeClick={onNodeClick} onNodeContextMenu={onNodeContextMenu} onToggleExpand={onToggleExpand} />
+            <FileTreeNode key={child.id} node={child} level={level + 1} onNodeClick={onNodeClick} onNodeDoubleClick={onNodeDoubleClick} onNodeContextMenu={onNodeContextMenu} onToggleExpand={onToggleExpand} />
           ))}
         </div>
       )}
