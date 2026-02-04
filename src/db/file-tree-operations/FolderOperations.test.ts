@@ -67,6 +67,15 @@ describe('FolderOperations', () => {
     });
   });
 
+  describe('removeFolder', () => {
+    it('should prevent removing the root folder', async () => {
+      // Try to remove the system root folder (id: 0)
+      await expect(
+        folderOperations.removeFolder(0)
+      ).rejects.toThrow('Cannot remove the system root folder');
+    });
+  });
+
   describe('moveFolder', () => {
     it('should prevent moving a folder into one of its descendants', async () => {
       // Create a folder hierarchy:
