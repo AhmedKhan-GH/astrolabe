@@ -26,7 +26,6 @@ export default function ContextMenu({
   y,
   allFolders,
   allFiles,
-  currentFolderId,
   onMoveTo,
   onAddTo,
   onAddFolder,
@@ -137,9 +136,9 @@ export default function ContextMenu({
             e.stopPropagation()
             onDelete()
           }}
-          className="w-full text-left px-3 py-1.5 text-red-400 text-sm hover:bg-slate-600"
+          className={`w-full text-left px-3 py-1.5 text-sm hover:bg-slate-600 ${node.type === 'folder' ? 'text-orange-400' : 'text-red-400'}`}
         >
-          Delete
+          {node.type === 'folder' ? 'Remove' : 'Delete'}
         </button>
       </div>
 
@@ -147,8 +146,6 @@ export default function ContextMenu({
       {showMovePicker && (
         <FolderPickerModal
           allFolders={allFolders}
-          excludeFolderId={node.type === 'folder' ? parseInt(node.id.replace('folder-', '')) : undefined}
-          showRoot={true}
           onSelect={(folderId) => {
             onMoveTo(folderId)
             setShowMovePicker(false)
@@ -161,7 +158,6 @@ export default function ContextMenu({
       {showAddPicker && node.type === 'file' && onAddTo && (
         <FolderPickerModal
           allFolders={allFolders}
-          showRoot={false}
           onSelect={(folderId) => {
             onAddTo(folderId)
             setShowAddPicker(false)

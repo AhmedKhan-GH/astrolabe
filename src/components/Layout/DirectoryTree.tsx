@@ -22,9 +22,6 @@ function DirectoryTree() {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [allFolders, setAllFolders] = useState<Folder[]>([])
   const [allFiles, setAllFiles] = useState<File[]>([])
-  const [showImportPicker, setShowImportPicker] = useState(false)
-  const [showReferencePicker, setShowReferencePicker] = useState(false)
-  const [showNewFolderPicker, setShowNewFolderPicker] = useState(false)
 
   const loadTreeData = useCallback(async () => {
     try {
@@ -172,7 +169,7 @@ function DirectoryTree() {
 
     const confirmMessage = contextMenu.node.type === 'file'
       ? `Are you sure you want to delete "${contextMenu.node.name}"?`
-      : `Are you sure you want to delete the folder "${contextMenu.node.name}"? This will not delete the files inside.`
+      : `Are you sure you want to remove the folder "${contextMenu.node.name}"? This will not delete the files inside.`
 
     if (window.confirm(confirmMessage)) {
       try {
@@ -180,7 +177,7 @@ function DirectoryTree() {
         if (contextMenu.node.type === 'file') {
           await window.electron.deleteFile(id)
         } else {
-          await window.electron.deleteFolder(id)
+          await window.electron.removeFolder(id)
         }
         await loadTreeData()
         setContextMenu(null)
@@ -191,17 +188,8 @@ function DirectoryTree() {
   }
 
   const handleImportFile = async () => {
-    setShowImportPicker(true)
-  }
-
-  const handleImportToFolder = async (folderId: number) => {
-    setShowImportPicker(false)
     try {
-      if (folderId === 0) {
-        await window.electron.selectAndImportFiles()
-      } else {
-        await window.electron.selectAndImportFilesToFolder(folderId)
-      }
+      await window.electron.selectAndImportFiles()
       await loadTreeData()
     } catch (error) {
       console.error('Failed to import files:', error)
@@ -209,17 +197,8 @@ function DirectoryTree() {
   }
 
   const handleReferenceFile = async () => {
-    setShowReferencePicker(true)
-  }
-
-  const handleReferenceToFolder = async (folderId: number) => {
-    setShowReferencePicker(false)
     try {
-      if (folderId === 0) {
-        await window.electron.selectAndReferenceFiles()
-      } else {
-        await window.electron.selectAndReferenceFilesToFolder(folderId)
-      }
+      await window.electron.selectAndReferenceFiles()
       await loadTreeData()
     } catch (error) {
       console.error('Failed to reference files:', error)
@@ -227,12 +206,7 @@ function DirectoryTree() {
   }
 
   const handleCreateFolder = () => {
-    setShowNewFolderPicker(true)
-  }
-
-  const handleCreateFolderInParent = (parentId: number) => {
-    setShowNewFolderPicker(false)
-    setFolderParentId(parentId === 0 ? null : parentId)
+    setFolderParentId(null)
     setShowFolderInput(true)
   }
 
@@ -330,33 +304,6 @@ function DirectoryTree() {
           onRemove={contextMenu.node.type === 'file' ? handleRemoveFromFolder : undefined}
           onDelete={handleDeleteNode}
           onClose={() => setContextMenu(null)}
-        />
-      )}
-
-      {showImportPicker && (
-        <FolderPickerModal
-          allFolders={allFolders}
-          showRoot={true}
-          onSelect={handleImportToFolder}
-          onClose={() => setShowImportPicker(false)}
-        />
-      )}
-
-      {showReferencePicker && (
-        <FolderPickerModal
-          allFolders={allFolders}
-          showRoot={true}
-          onSelect={handleReferenceToFolder}
-          onClose={() => setShowReferencePicker(false)}
-        />
-      )}
-
-      {showNewFolderPicker && (
-        <FolderPickerModal
-          allFolders={allFolders}
-          showRoot={true}
-          onSelect={handleCreateFolderInParent}
-          onClose={() => setShowNewFolderPicker(false)}
         />
       )}
     </>

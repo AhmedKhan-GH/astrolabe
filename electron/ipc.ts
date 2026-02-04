@@ -259,11 +259,6 @@ export function setupIpcHandlers() {
     const db = getDatabase();
     const fileOps = new FileTreeOperations(db);
 
-    // Convert folderId = 0 (root) to proper handling
-    if (folderId === 0) {
-      throw new Error('Cannot add file to root. Use "Move to" instead.');
-    }
-
     await fileOps.addFileToFolder(fileId, folderId);
     console.log('File added to folder');
   });
@@ -316,13 +311,13 @@ export function setupIpcHandlers() {
     console.log('File deleted');
   });
 
-  ipcMain.handle('deleteFolder', async (_, folderId: number) => {
-    console.log('deleteFolder called:', folderId);
+  ipcMain.handle('removeFolder', async (_, folderId: number) => {
+    console.log('removeFolder called:', folderId);
     const db = getDatabase();
     const fileOps = new FileTreeOperations(db);
 
-    await fileOps.deleteFolder(folderId);
-    console.log('Folder deleted successfully');
+    await fileOps.removeFolder(folderId);
+    console.log('Folder removed successfully');
   });
 
   // Settings handlers

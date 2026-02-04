@@ -80,10 +80,10 @@ export class FileTreeOperations {
   }
 
   /**
-   * Deletes a folder and all descendants
+   * Removes a folder and all descendants
    * Enforces: Cascade cleanup of file references
    */
-  async deleteFolder(folderId: number): Promise<void> {
+  async removeFolder(folderId: number): Promise<void> {
     const folderToDelete = await this.getFolderById(folderId);
     if (!folderToDelete) {
       throw new Error('Folder not found');
@@ -106,10 +106,12 @@ export class FileTreeOperations {
    * Enforces: No duplicate file in same folder, valid folder references
    */
   async addFileToFolder(fileId: number, folderId: number): Promise<void> {
-    // Validate folder exists
-    const folder = await this.getFolderById(folderId);
-    if (!folder) {
-      throw new Error('Folder not found');
+    // Validate folder exists (0 is a special case for root)
+    if (folderId !== 0) {
+      const folder = await this.getFolderById(folderId);
+      if (!folder) {
+        throw new Error('Folder not found');
+      }
     }
 
     const file = await this.getFileById(fileId);
@@ -128,7 +130,9 @@ export class FileTreeOperations {
     await this.updateFileFolderIds(fileId, folderIds);
 
     // Expand the target folder and all parent folders to show the newly added file
-    await this.expandFolderAndParents(folderId);
+    if (folderId !== 0) {
+      await this.expandFolderAndParents(folderId);
+    }
   }
 
   /**
