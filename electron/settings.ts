@@ -2,10 +2,11 @@ import ElectronStore from 'electron-store';
 import { app, dialog } from 'electron';
 import path from 'path';
 import fs from 'fs';
+import dotenv from 'dotenv';
 
 // Load .env in development
 if (!app.isPackaged) {
-  require('dotenv').config();
+  dotenv.config();
 }
 
 interface Settings {
