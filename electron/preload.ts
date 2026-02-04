@@ -11,6 +11,7 @@ const electronAPI = {
   moveFile: (fileId: number, folderId: number | null) => ipcRenderer.invoke('moveFile', fileId, folderId),
   includeFileInFolder: (fileId: number, folderId: number) => ipcRenderer.invoke('includeFileInFolder', fileId, folderId),
   moveFolder: (folderId: number, newParentId: number | null) => ipcRenderer.invoke('moveFolder', folderId, newParentId),
+  removeFileFromFolder: (fileId: number, folderId: number) => ipcRenderer.invoke('removeFileFromFolder', fileId, folderId),
   deleteFile: (fileId: number) => ipcRenderer.invoke('deleteFile', fileId),
   deleteFolder: (folderId: number) => ipcRenderer.invoke('deleteFolder', folderId),
   getDataDirectory: () => ipcRenderer.invoke('getDataDirectory'),

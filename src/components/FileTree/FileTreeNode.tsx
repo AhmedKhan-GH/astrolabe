@@ -4,18 +4,22 @@ import { FilledDocumentIcon, OutlinedDocumentIcon, DatabaseBadge, LinkBadge, Fol
 interface FileTreeNodeProps {
   node: TreeNode
   level: number
+  parentFolderId: number
   onNodeClick?: (node: TreeNode) => void
   onNodeDoubleClick?: (node: TreeNode) => void
-  onNodeContextMenu?: (node: TreeNode, e: React.MouseEvent) => void
+  onNodeContextMenu?: (node: TreeNode, parentFolderId: number, e: React.MouseEvent) => void
   onToggleExpand?: (nodeId: string) => void
   expandedNodes?: Set<string>
 }
 
-export default function FileTreeNode({ node, level, onNodeClick, onNodeDoubleClick, onNodeContextMenu, onToggleExpand, expandedNodes }: FileTreeNodeProps) {
+export default function FileTreeNode({ node, level, parentFolderId, onNodeClick, onNodeDoubleClick, onNodeContextMenu, onToggleExpand, expandedNodes }: FileTreeNodeProps) {
   const isFolder = node.type === 'folder'
   const hasChildren = node.children && node.children.length > 0
   // If expandedNodes is provided (from modal), use it. Otherwise use node.isExpanded (from database)
   const isExpanded = node.isSystemRoot ? true : (expandedNodes ? expandedNodes.has(node.id) : (node.isExpanded || false))
+
+  // Determine the current folder ID (for context menu)
+  const currentFolderId = isFolder ? parseInt(node.id.replace('folder-', '')) : parentFolderId
 
   const handleClick = () => {
     if (isFolder && !node.isSystemRoot) {
@@ -36,7 +40,7 @@ export default function FileTreeNode({ node, level, onNodeClick, onNodeDoubleCli
   }
 
   const handleContextMenu = (e: React.MouseEvent) => {
-    onNodeContextMenu?.(node, e)
+    onNodeContextMenu?.(node, currentFolderId, e)
   }
 
   return (
@@ -120,7 +124,7 @@ export default function FileTreeNode({ node, level, onNodeClick, onNodeDoubleCli
       {isFolder && isExpanded && hasChildren && (
         <div>
           {node.children!.map((child) => (
-            <FileTreeNode key={child.id} node={child} level={level + 1} onNodeClick={onNodeClick} onNodeDoubleClick={onNodeDoubleClick} onNodeContextMenu={onNodeContextMenu} onToggleExpand={onToggleExpand} expandedNodes={expandedNodes} />
+            <FileTreeNode key={child.id} node={child} level={level + 1} parentFolderId={currentFolderId} onNodeClick={onNodeClick} onNodeDoubleClick={onNodeDoubleClick} onNodeContextMenu={onNodeContextMenu} onToggleExpand={onToggleExpand} expandedNodes={expandedNodes} />
           ))}
         </div>
       )}

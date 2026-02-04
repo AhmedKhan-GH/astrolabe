@@ -277,6 +277,15 @@ export function setupIpcHandlers() {
     console.log('Folder moved');
   });
 
+  ipcMain.handle('removeFileFromFolder', async (_, fileId: number, folderId: number) => {
+    console.log('removeFileFromFolder called:', { fileId, folderId });
+    const db = getDatabase();
+    const fileOps = new FileTreeOperations(db);
+
+    await fileOps.removeFileFromFolder(fileId, folderId);
+    console.log('File removed from folder');
+  });
+
   ipcMain.handle('deleteFile', async (_, fileId: number) => {
     console.log('deleteFile called:', fileId);
     const db = getDatabase();

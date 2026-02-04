@@ -9,11 +9,13 @@ interface ContextMenuProps {
   y: number
   allFolders: Folder[]
   allFiles: File[]
+  currentFolderId: number
   onMoveTo: (folderId: number) => void
   onAddTo?: (folderId: number) => void
   onAddFolder?: (parentFolderId: number) => void
   onAddFile?: (folderId: number) => void
   onReferenceFile?: (folderId: number) => void
+  onRemove?: () => void
   onDelete: () => void
   onClose: () => void
 }
@@ -23,16 +25,28 @@ export default function ContextMenu({
   x,
   y,
   allFolders,
+  allFiles,
+  currentFolderId,
   onMoveTo,
   onAddTo,
   onAddFolder,
   onAddFile,
   onReferenceFile,
+  onRemove,
   onDelete,
   onClose
 }: ContextMenuProps) {
   const [showMovePicker, setShowMovePicker] = useState(false)
   const [showAddPicker, setShowAddPicker] = useState(false)
+
+  // Check if this file exists in multiple folders
+  const fileExistsInMultipleFolders = node.type === 'file' ? (() => {
+    const fileId = parseInt(node.id.replace('file-', ''))
+    const file = allFiles.find(f => f.id === fileId)
+    if (!file?.folderIds) return false
+    const folderIds = JSON.parse(file.folderIds)
+    return folderIds.length > 1
+  })() : false
 
   useEffect(() => {
     const handleClickOutside = () => {
@@ -107,6 +121,17 @@ export default function ContextMenu({
           </button>
         )}
         <div className="h-px bg-slate-600 my-1" />
+        {node.type === 'file' && fileExistsInMultipleFolders && onRemove && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onRemove()
+            }}
+            className="w-full text-left px-3 py-1.5 text-orange-400 text-sm hover:bg-slate-600"
+          >
+            Remove
+          </button>
+        )}
         <button
           onClick={(e) => {
             e.stopPropagation()

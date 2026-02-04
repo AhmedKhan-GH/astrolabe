@@ -11,6 +11,7 @@ interface ContextMenuState {
   node: TreeNode
   x: number
   y: number
+  folderId: number
 }
 
 function DirectoryTree() {
@@ -95,9 +96,9 @@ function DirectoryTree() {
     }
   }
 
-  const handleNodeContextMenu = (node: TreeNode, e: React.MouseEvent) => {
+  const handleNodeContextMenu = (node: TreeNode, folderId: number, e: React.MouseEvent) => {
     e.preventDefault()
-    setContextMenu({ node, x: e.clientX, y: e.clientY })
+    setContextMenu({ node, x: e.clientX, y: e.clientY, folderId })
   }
 
   const handleToggleExpand = async (nodeId: string) => {
@@ -147,6 +148,22 @@ function DirectoryTree() {
     } catch (error) {
       console.error('Failed to add to folder:', error)
       alert('Failed to add to folder: ' + error)
+    }
+  }
+
+  const handleRemoveFromFolder = async () => {
+    if (!contextMenu || contextMenu.node.type !== 'file') return
+
+    const fileId = parseInt(contextMenu.node.id.replace('file-', ''))
+    const folderId = contextMenu.folderId
+
+    try {
+      await window.electron.removeFileFromFolder(fileId, folderId)
+      await loadTreeData()
+      setContextMenu(null)
+    } catch (error) {
+      console.error('Failed to remove file from folder:', error)
+      alert('Failed to remove file from folder: ' + error)
     }
   }
 
@@ -304,11 +321,13 @@ function DirectoryTree() {
           y={contextMenu.y}
           allFolders={allFolders}
           allFiles={allFiles}
+          currentFolderId={contextMenu.folderId}
           onMoveTo={handleMoveTo}
           onAddTo={contextMenu.node.type === 'file' ? handleAddTo : undefined}
           onAddFolder={contextMenu.node.type === 'folder' ? handleAddFolderToParent : undefined}
           onAddFile={contextMenu.node.type === 'folder' ? handleAddFileToFolder : undefined}
           onReferenceFile={contextMenu.node.type === 'folder' ? handleReferenceFileToFolder : undefined}
+          onRemove={contextMenu.node.type === 'file' ? handleRemoveFromFolder : undefined}
           onDelete={handleDeleteNode}
           onClose={() => setContextMenu(null)}
         />
