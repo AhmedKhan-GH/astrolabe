@@ -11,7 +11,7 @@ export class FolderValidation {
 
   /**
    * Validates that no folder with the same name exists at the given parent level
-   * @param name - Folder name to check
+   * @param name - Folder name to check (case-sensitive)
    * @param parentId - Parent folder ID (0 for root)
    * @param excludeFolderId - Optional folder ID to exclude from check (for rename operations)
    * @throws Error if duplicate name exists
@@ -24,7 +24,7 @@ export class FolderValidation {
     const siblings = await this.db.select().from(schema.folders).where(eq(schema.folders.parentId, parentId));
 
     const duplicate = siblings.find(
-      f => f.name.toLowerCase() === name.toLowerCase() && f.id !== excludeFolderId
+      f => f.name === name && f.id !== excludeFolderId
     );
 
     if (duplicate) {

@@ -28,20 +28,20 @@ export class FileTreeOperations {
     this.db = db;
 
     // Initialize modules
-    this.folderValidation = new FolderValidation(db);
-    this.folderQueries = new FolderQueries(db);
-    this.fileQueries = new FileQueries(db);
-    this.fileValidation = new FileValidation(db);
+    this.folderValidation = new FolderValidation(this.db);
+    this.folderQueries = new FolderQueries(this.db);
+    this.fileQueries = new FileQueries(this.db);
+    this.fileValidation = new FileValidation(this.db);
 
     this.folderOperations = new FolderOperations(
-      db,
+      this.db,
       this.folderValidation,
       this.folderQueries,
       this.fileQueries
     );
 
     this.fileOperations = new FileOperations(
-      db,
+      this.db,
       this.fileValidation,
       this.fileQueries,
       this.folderQueries

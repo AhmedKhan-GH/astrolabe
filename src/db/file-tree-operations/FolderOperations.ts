@@ -56,6 +56,11 @@ export class FolderOperations {
    * @param newParentId - New parent folder ID (0 for root)
    */
   async moveFolder(folderId: number, newParentId: number): Promise<void> {
+    // Rule: Cannot move the system root folder
+    if (folderId === 0) {
+      throw new Error('Cannot move the system root folder');
+    }
+
     // Rule: Cannot move folder to itself
     this.validation.validateFolderMove(folderId, newParentId);
 
@@ -91,6 +96,11 @@ export class FolderOperations {
    * @param folderId - Folder ID to remove
    */
   async removeFolder(folderId: number): Promise<void> {
+    // Rule: Cannot remove the system root folder
+    if (folderId === 0) {
+      throw new Error('Cannot remove the system root folder');
+    }
+
     const folderToDelete = await this.folderQueries.getFolderById(folderId);
     if (!folderToDelete) {
       throw new Error('Folder not found');
