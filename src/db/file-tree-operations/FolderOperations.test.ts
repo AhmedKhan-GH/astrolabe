@@ -126,5 +126,71 @@ describe('FolderOperations', () => {
         folderOperations.moveFolder(folderA.id, folderB.id)
       ).rejects.toThrow('Cannot move folder to its own descendant');
     });
+
+    it('should throw DUPLICATE_FOLDER_NAME error when moving to a location with same-named folder (without forceMerge)', async () => {
+      // Create a folder hierarchy:
+      // Root (0)
+      //   ├── Folder A (id: 1)
+      //   │   └── Documents (id: 2)
+      //   └── Folder B (id: 3)
+      //       └── Documents (id: 4)
+
+      const folderA: schema.Folder = {
+        id: 1,
+        name: 'Folder A',
+        parentId: 0,
+        isExpanded: false,
+        createdAt: new Date(),
+      };
+
+      const documentsInA: schema.Folder = {
+        id: 2,
+        name: 'Documents',
+        parentId: 1,
+        isExpanded: false,
+        createdAt: new Date(),
+      };
+
+      const folderB: schema.Folder = {
+        id: 3,
+        name: 'Folder B',
+        parentId: 0,
+        isExpanded: false,
+        createdAt: new Date(),
+      };
+
+      const documentsInB: schema.Folder = {
+        id: 4,
+        name: 'Documents',
+        parentId: 3,
+        isExpanded: false,
+        createdAt: new Date(),
+      };
+
+      // Mock getFolderById
+      vi.spyOn(folderQueries, 'getFolderById').mockImplementation(async (id: number) => {
+        if (id === 1) return folderA;
+        if (id === 2) return documentsInA;
+        if (id === 3) return folderB;
+        if (id === 4) return documentsInB;
+        return undefined;
+      });
+
+      // Mock getFolderByNameAndParent to return existing folder
+      vi.spyOn(folderQueries, 'getFolderByNameAndParent').mockImplementation(
+        async (name: string, parentId: number, excludeFolderId?: number) => {
+          if (name === 'Documents' && parentId === 3 && excludeFolderId === 2) {
+            return documentsInB; // Return the existing folder with same name
+          }
+          return undefined;
+        }
+      );
+
+      // Try to move Documents (id: 2) from Folder A to Folder B without forceMerge
+      // This should throw DUPLICATE_FOLDER_NAME error
+      await expect(
+        folderOperations.moveFolder(documentsInA.id, folderB.id, false)
+      ).rejects.toThrow('DUPLICATE_FOLDER_NAME');
+    });
   });
 });

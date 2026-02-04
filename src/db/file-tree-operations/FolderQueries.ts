@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import * as schema from '../schema';
 
@@ -98,5 +98,42 @@ export class FolderQueries {
     await this.db.update(schema.folders)
       .set({ isExpanded: !folder.isExpanded })
       .where(eq(schema.folders.id, folderId));
+  }
+
+  /**
+   * Gets a folder by name and parent ID
+   * @param name - Folder name
+   * @param parentId - Parent folder ID
+   * @param excludeFolderId - Optional folder ID to exclude from search
+   * @returns Folder or undefined if not found
+   */
+  async getFolderByNameAndParent(
+    name: string,
+    parentId: number,
+    excludeFolderId?: number
+  ): Promise<schema.Folder | undefined> {
+    const conditions = and(
+      eq(schema.folders.name, name),
+      eq(schema.folders.parentId, parentId)
+    );
+
+    const result = await this.db.select().from(schema.folders).where(conditions);
+
+    // Filter out the excluded folder if provided
+    const filtered = excludeFolderId
+      ? result.filter(f => f.id !== excludeFolderId)
+      : result;
+
+    return filtered[0];
+  }
+
+  /**
+   * Gets direct child folders of a parent folder
+   * @param parentId - Parent folder ID
+   * @returns Array of child folders
+   */
+  async getChildFolders(parentId: number): Promise<schema.Folder[]> {
+    return this.db.select().from(schema.folders)
+      .where(eq(schema.folders.parentId, parentId));
   }
 }

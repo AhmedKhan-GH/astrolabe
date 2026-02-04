@@ -54,8 +54,8 @@ export class FileTreeOperations {
     return this.folderOperations.createFolder(name, parentId);
   }
 
-  async moveFolder(folderId: number, newParentId: number): Promise<void> {
-    return this.folderOperations.moveFolder(folderId, newParentId);
+  async moveFolder(folderId: number, newParentId: number, forceMerge?: boolean): Promise<void> {
+    return this.folderOperations.moveFolder(folderId, newParentId, forceMerge);
   }
 
   async removeFolder(folderId: number): Promise<void> {

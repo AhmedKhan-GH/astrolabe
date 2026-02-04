@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import FileTreeView, { type TreeNode } from '../FileTree/FileTreeView'
 import ContextMenu from '../FileTree/ContextMenu'
 import FolderPickerModal from '../FileTree/FolderPickerModal'
+import MergeFolderModal from '../FileTree/MergeFolderModal'
 import { buildFileTree } from '../FileTree/buildFileTree'
 import DirectoryHeader from './DirectoryHeader'
 import FolderInputForm from './FolderInputForm'
@@ -14,12 +15,19 @@ interface ContextMenuState {
   folderId: number
 }
 
+interface MergeModalState {
+  folderName: string
+  sourceFolderId: number
+  targetFolderId: number
+}
+
 function DirectoryTree() {
   const [treeData, setTreeData] = useState<TreeNode[]>([])
   const [showFolderInput, setShowFolderInput] = useState(false)
   const [folderName, setFolderName] = useState('')
   const [folderParentId, setFolderParentId] = useState<number | null>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const [mergeModal, setMergeModal] = useState<MergeModalState | null>(null)
   const [allFolders, setAllFolders] = useState<Folder[]>([])
   const [allFiles, setAllFiles] = useState<File[]>([])
 
@@ -114,15 +122,31 @@ function DirectoryTree() {
         const numericFileId = parseInt(contextMenu.node.id.replace('file-', ''))
         console.log('Moving file:', numericFileId, 'to folder:', targetFolderId)
         await window.electron.moveFile(numericFileId, targetFolderId)
+        console.log('Move successful, reloading tree')
+        await loadTreeData()
+        setContextMenu(null)
       } else {
         const numericFolderId = parseInt(contextMenu.node.id.replace('folder-', ''))
         console.log('Moving folder:', numericFolderId, 'to parent:', targetFolderId)
-        await window.electron.moveFolder(numericFolderId, targetFolderId)
-      }
+        const result = await window.electron.moveFolder(numericFolderId, targetFolderId) as any
 
-      console.log('Move successful, reloading tree')
-      await loadTreeData()
-      setContextMenu(null)
+        console.log('moveFolder result:', result)
+
+        // Check if we got a duplicate folder error
+        if (result && result.errorCode === 'DUPLICATE_FOLDER_NAME') {
+          // Show merge confirmation modal
+          setMergeModal({
+            folderName: contextMenu.node.name,
+            sourceFolderId: numericFolderId,
+            targetFolderId: targetFolderId
+          })
+          setContextMenu(null)
+        } else if (result && result.success) {
+          console.log('Move successful, reloading tree')
+          await loadTreeData()
+          setContextMenu(null)
+        }
+      }
     } catch (error) {
       console.error('Failed to move:', error)
       alert('Failed to move: ' + error)
@@ -292,6 +316,29 @@ function DirectoryTree() {
     setShowFolderInput(false)
   }
 
+  const handleMergeConfirm = async () => {
+    if (!mergeModal) return
+
+    try {
+      const result = await window.electron.moveFolder(mergeModal.sourceFolderId, mergeModal.targetFolderId, true) as any
+      if (result && result.success) {
+        console.log('Merge successful, reloading tree')
+        await loadTreeData()
+      } else {
+        alert('Failed to merge folders')
+      }
+    } catch (error) {
+      console.error('Failed to merge:', error)
+      alert('Failed to merge folders: ' + error)
+    } finally {
+      setMergeModal(null)
+    }
+  }
+
+  const handleMergeCancel = () => {
+    setMergeModal(null)
+  }
+
   return (
     <>
       <DirectoryHeader onUploadFile={handleImportFile} onReferenceFile={handleReferenceFile} onCreateFolder={handleCreateFolder} />
@@ -324,6 +371,14 @@ function DirectoryTree() {
           onDelete={handleDeleteNode}
           onDeleteFolder={contextMenu.node.type === 'folder' ? handleDeleteFolder : undefined}
           onClose={() => setContextMenu(null)}
+        />
+      )}
+
+      {mergeModal && (
+        <MergeFolderModal
+          folderName={mergeModal.folderName}
+          onConfirm={handleMergeConfirm}
+          onCancel={handleMergeCancel}
         />
       )}
     </>

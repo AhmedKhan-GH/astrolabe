@@ -263,13 +263,22 @@ export function setupIpcHandlers() {
     console.log('File added to folder');
   });
 
-  ipcMain.handle('moveFolder', async (_, folderId: number, newParentId: number) => {
-    console.log('moveFolder called:', { folderId, newParentId });
+  ipcMain.handle('moveFolder', async (_, folderId: number, newParentId: number, forceMerge?: boolean) => {
+    console.log('moveFolder called:', { folderId, newParentId, forceMerge });
     const db = getDatabase();
     const fileOps = new FileTreeOperations(db);
 
-    await fileOps.moveFolder(folderId, newParentId);
-    console.log('Folder moved');
+    try {
+      await fileOps.moveFolder(folderId, newParentId, forceMerge);
+      console.log('Folder moved');
+      return { success: true };
+    } catch (error) {
+      console.error('moveFolder error:', error);
+      if (error instanceof Error && error.message === 'DUPLICATE_FOLDER_NAME') {
+        return { success: false, errorCode: 'DUPLICATE_FOLDER_NAME' };
+      }
+      throw error;
+    }
   });
 
   ipcMain.handle('removeFileFromFolder', async (_, fileId: number, folderId: number) => {
