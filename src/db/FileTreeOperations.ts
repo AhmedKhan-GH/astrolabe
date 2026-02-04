@@ -34,6 +34,11 @@ export class FileTreeOperations {
       parentId,
     }).returning();
 
+    // Expand the parent folder and all its parents to show the newly created folder
+    if (parentId !== 0) {
+      await this.expandFolderAndParents(parentId);
+    }
+
     return inserted[0];
   }
 
@@ -121,6 +126,9 @@ export class FileTreeOperations {
 
     folderIds.push(folderId);
     await this.updateFileFolderIds(fileId, folderIds);
+
+    // Expand the target folder and all parent folders to show the newly added file
+    await this.expandFolderAndParents(folderId);
   }
 
   /**
@@ -247,6 +255,11 @@ export class FileTreeOperations {
       folderIds.push(folderId);
       await this.updateFileFolderIds(existingFile.id, folderIds);
 
+      // Expand the target folder and all parent folders to show the newly added file
+      if (folderId !== 0) {
+        await this.expandFolderAndParents(folderId);
+      }
+
       // Fetch updated file
       const updatedFile = await this.getFileById(existingFile.id);
       return {
@@ -258,6 +271,11 @@ export class FileTreeOperations {
 
     // No existing file - create new one
     const newFile = await this.createFile(filename, path, filetype, [folderId], storageType);
+
+    // Expand the target folder and all parent folders to show the newly added file
+    if (folderId !== 0) {
+      await this.expandFolderAndParents(folderId);
+    }
 
     return {
       isUpdate: false,
@@ -416,5 +434,30 @@ export class FileTreeOperations {
     await this.db.update(schema.folders)
       .set({ isExpanded: !folder.isExpanded })
       .where(eq(schema.folders.id, folderId));
+  }
+
+  private async expandFolder(folderId: number): Promise<void> {
+    const folder = await this.getFolderById(folderId);
+    if (!folder) {
+      throw new Error('Folder not found');
+    }
+
+    // Only update if not already expanded
+    if (!folder.isExpanded) {
+      await this.db.update(schema.folders)
+        .set({ isExpanded: true })
+        .where(eq(schema.folders.id, folderId));
+    }
+  }
+
+  private async expandFolderAndParents(folderId: number): Promise<void> {
+    // Expand the folder itself
+    await this.expandFolder(folderId);
+
+    // Recursively expand all parent folders
+    const folder = await this.getFolderById(folderId);
+    if (folder && folder.parentId !== 0) {
+      await this.expandFolderAndParents(folder.parentId);
+    }
   }
 }
