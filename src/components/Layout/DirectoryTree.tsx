@@ -187,6 +187,23 @@ function DirectoryTree() {
     }
   }
 
+  const handleDeleteFolder = async () => {
+    if (!contextMenu || contextMenu.node.type !== 'folder') return
+
+    const confirmMessage = `Are you sure you want to delete the folder "${contextMenu.node.name}"? This will cascade delete all subfolders and remove files (deleting unique files).`
+
+    if (window.confirm(confirmMessage)) {
+      try {
+        const id = parseInt(contextMenu.node.id.replace('folder-', ''))
+        await window.electron.removeFolder(id)
+        await loadTreeData()
+        setContextMenu(null)
+      } catch (error) {
+        console.error('Failed to delete folder:', error)
+      }
+    }
+  }
+
   const handleImportFile = async () => {
     try {
       await window.electron.selectAndImportFiles()
@@ -264,6 +281,8 @@ function DirectoryTree() {
     } catch (error) {
       console.error('Failed to create folder:', error)
       alert(error instanceof Error ? error.message : 'Failed to create folder')
+      // Don't reset state or reload data on error - let user correct their input
+      return
     }
   }
 
@@ -303,6 +322,7 @@ function DirectoryTree() {
           onReferenceFile={contextMenu.node.type === 'folder' ? handleReferenceFileToFolder : undefined}
           onRemove={contextMenu.node.type === 'file' ? handleRemoveFromFolder : undefined}
           onDelete={handleDeleteNode}
+          onDeleteFolder={contextMenu.node.type === 'folder' ? handleDeleteFolder : undefined}
           onClose={() => setContextMenu(null)}
         />
       )}

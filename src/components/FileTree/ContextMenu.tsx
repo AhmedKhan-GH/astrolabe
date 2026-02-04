@@ -17,6 +17,7 @@ interface ContextMenuProps {
   onReferenceFile?: (folderId: number) => void
   onRemove?: () => void
   onDelete: () => void
+  onDeleteFolder?: () => void
   onClose: () => void
 }
 
@@ -33,6 +34,7 @@ export default function ContextMenu({
   onReferenceFile,
   onRemove,
   onDelete,
+  onDeleteFolder,
   onClose
 }: ContextMenuProps) {
   const [showMovePicker, setShowMovePicker] = useState(false)
@@ -140,6 +142,17 @@ export default function ContextMenu({
         >
           {node.type === 'folder' ? 'Remove' : 'Delete'}
         </button>
+        {node.type === 'folder' && onDeleteFolder && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onDeleteFolder()
+            }}
+            className="w-full text-left px-3 py-1.5 text-red-400 text-sm hover:bg-slate-600"
+          >
+            Delete
+          </button>
+        )}
       </div>
 
       {/* Move to picker modal */}
