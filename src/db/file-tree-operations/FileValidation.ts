@@ -50,19 +50,6 @@ export class FileValidation {
   }
 
   /**
-   * Validates that a file location has changed
-   * @param currentFolderIds - Current folder IDs
-   * @param newFolderIds - New folder IDs
-   * @throws Error if locations are the same
-   */
-  validateFileLocationChange(currentFolderIds: number[], newFolderIds: number[]): void {
-    if (currentFolderIds.length === newFolderIds.length &&
-        currentFolderIds.every((id, index) => id === newFolderIds[index])) {
-      throw new Error('File is already in this location');
-    }
-  }
-
-  /**
    * Validates that a file already exists in a specific location
    * @param folderIds - Current folder IDs
    * @param targetFolderId - Target folder ID to check

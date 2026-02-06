@@ -6,6 +6,8 @@ import { FileQueries } from './FileQueries';
 import { FileValidation } from './FileValidation';
 import { FolderOperations } from './FolderOperations';
 import { FileOperations } from './FileOperations';
+import { FolderMoveOperations } from './FolderMoveOperations';
+import { FileMoveOperations } from './FileMoveOperations';
 
 /**
  * Enforces file tree structural constraints at the data layer
@@ -21,6 +23,8 @@ export class FileTreeOperations {
   private folderQueries: FolderQueries;
   private fileQueries: FileQueries;
   private fileValidation: FileValidation;
+  private folderMoveOperations: FolderMoveOperations;
+  private fileMoveOperations: FileMoveOperations;
   private folderOperations: FolderOperations;
   private fileOperations: FileOperations;
 
@@ -33,18 +37,34 @@ export class FileTreeOperations {
     this.fileQueries = new FileQueries(this.db);
     this.fileValidation = new FileValidation(this.db);
 
-    this.folderOperations = new FolderOperations(
+    this.folderMoveOperations = new FolderMoveOperations(
       this.db,
       this.folderValidation,
       this.folderQueries,
       this.fileQueries
     );
 
+    this.fileMoveOperations = new FileMoveOperations(
+      this.db,
+      this.fileValidation,
+      this.folderQueries,
+      this.fileQueries
+    );
+
+    this.folderOperations = new FolderOperations(
+      this.db,
+      this.folderValidation,
+      this.folderQueries,
+      this.fileQueries,
+      this.folderMoveOperations
+    );
+
     this.fileOperations = new FileOperations(
       this.db,
       this.fileValidation,
       this.fileQueries,
-      this.folderQueries
+      this.folderQueries,
+      this.fileMoveOperations
     );
   }
 

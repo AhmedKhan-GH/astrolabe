@@ -5,6 +5,7 @@ import { FolderOperations } from './FolderOperations';
 import { FolderValidation } from './FolderValidation';
 import { FolderQueries } from './FolderQueries';
 import { FileQueries } from './FileQueries';
+import { FolderMoveOperations } from './FolderMoveOperations';
 
 describe('FolderOperations', () => {
   let mockDb: BetterSQLite3Database<typeof schema>;
@@ -30,7 +31,8 @@ describe('FolderOperations', () => {
     validation = new FolderValidation(mockDb);
     folderQueries = new FolderQueries(mockDb);
     const fileQueries = new FileQueries(mockDb);
-    folderOperations = new FolderOperations(mockDb, validation, folderQueries, fileQueries);
+    const folderMoveOperations = new FolderMoveOperations(mockDb, validation, folderQueries, fileQueries);
+    folderOperations = new FolderOperations(mockDb, validation, folderQueries, fileQueries, folderMoveOperations);
   });
 
   describe('createFolder', () => {

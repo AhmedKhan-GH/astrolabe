@@ -4,23 +4,27 @@ import * as schema from '../schema';
 import { FileValidation } from './FileValidation';
 import { FileQueries } from './FileQueries';
 import { FolderQueries } from './FolderQueries';
+import { FileMoveOperations } from './FileMoveOperations';
 
 export class FileOperations {
   private db: BetterSQLite3Database<typeof schema>;
   private validation: FileValidation;
   private fileQueries: FileQueries;
   private folderQueries: FolderQueries;
+  private fileMoveOperations: FileMoveOperations;
 
   constructor(
     db: BetterSQLite3Database<typeof schema>,
     validation: FileValidation,
     fileQueries: FileQueries,
-    folderQueries: FolderQueries
+    folderQueries: FolderQueries,
+    fileMoveOperations: FileMoveOperations
   ) {
     this.db = db;
     this.validation = validation;
     this.fileQueries = fileQueries;
     this.folderQueries = folderQueries;
+    this.fileMoveOperations = fileMoveOperations;
   }
 
   /**
@@ -93,30 +97,12 @@ export class FileOperations {
 
   /**
    * Moves a file to a folder (replaces all folder associations)
-   * Enforces: Valid folder reference
+   * Delegates to FileMoveOperations
    * @param fileId - File ID to move
    * @param folderId - Target folder ID (0 for root)
    */
   async moveFile(fileId: number, folderId: number): Promise<void> {
-    if (folderId !== 0) {
-      const folder = await this.folderQueries.getFolderById(folderId);
-      if (!folder) {
-        throw new Error('Target folder not found');
-      }
-    }
-
-    const file = await this.fileQueries.getFileById(fileId);
-    if (!file) {
-      throw new Error('File not found');
-    }
-
-    // Check if file is already in this location
-    const currentFolderIds = this.fileQueries.parseFolderIds(file.folderIds);
-    const newFolderIds = [folderId];
-
-    this.validation.validateFileLocationChange(currentFolderIds, newFolderIds);
-
-    await this.fileQueries.updateFileFolderIds(fileId, newFolderIds);
+    return this.fileMoveOperations.moveFile(fileId, folderId);
   }
 
   /**

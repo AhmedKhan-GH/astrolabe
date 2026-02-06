@@ -4,23 +4,27 @@ import * as schema from '../schema';
 import { FolderValidation } from './FolderValidation';
 import { FolderQueries } from './FolderQueries';
 import { FileQueries } from './FileQueries';
+import { FolderMoveOperations } from './FolderMoveOperations';
 
 export class FolderOperations {
   private db: BetterSQLite3Database<typeof schema>;
   private validation: FolderValidation;
   private folderQueries: FolderQueries;
   private fileQueries: FileQueries;
+  private folderMoveOperations: FolderMoveOperations;
 
   constructor(
     db: BetterSQLite3Database<typeof schema>,
     validation: FolderValidation,
     folderQueries: FolderQueries,
-    fileQueries: FileQueries
+    fileQueries: FileQueries,
+    folderMoveOperations: FolderMoveOperations
   ) {
     this.db = db;
     this.validation = validation;
     this.folderQueries = folderQueries;
     this.fileQueries = fileQueries;
+    this.folderMoveOperations = folderMoveOperations;
   }
 
   /**
@@ -51,88 +55,18 @@ export class FolderOperations {
 
   /**
    * Moves a folder to a new parent
-   * Enforces: No self-reference, no circular ancestry, no duplicate names
+   * Delegates to FolderMoveOperations
    * @param folderId - Folder ID to move
    * @param newParentId - New parent folder ID (0 for root)
    * @param forceMerge - If true, merge with existing folder of same name
    */
   async moveFolder(folderId: number, newParentId: number, forceMerge: boolean = false): Promise<void> {
-    // Rule: Cannot move the system root folder
-    if (folderId === 0) {
-      throw new Error('Cannot move the system root folder');
-    }
-
-    // Rule: Cannot move folder to itself
-    this.validation.validateFolderMove(folderId, newParentId);
-
-    // Get folder to check current location and name collision
-    const folder = await this.folderQueries.getFolderById(folderId);
-    if (!folder) {
-      throw new Error('Folder not found');
-    }
-
-    // Rule: Cannot move folder to the same location
-    if (folder.parentId === newParentId) {
-      throw new Error('Folder is already in this location');
-    }
-
-    // Rule: Cannot move folder to its own descendant
-    if (newParentId !== 0) {
-      if (await this.validation.isDescendantOf(newParentId, folderId, this.folderQueries.getFolderById.bind(this.folderQueries))) {
-        throw new Error('Cannot move folder to its own descendant');
-      }
-    }
-
-    // Check for duplicate names at destination level
-    const existingFolder = await this.folderQueries.getFolderByNameAndParent(folder.name, newParentId, folderId);
-
-    if (existingFolder) {
-      if (!forceMerge) {
-        // Throw special error that UI can catch to prompt for merge
-        throw new Error('DUPLICATE_FOLDER_NAME');
-      }
-
-      // Merge: move all children of source folder to existing folder
-      await this.mergeFolders(folderId, existingFolder.id);
-
-      // Delete the source folder after merge
-      await this.removeFolder(folderId);
-      return;
-    }
-
-    await this.db.update(schema.folders)
-      .set({ parentId: newParentId })
-      .where(eq(schema.folders.id, folderId));
-  }
-
-  /**
-   * Merges source folder contents into target folder
-   * @param sourceFolderId - Folder to merge from
-   * @param targetFolderId - Folder to merge into
-   */
-  private async mergeFolders(sourceFolderId: number, targetFolderId: number): Promise<void> {
-    // Move all direct children folders to target
-    const childFolders = await this.folderQueries.getChildFolders(sourceFolderId);
-    for (const childFolder of childFolders) {
-      await this.db.update(schema.folders)
-        .set({ parentId: targetFolderId })
-        .where(eq(schema.folders.id, childFolder.id));
-    }
-
-    // Move all files to target folder
-    const files = await this.fileQueries.getAllFiles();
-    for (const file of files) {
-      if (!file.folderIds) continue;
-
-      const folderIds = this.fileQueries.parseFolderIds(file.folderIds);
-      if (folderIds.includes(sourceFolderId)) {
-        // Replace source folder with target folder in file's folder list
-        const newFolderIds = folderIds.map(id => id === sourceFolderId ? targetFolderId : id);
-        // Remove duplicates
-        const uniqueFolderIds = Array.from(new Set(newFolderIds));
-        await this.fileQueries.updateFileFolderIds(file.id, uniqueFolderIds);
-      }
-    }
+    return this.folderMoveOperations.moveFolder(
+      folderId,
+      newParentId,
+      forceMerge,
+      this.removeFolder.bind(this)
+    );
   }
 
   /**
