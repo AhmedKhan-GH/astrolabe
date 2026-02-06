@@ -65,10 +65,10 @@ export class FolderQueries {
   }
 
   /**
-   * Expands a folder and all its parent folders recursively
-   * @param folderId - Folder ID to expand (along with parents)
+   * Expands a folder and all its ancestor folders recursively
+   * @param folderId - Folder ID to expand (along with ancestors)
    */
-  async expandFolderAndParents(folderId: number): Promise<void> {
+  async expandAncestorFolders(folderId: number): Promise<void> {
     // Return early for root (id 0) - no need to expand
     if (folderId === 0) {
       return;
@@ -77,10 +77,10 @@ export class FolderQueries {
     // Expand the folder itself
     await this.expandFolder(folderId);
 
-    // Recursively expand all parent folders
+    // Recursively expand all ancestor folders
     const folder = await this.getFolderById(folderId);
     if (folder && folder.parentId !== 0) {
-      await this.expandFolderAndParents(folder.parentId);
+      await this.expandAncestorFolders(folder.parentId);
     }
   }
 

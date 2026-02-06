@@ -45,9 +45,9 @@ export class FolderOperations {
       parentId,
     }).returning();
 
-    // Expand the parent folder and all its parents to show the newly created folder
+    // Expand the parent folder and all its ancestor folders to show the newly created folder
     if (parentId !== 0) {
-      await this.folderQueries.expandFolderAndParents(parentId);
+      await this.folderQueries.expandAncestorFolders(parentId);
     }
 
     return inserted[0];

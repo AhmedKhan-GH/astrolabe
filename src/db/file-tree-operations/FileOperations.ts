@@ -1,35 +1,34 @@
-import { eq } from 'drizzle-orm';
-import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import * as schema from '../schema';
 import { FileValidation } from './FileValidation';
 import { FileQueries } from './FileQueries';
 import { FolderQueries } from './FolderQueries';
 import { FileMoveOperations } from './FileMoveOperations';
+import { FileAddOperations } from './FileAddOperations';
 
 export class FileOperations {
-  private db: BetterSQLite3Database<typeof schema>;
   private validation: FileValidation;
   private fileQueries: FileQueries;
   private folderQueries: FolderQueries;
   private fileMoveOperations: FileMoveOperations;
+  private fileAddOperations: FileAddOperations;
 
   constructor(
-    db: BetterSQLite3Database<typeof schema>,
     validation: FileValidation,
     fileQueries: FileQueries,
     folderQueries: FolderQueries,
-    fileMoveOperations: FileMoveOperations
+    fileMoveOperations: FileMoveOperations,
+    fileAddOperations: FileAddOperations
   ) {
-    this.db = db;
     this.validation = validation;
     this.fileQueries = fileQueries;
     this.folderQueries = folderQueries;
     this.fileMoveOperations = fileMoveOperations;
+    this.fileAddOperations = fileAddOperations;
   }
 
   /**
    * Creates a file with folder associations
-   * Enforces: Valid folder references, no duplicate folder IDs
+   * Delegates to FileAddOperations
    * @param filename - Name of the file
    * @param path - Path to the file
    * @param filetype - Type of the file (can be null)
@@ -44,21 +43,7 @@ export class FileOperations {
     folderIds: number[] = [],
     storageType: 'import' | 'reference' = 'import'
   ): Promise<schema.File> {
-    // Validate and deduplicate folder IDs
-    const validatedFolderIds = await this.validation.validateAndDeduplicateFolderIds(
-      folderIds,
-      this.folderQueries.getFolderById.bind(this.folderQueries)
-    );
-
-    const inserted = await this.db.insert(schema.files).values({
-      filename,
-      path,
-      filetype,
-      folderIds: validatedFolderIds.length > 0 ? JSON.stringify(validatedFolderIds) : null,
-      fileStorageType: storageType,
-    }).returning();
-
-    return inserted[0];
+    return this.fileAddOperations.createFile(filename, path, filetype, folderIds, storageType);
   }
 
   /**
@@ -89,9 +74,9 @@ export class FileOperations {
     folderIds.push(folderId);
     await this.fileQueries.updateFileFolderIds(fileId, folderIds);
 
-    // Expand the target folder and all parent folders to show the newly added file
+    // Expand the target folder and all ancestor folders to show the newly added file
     if (folderId !== 0) {
-      await this.folderQueries.expandFolderAndParents(folderId);
+      await this.folderQueries.expandAncestorFolders(folderId);
     }
   }
 
@@ -124,7 +109,7 @@ export class FileOperations {
 
   /**
    * Imports a file by checking if a file with the same name and storage type exists
-   * If it exists, prompts user and updates the existing file entry
+   * Delegates to FileAddOperations
    * @param filename - Name of the file
    * @param path - Path to the file
    * @param filetype - Type of the file (can be null)
@@ -141,69 +126,6 @@ export class FileOperations {
     confirmCallback: (existingFile: schema.File) => Promise<boolean>,
     storageType: 'import' | 'reference' = 'import'
   ): Promise<{ isUpdate: boolean; file: schema.File; existingFile?: schema.File }> {
-    // Check if file with same name AND storage type already exists
-    const existingFile = await this.fileQueries.getFileByFilenameAndStorageType(filename, storageType);
-
-    if (existingFile) {
-      // Check if file already exists in this specific folder or root
-      const folderIds = this.fileQueries.parseFolderIds(existingFile.folderIds);
-
-      console.log('[importFile] Checking duplicate:', {
-        filename,
-        storageType,
-        folderId,
-        existingFolderIds: folderIds,
-        folderIdsLength: folderIds.length
-      });
-
-      // Check if file already exists in this specific location (folder or root)
-      this.validation.validateFileNotDuplicateInLocation(folderIds, folderId);
-
-      // Prompt user for confirmation
-      const shouldUpdate = await confirmCallback(existingFile);
-
-      if (!shouldUpdate) {
-        throw new Error('Import cancelled by user');
-      }
-
-      // Update existing file's path, filetype, and storage type
-      await this.db.update(schema.files)
-        .set({
-          path,
-          filetype,
-          fileStorageType: storageType
-        })
-        .where(eq(schema.files.id, existingFile.id));
-
-      // Add folder/root reference (keep existing folders)
-      folderIds.push(folderId);
-      await this.fileQueries.updateFileFolderIds(existingFile.id, folderIds);
-
-      // Expand the target folder and all parent folders to show the newly added file
-      if (folderId !== 0) {
-        await this.folderQueries.expandFolderAndParents(folderId);
-      }
-
-      // Fetch updated file
-      const updatedFile = await this.fileQueries.getFileById(existingFile.id);
-      return {
-        isUpdate: true,
-        file: updatedFile!,
-        existingFile
-      };
-    }
-
-    // No existing file - create new one
-    const newFile = await this.createFile(filename, path, filetype, [folderId], storageType);
-
-    // Expand the target folder and all parent folders to show the newly added file
-    if (folderId !== 0) {
-      await this.folderQueries.expandFolderAndParents(folderId);
-    }
-
-    return {
-      isUpdate: false,
-      file: newFile
-    };
+    return this.fileAddOperations.importFile(filename, path, filetype, folderId, confirmCallback, storageType);
   }
 }

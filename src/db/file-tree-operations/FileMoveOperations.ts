@@ -46,5 +46,10 @@ export class FileMoveOperations {
     }
 
     await this.fileQueries.updateFileFolderIds(fileId, newFolderIds);
+
+    // Expand the target folder and all ancestor folders to show the moved file
+    if (folderId !== 0) {
+      await this.folderQueries.expandAncestorFolders(folderId);
+    }
   }
 }
