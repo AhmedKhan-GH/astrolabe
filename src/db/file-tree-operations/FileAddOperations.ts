@@ -27,48 +27,13 @@ export class FileAddOperations {
   }
 
   /**
-   * Creates a file with folder associations
-   * Enforces: Valid folder references, no duplicate folder IDs
-   * @param filename - Name of the file
-   * @param path - Path to the file
-   * @param filetype - Type of the file (can be null)
-   * @param folderIds - Array of folder IDs
-   * @param storageType - Storage type ('import' or 'reference')
-   * @returns Created file
-   */
-  async createFile(
-    filename: string,
-    path: string,
-    filetype: string | null,
-    folderIds: number[] = [],
-    storageType: 'import' | 'reference' = 'import'
-  ): Promise<schema.File> {
-    // Validate and deduplicate folder IDs
-    const validatedFolderIds = await this.validation.validateAndDeduplicateFolderIds(
-      folderIds,
-      this.folderQueries.getFolderById.bind(this.folderQueries)
-    );
-
-    const inserted = await this.db.insert(schema.files).values({
-      filename,
-      path,
-      filetype,
-      folderIds: validatedFolderIds.length > 0 ? JSON.stringify(validatedFolderIds) : null,
-      fileStorageType: storageType,
-    }).returning();
-
-    return inserted[0];
-  }
-
-  /**
-   * Imports a file by checking if a file with the same name and storage type exists
+   * Imports a file (physically stored) by checking if a file with the same name exists
    * If it exists, prompts user and updates the existing file entry
    * @param filename - Name of the file
    * @param path - Path to the file
    * @param filetype - Type of the file (can be null)
-   * @param folderId - Folder ID to import to (0 for root)
+   * @param folderId - Folder ID to add to (0 for root)
    * @param confirmCallback - Callback to confirm update of existing file
-   * @param storageType - Storage type ('import' or 'reference')
    * @returns Object with isUpdate flag, file, and optional existingFile
    */
   async importFile(
@@ -76,27 +41,69 @@ export class FileAddOperations {
     path: string,
     filetype: string | null,
     folderId: number,
-    confirmCallback: (existingFile: schema.File) => Promise<boolean>,
-    storageType: 'import' | 'reference' = 'import'
+    confirmCallback: (existingFile: schema.File) => Promise<boolean>
   ): Promise<{ isUpdate: boolean; file: schema.File; existingFile?: schema.File }> {
-    // Check if file with same name AND storage type already exists
+    return this.addFile(filename, path, filetype, folderId, confirmCallback, 'import');
+  }
+
+  /**
+   * References a file (path only, not physically stored) by checking if a file with the same name exists
+   * If it exists, prompts user and updates the existing file entry
+   * @param filename - Name of the file
+   * @param path - Path to the file
+   * @param filetype - Type of the file (can be null)
+   * @param folderId - Folder ID to add to (0 for root)
+   * @param confirmCallback - Callback to confirm update of existing file
+   * @returns Object with isUpdate flag, file, and optional existingFile
+   */
+  async referenceFile(
+    filename: string,
+    path: string,
+    filetype: string | null,
+    folderId: number,
+    confirmCallback: (existingFile: schema.File) => Promise<boolean>
+  ): Promise<{ isUpdate: boolean; file: schema.File; existingFile?: schema.File }> {
+    return this.addFile(filename, path, filetype, folderId, confirmCallback, 'reference');
+  }
+
+  /**
+   * Adds a file by checking if a file with the same name and storage type exists
+   * If it exists, prompts user and updates the existing file entry
+   * @param filename - Name of the file
+   * @param path - Path to the file
+   * @param filetype - Type of the file (can be null)
+   * @param folderId - Folder ID to add to (0 for root)
+   * @param confirmCallback - Callback to confirm update of existing file
+   * @param storageType - Storage type ('import' or 'reference')
+   * @returns Object with isUpdate flag, file, and optional existingFile
+   */
+  private async addFile(
+    filename: string,
+    path: string,
+    filetype: string | null,
+    folderId: number,
+    confirmCallback: (existingFile: schema.File) => Promise<boolean>,
+    storageType: 'import' | 'reference'
+  ): Promise<{ isUpdate: boolean; file: schema.File; existingFile?: schema.File }> {
+    // Query database for a file matching both filename AND storage type
     const existingFile = await this.fileQueries.getFileByFilenameAndStorageType(filename, storageType);
 
     if (existingFile) {
-      // Check if file already exists in this specific folder or root
+      // Parse the JSON array of folder IDs from the existing file record
       const folderIds = this.fileQueries.parseFolderIds(existingFile.folderIds);
 
-      // Check if file already exists in this specific location (folder or root)
+      // Verify the file doesn't already exist in the target location (throws if duplicate)
       this.validation.validateFileNotDuplicateInLocation(folderIds, folderId);
 
-      // Prompt user for confirmation
+      // Ask user if they want to update the existing file (add to another folder)
       const shouldUpdate = await confirmCallback(existingFile);
 
+      // User declined - abort operation
       if (!shouldUpdate) {
-        throw new Error('Import cancelled by user');
+        throw new Error('Add file cancelled by user');
       }
 
-      // Update existing file's path, filetype, and storage type
+      // Update the existing file's metadata (path/filetype/storageType)
       await this.db.update(schema.files)
         .set({
           path,
@@ -105,28 +112,51 @@ export class FileAddOperations {
         })
         .where(eq(schema.files.id, existingFile.id));
 
-      // Add folder/root reference (keep existing folders)
+      // Add the new folder to the file's folder list (file can exist in multiple folders)
       folderIds.push(folderId);
       await this.fileQueries.updateFileFolderIds(existingFile.id, folderIds);
 
-      // Expand the target folder and all ancestor folders to show the newly added file
+      // Make the folder hierarchy visible in the UI (skip if root)
       if (folderId !== 0) {
         await this.folderQueries.expandAncestorFolders(folderId);
       }
 
-      // Fetch updated file
-      const updatedFile = await this.fileQueries.getFileById(existingFile.id);
+      // Return updated file data without refetching from database
+      const updatedFile: schema.File = {
+        ...existingFile,
+        path,
+        filetype,
+        fileStorageType: storageType,
+        folderIds: JSON.stringify(folderIds)
+      };
+
       return {
         isUpdate: true,
-        file: updatedFile!,
+        file: updatedFile,
         existingFile
       };
     }
 
-    // No existing file - create new one
-    const newFile = await this.createFile(filename, path, filetype, [folderId], storageType);
+    // No existing file found - create a new file record
 
-    // Expand the target folder and all ancestor folders to show the newly added file
+    // Validate that the target folder exists (throws if not found)
+    if (folderId !== 0) {
+      await this.folderQueries.getFolderById(folderId);
+    }
+
+    // Insert new file record into database
+    const inserted = await this.db.insert(schema.files).values({
+      filename,
+      path,
+      filetype,
+      folderIds: JSON.stringify([folderId]),
+      fileStorageType: storageType,
+    }).returning();
+
+    // Extract the newly created file from the result array
+    const newFile = inserted[0];
+
+    // Make the folder hierarchy visible in the UI (skip if root)
     if (folderId !== 0) {
       await this.folderQueries.expandAncestorFolders(folderId);
     }
