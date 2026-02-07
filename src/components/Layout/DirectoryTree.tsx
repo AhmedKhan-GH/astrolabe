@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import FileTreeView, { type TreeNode } from '../FileTree/FileTreeView'
 import ContextMenu from '../FileTree/ContextMenu'
-import FolderPickerModal from '../FileTree/FolderPickerModal'
 import MergeFolderModal from '../FileTree/MergeFolderModal'
 import { buildFileTree } from '../FileTree/buildFileTree'
 import DirectoryHeader from './DirectoryHeader'

@@ -20,9 +20,9 @@ import fs from 'fs';
 import path from 'path';
 
 /**
- * Sets up IPC handlers for database and settings operations
+ * Sets up IPC handlers for database and settings processes
  */
-export function setupDatabaseHandlers() {
+export function setupDatabaseProcessHandlers() {
   // Settings handlers
   ipcMain.handle('getDataDirectory', () => {
     return getDataDirectory();

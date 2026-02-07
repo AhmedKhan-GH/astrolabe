@@ -1,11 +1,11 @@
-import { setupFileHandlers } from './ipc/fileOperations';
-import { setupFolderHandlers } from './ipc/folderOperations';
-import { setupDatabaseHandlers } from './ipc/databaseOperations';
+import { setupFileProcessHandlers } from './ipc/FileProcess';
+import { setupFolderProcessHandlers } from './ipc/FolderProcess';
+import { setupDatabaseProcessHandlers } from './ipc/DatabaseProcess';
 
 export function setupIpcHandlers() {
-  setupFileHandlers();
-  setupFolderHandlers();
-  setupDatabaseHandlers();
+  setupFileProcessHandlers();
+  setupFolderProcessHandlers();
+  setupDatabaseProcessHandlers();
 
   console.log('IPC handlers ready');
 }
