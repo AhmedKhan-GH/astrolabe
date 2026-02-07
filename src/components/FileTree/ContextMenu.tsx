@@ -53,6 +53,43 @@ export default function ContextMenu({
     return folderIds.length > 1
   })() : false
 
+  // Helper to get all descendant folder IDs (including the folder itself)
+  const getAllDescendantIds = (folderId: number): number[] => {
+    const descendants = [folderId]
+    const children = allFolders.filter(f => f.parentId === folderId)
+    children.forEach(child => {
+      descendants.push(...getAllDescendantIds(child.id))
+    })
+    return descendants
+  }
+
+  // Calculate which folders to exclude for "Move to" based on node type
+  const getExcludedFoldersForMove = (): number[] => {
+    if (node.type === 'folder') {
+      const folderId = parseInt(node.id.replace('folder-', ''))
+      // Exclude the folder itself and all its descendants
+      return getAllDescendantIds(folderId)
+    } else if (node.type === 'file') {
+      // Exclude folders where the file is already located
+      const fileId = parseInt(node.id.replace('file-', ''))
+      const file = allFiles.find(f => f.id === fileId)
+      if (!file?.folderIds) return []
+      return JSON.parse(file.folderIds)
+    }
+    return []
+  }
+
+  // Calculate which folders to exclude for "Add to" (only for files)
+  const getExcludedFoldersForAdd = (): number[] => {
+    if (node.type === 'file') {
+      const fileId = parseInt(node.id.replace('file-', ''))
+      const file = allFiles.find(f => f.id === fileId)
+      if (!file?.folderIds) return []
+      return JSON.parse(file.folderIds)
+    }
+    return []
+  }
+
   useEffect(() => {
     const handleClickOutside = () => {
       onClose()
@@ -210,6 +247,7 @@ export default function ContextMenu({
       {showMovePicker && (
         <FolderPickerModal
           allFolders={allFolders}
+          excludeFolderIds={getExcludedFoldersForMove()}
           onSelect={(folderId) => {
             onMoveTo(folderId)
             setShowMovePicker(false)
@@ -222,6 +260,7 @@ export default function ContextMenu({
       {showAddPicker && node.type === 'file' && onAddTo && (
         <FolderPickerModal
           allFolders={allFolders}
+          excludeFolderIds={getExcludedFoldersForAdd()}
           onSelect={(folderId) => {
             onAddTo(folderId)
             setShowAddPicker(false)

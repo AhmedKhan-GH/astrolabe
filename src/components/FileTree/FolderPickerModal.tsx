@@ -6,28 +6,35 @@ interface FolderPickerModalProps {
   allFolders: Folder[]
   onSelect: (folderId: number) => void
   onClose: () => void
+  excludeFolderIds?: number[]  // Folders to exclude from selection
+  currentFolderId?: number  // Current folder (for context)
 }
 
-export default function FolderPickerModal({ allFolders, onSelect, onClose }: FolderPickerModalProps) {
+export default function FolderPickerModal({ allFolders, onSelect, onClose, excludeFolderIds = [] }: FolderPickerModalProps) {
   // Build folder hierarchy and convert to TreeNode format with System Root
   const treeData = useMemo(() => {
     const folderMap: Record<number, TreeNode> = {}
     const rootFolders: TreeNode[] = []
+    const excludeSet = new Set(excludeFolderIds)
 
-    // Create folder nodes
+    // Create folder nodes (excluding filtered ones)
     allFolders.forEach((folder) => {
-      folderMap[folder.id] = {
-        id: `folder-${folder.id}`,
-        name: folder.name,
-        type: 'folder',
-        children: [],
-        isExpanded: folder.isExpanded
+      if (!excludeSet.has(folder.id)) {
+        folderMap[folder.id] = {
+          id: `folder-${folder.id}`,
+          name: folder.name,
+          type: 'folder',
+          children: [],
+          isExpanded: folder.isExpanded
+        }
       }
     })
 
     // Build hierarchy
     allFolders.forEach((folder) => {
       const node = folderMap[folder.id]
+      if (!node) return // Skip if excluded
+
       if (folder.parentId !== 0 && folderMap[folder.parentId]) {
         folderMap[folder.parentId].children!.push(node)
       } else {
@@ -46,7 +53,7 @@ export default function FolderPickerModal({ allFolders, onSelect, onClose }: Fol
     }
 
     return [systemRootNode]
-  }, [allFolders])
+  }, [allFolders, excludeFolderIds])
 
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
 
