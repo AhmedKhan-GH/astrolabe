@@ -38,7 +38,7 @@ function DirectoryTree() {
         window.electron.getAllFiles()
       ])
 
-      logger.info({ folderCount: folders.length, fileCount: files.length }, '[DirectoryTree] Data loaded successfully');
+      logger.debug({ folderCount: folders.length, fileCount: files.length }, '[DirectoryTree] Data loaded successfully');
 
       setAllFolders(folders)
       setAllFiles(files)
