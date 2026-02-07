@@ -16,10 +16,10 @@ export class RemoteFileService implements IFileService {
   }
 
   private async fetchApi(endpoint: string, options: RequestInit = {}): Promise<Response> {
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...(this.apiKey && { 'Authorization': `Bearer ${this.apiKey}` }),
-      ...options.headers,
+      ...(options.headers as Record<string, string>),
     };
 
     const response = await fetch(`${this.apiUrl}${endpoint}`, {
@@ -34,22 +34,34 @@ export class RemoteFileService implements IFileService {
     return response;
   }
 
-  async importFiles(filePaths: string[], folderId?: number): Promise<File[]> {
+  async importFiles(
+    filePaths: string[],
+    folderId?: number,
+    _confirmCallback?: (existingFile: File) => Promise<boolean>
+  ): Promise<File[]> {
     const response = await this.fetchApi('/files/import', {
       method: 'POST',
       body: JSON.stringify({ filePaths, folderId }),
     });
 
-    return response.json();
+    // Note: confirmCallback is not used in remote mode
+    // The remote API handles duplicate file resolution
+    return response.json() as Promise<File[]>;
   }
 
-  async referenceFiles(filePaths: string[], folderId?: number): Promise<File[]> {
+  async referenceFiles(
+    filePaths: string[],
+    folderId?: number,
+    _confirmCallback?: (existingFile: File) => Promise<boolean>
+  ): Promise<File[]> {
     const response = await this.fetchApi('/files/reference', {
       method: 'POST',
       body: JSON.stringify({ filePaths, folderId }),
     });
 
-    return response.json();
+    // Note: confirmCallback is not used in remote mode
+    // The remote API handles duplicate file resolution
+    return response.json() as Promise<File[]>;
   }
 
   async moveFile(fileId: number, folderId: number): Promise<void> {
@@ -80,6 +92,6 @@ export class RemoteFileService implements IFileService {
 
   async getAllFiles(): Promise<File[]> {
     const response = await this.fetchApi('/files');
-    return response.json();
+    return response.json() as Promise<File[]>;
   }
 }

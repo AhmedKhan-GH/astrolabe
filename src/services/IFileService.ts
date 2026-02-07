@@ -9,17 +9,27 @@ export interface IFileService {
    * Import files by copying them to storage and adding to database
    * @param filePaths - Array of file paths to import
    * @param folderId - Optional folder ID to import into
+   * @param confirmCallback - Optional callback for handling duplicate files
    * @returns Array of imported files
    */
-  importFiles(filePaths: string[], folderId?: number): Promise<File[]>;
+  importFiles(
+    filePaths: string[],
+    folderId?: number,
+    confirmCallback?: (existingFile: File) => Promise<boolean>
+  ): Promise<File[]>;
 
   /**
    * Reference files by storing their path without copying
    * @param filePaths - Array of file paths to reference
    * @param folderId - Optional folder ID to reference into
+   * @param confirmCallback - Optional callback for handling duplicate files
    * @returns Array of referenced files
    */
-  referenceFiles(filePaths: string[], folderId?: number): Promise<File[]>;
+  referenceFiles(
+    filePaths: string[],
+    folderId?: number,
+    confirmCallback?: (existingFile: File) => Promise<boolean>
+  ): Promise<File[]>;
 
   /**
    * Move a file to a different folder

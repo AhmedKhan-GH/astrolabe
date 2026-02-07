@@ -16,10 +16,10 @@ export class RemoteFolderService implements IFolderService {
   }
 
   private async fetchApi(endpoint: string, options: RequestInit = {}): Promise<Response> {
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...(this.apiKey && { 'Authorization': `Bearer ${this.apiKey}` }),
-      ...options.headers,
+      ...(options.headers as Record<string, string>),
     };
 
     const response = await fetch(`${this.apiUrl}${endpoint}`, {
@@ -40,7 +40,7 @@ export class RemoteFolderService implements IFolderService {
       body: JSON.stringify({ name, parentId: parentId ?? 0 }),
     });
 
-    return response.json();
+    return response.json() as Promise<Folder>;
   }
 
   async moveFolder(
@@ -53,7 +53,7 @@ export class RemoteFolderService implements IFolderService {
       body: JSON.stringify({ newParentId, forceMerge }),
     });
 
-    return response.json();
+    return response.json() as Promise<{ success: boolean; errorCode?: string }>;
   }
 
   async removeFolder(folderId: number): Promise<void> {
@@ -70,6 +70,6 @@ export class RemoteFolderService implements IFolderService {
 
   async getAllFolders(): Promise<Folder[]> {
     const response = await this.fetchApi('/folders');
-    return response.json();
+    return response.json() as Promise<Folder[]>;
   }
 }

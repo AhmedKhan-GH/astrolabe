@@ -1,7 +1,7 @@
 import { ipcMain, dialog } from 'electron';
 import { getDatabase } from '../database';
 import { getDataDirectory } from '../settings';
-import { LocalFileService } from '../../src/services/LocalFileService';
+import { ServiceFactory } from '../../src/services/ServiceFactory';
 import * as schema from '../../src/db/schema';
 import path from 'path';
 
@@ -65,6 +65,12 @@ export function setupFileProcessHandlers() {
 
   handlers.forEach(handler => ipcMain.removeHandler(handler));
 
+  // Create service instance once for all handlers
+  const db = getDatabase();
+  const dataDir = getDataDirectory();
+  const config = ServiceFactory.createConfigFromEnv(db, dataDir);
+  const fileService = ServiceFactory.createFileService(config);
+
   ipcMain.handle('selectAndImportFiles', async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openFile', 'multiSelections'],
@@ -76,10 +82,6 @@ export function setupFileProcessHandlers() {
     if (result.canceled || result.filePaths.length === 0) {
       return [];
     }
-
-    const db = getDatabase();
-    const dataDir = getDataDirectory();
-    const fileService = new LocalFileService(db, dataDir);
 
     const importedFiles = [];
     for (const filePath of result.filePaths) {
@@ -115,10 +117,6 @@ export function setupFileProcessHandlers() {
       return [];
     }
 
-    const db = getDatabase();
-    const dataDir = getDataDirectory();
-    const fileService = new LocalFileService(db, dataDir);
-
     const importedFiles = [];
     for (const filePath of result.filePaths) {
       const filename = path.basename(filePath);
@@ -152,10 +150,6 @@ export function setupFileProcessHandlers() {
     if (result.canceled || result.filePaths.length === 0) {
       return [];
     }
-
-    const db = getDatabase();
-    const dataDir = getDataDirectory();
-    const fileService = new LocalFileService(db, dataDir);
 
     const referencedFiles = [];
     for (const filePath of result.filePaths) {
@@ -191,10 +185,6 @@ export function setupFileProcessHandlers() {
       return [];
     }
 
-    const db = getDatabase();
-    const dataDir = getDataDirectory();
-    const fileService = new LocalFileService(db, dataDir);
-
     const referencedFiles = [];
     for (const filePath of result.filePaths) {
       const filename = path.basename(filePath);
@@ -218,18 +208,11 @@ export function setupFileProcessHandlers() {
   });
 
   ipcMain.handle('getAllFiles', async () => {
-    const db = getDatabase();
-    const dataDir = getDataDirectory();
-    const fileService = new LocalFileService(db, dataDir);
     return fileService.getAllFiles();
   });
 
   ipcMain.handle('deleteFile', async (_, fileId: number) => {
     console.log('deleteFile called:', fileId);
-    const db = getDatabase();
-    const dataDir = getDataDirectory();
-    const fileService = new LocalFileService(db, dataDir);
-
     await fileService.deleteFile(fileId);
     console.log('File deleted');
   });
