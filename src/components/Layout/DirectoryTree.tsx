@@ -33,11 +33,6 @@ function DirectoryTree() {
 
   const loadTreeData = useCallback(async () => {
     try {
-      // Health check to verify we're loading from the correct database
-      const health = await window.electron.getDatabaseHealth();
-      logger.info({ health }, '[DirectoryTree] Database health check');
-      logger.info({ databasePath: health.databasePath }, '[DirectoryTree] Loading data from database');
-
       const [folders, files] = await Promise.all([
         window.electron.getAllFolders(),
         window.electron.getAllFiles()

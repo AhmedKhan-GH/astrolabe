@@ -142,7 +142,7 @@ export function setupDatabaseProcessHandlers() {
       isConnected
     };
 
-    logger.info({
+    logger.debug({
       dbPath,
       exists,
       isConnected,
