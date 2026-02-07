@@ -53,6 +53,18 @@ async function showErrorDialog(title: string, message: string, detail: string) {
  * Sets up IPC handlers for file process communication
  */
 export function setupFileProcessHandlers() {
+  // Remove existing handlers first to prevent duplicates
+  const handlers = [
+    'selectAndImportFiles',
+    'selectAndImportFilesToFolder',
+    'selectAndReferenceFiles',
+    'selectAndReferenceFilesToFolder',
+    'getAllFiles',
+    'deleteFile'
+  ];
+
+  handlers.forEach(handler => ipcMain.removeHandler(handler));
+
   ipcMain.handle('selectAndImportFiles', async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openFile', 'multiSelections'],

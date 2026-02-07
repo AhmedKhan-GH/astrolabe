@@ -8,6 +8,20 @@ import { LocalFileService } from '../../src/services/LocalFileService';
  * Sets up IPC handlers for folder processes
  */
 export function setupFolderProcessHandlers() {
+  // Remove existing handlers first to prevent duplicates
+  const handlers = [
+    'getAllFolders',
+    'createFolder',
+    'moveFile',
+    'includeFileInFolder',
+    'moveFolder',
+    'removeFileFromFolder',
+    'removeFolder',
+    'toggleFolderExpanded'
+  ];
+
+  handlers.forEach(handler => ipcMain.removeHandler(handler));
+
   ipcMain.handle('getAllFolders', async () => {
     const db = getDatabase();
     const folderService = new LocalFolderService(db);

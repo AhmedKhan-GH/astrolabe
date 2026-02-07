@@ -23,6 +23,25 @@ import path from 'path';
  * Sets up IPC handlers for database and settings processes
  */
 export function setupDatabaseProcessHandlers() {
+  // Remove existing handlers first to prevent duplicates
+  const handlers = [
+    'getDataDirectory',
+    'chooseDataDirectory',
+    'resetDataDirectory',
+    'openFileInDefaultApp',
+    'selectDatabaseFile',
+    'createDatabaseFile',
+    'getDatabaseHealth',
+    'getDatabasesList',
+    'getCurrentDatabase',
+    'getDefaultDatabasePath',
+    'switchToDatabase',
+    'switchToDefaultDatabase',
+    'deleteDatabase'
+  ];
+
+  handlers.forEach(handler => ipcMain.removeHandler(handler));
+
   // Settings handlers
   ipcMain.handle('getDataDirectory', () => {
     return getDataDirectory();

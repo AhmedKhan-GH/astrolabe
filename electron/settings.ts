@@ -36,25 +36,19 @@ const store = new ElectronStore<Settings>({
  */
 export function getDataDirectory(): string {
   const customPath = store.get('dataDirectory');
-  console.log('[getDataDirectory] Custom path from store:', customPath);
 
   // Precedence: custom > .env > default
   let dataPath: string;
   if (customPath) {
     // User explicitly selected a database location
-    console.log('[getDataDirectory] Using custom path');
     dataPath = customPath;
   } else if (!app.isPackaged && process.env.DATA_DIR) {
     // Development mode with .env override
-    console.log('[getDataDirectory] Using .env DATA_DIR');
     dataPath = path.resolve(app.getAppPath(), process.env.DATA_DIR);
   } else {
     // Default location
-    console.log('[getDataDirectory] Using default path');
     dataPath = path.join(app.getPath('userData'), 'data');
   }
-
-  console.log('[getDataDirectory] Final path:', dataPath);
 
   // Ensure the directory exists (creates .astro as a directory bundle)
   if (!fs.existsSync(dataPath)) {
