@@ -127,7 +127,7 @@ function DirectoryTree() {
       } else {
         const numericFolderId = parseInt(contextMenu.node.id.replace('folder-', ''))
         console.log('Moving folder:', numericFolderId, 'to parent:', targetFolderId)
-        const result = await window.electron.moveFolder(numericFolderId, targetFolderId) as any
+        const result = await window.electron.moveFolder(numericFolderId, targetFolderId)
 
         console.log('moveFolder result:', result)
 
@@ -319,7 +319,7 @@ function DirectoryTree() {
     if (!mergeModal) return
 
     try {
-      const result = await window.electron.moveFolder(mergeModal.sourceFolderId, mergeModal.targetFolderId, true) as any
+      const result = await window.electron.moveFolder(mergeModal.sourceFolderId, mergeModal.targetFolderId, true)
       if (result && result.success) {
         console.log('Merge successful, reloading tree')
         await loadTreeData()

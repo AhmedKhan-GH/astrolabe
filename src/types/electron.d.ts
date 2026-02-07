@@ -1,4 +1,4 @@
-import type { File } from '../db/schema';
+import type { File, Folder } from '../db/schema';
 
 export interface ElectronAPI {
   selectAndImportFiles: () => Promise<File[]>;
@@ -6,11 +6,11 @@ export interface ElectronAPI {
   selectAndReferenceFiles: () => Promise<File[]>;
   selectAndReferenceFilesToFolder: (folderId: number) => Promise<File[]>;
   getAllFiles: () => Promise<File[]>;
-  getAllFolders: () => Promise<any[]>;
-  createFolder: (name: string, parentId?: number) => Promise<any>;
+  getAllFolders: () => Promise<Folder[]>;
+  createFolder: (name: string, parentId?: number) => Promise<Folder>;
   moveFile: (fileId: number, folderId: number | null) => Promise<void>;
   includeFileInFolder: (fileId: number, folderId: number) => Promise<void>;
-  moveFolder: (folderId: number, newParentId: number | null, forceMerge?: boolean) => Promise<void>;
+  moveFolder: (folderId: number, newParentId: number | null, forceMerge?: boolean) => Promise<{ success: boolean; errorCode?: string }>;
   deleteFile: (fileId: number) => Promise<void>;
   removeFolder: (folderId: number) => Promise<void>;
   removeFileFromFolder: (fileId: number, folderId: number) => Promise<void>;
