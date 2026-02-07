@@ -21,18 +21,24 @@ export function setupFolderProcessHandlers() {
 
   handlers.forEach(handler => ipcMain.removeHandler(handler));
 
-  // Create service instances once for all handlers
-  const db = getDatabase();
-  const dataDir = getDataDirectory();
-  const config = ServiceFactory.createConfigFromEnv(db, dataDir);
-  const folderService = ServiceFactory.createFolderService(config);
-  const fileService = ServiceFactory.createFileService(config);
+  // Helpers to get fresh service instances
+  const getServices = () => {
+    const db = getDatabase();
+    const dataDir = getDataDirectory();
+    const config = ServiceFactory.createConfigFromEnv(db, dataDir);
+    return {
+      folderService: ServiceFactory.getFolderService(config),
+      fileService: ServiceFactory.getFileService(config)
+    };
+  };
 
   ipcMain.handle('getAllFolders', async () => {
+    const { folderService } = getServices();
     return folderService.getAllFolders();
   });
 
   ipcMain.handle('createFolder', async (_, name: string, parentId?: number) => {
+    const { folderService } = getServices();
     console.log('createFolder called with name:', name, 'parentId:', parentId);
     const inserted = await folderService.createFolder(name, parentId);
     console.log('Folder created:', inserted);
@@ -40,18 +46,21 @@ export function setupFolderProcessHandlers() {
   });
 
   ipcMain.handle('moveFile', async (_, fileId: number, folderId: number) => {
+    const { fileService } = getServices();
     console.log('moveFile called:', { fileId, folderId });
     await fileService.moveFile(fileId, folderId);
     console.log('File moved');
   });
 
   ipcMain.handle('includeFileInFolder', async (_, fileId: number, folderId: number) => {
+    const { fileService } = getServices();
     console.log('includeFileInFolder called:', { fileId, folderId });
     await fileService.addFileToFolder(fileId, folderId);
     console.log('File added to folder');
   });
 
   ipcMain.handle('moveFolder', async (_, folderId: number, newParentId: number, forceMerge?: boolean) => {
+    const { folderService } = getServices();
     console.log('moveFolder called:', { folderId, newParentId, forceMerge });
     const result = await folderService.moveFolder(folderId, newParentId, forceMerge);
     console.log('Folder moved:', result);
@@ -59,18 +68,21 @@ export function setupFolderProcessHandlers() {
   });
 
   ipcMain.handle('removeFileFromFolder', async (_, fileId: number, folderId: number) => {
+    const { fileService } = getServices();
     console.log('removeFileFromFolder called:', { fileId, folderId });
     await fileService.removeFileFromFolder(fileId, folderId);
     console.log('File removed from folder');
   });
 
   ipcMain.handle('removeFolder', async (_, folderId: number) => {
+    const { folderService } = getServices();
     console.log('removeFolder called:', folderId);
     await folderService.removeFolder(folderId);
     console.log('Folder removed successfully');
   });
 
   ipcMain.handle('toggleFolderExpanded', async (_, folderId: number) => {
+    const { folderService } = getServices();
     await folderService.toggleFolderExpanded(folderId);
   });
 }

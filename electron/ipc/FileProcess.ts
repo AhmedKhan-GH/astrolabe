@@ -65,13 +65,16 @@ export function setupFileProcessHandlers() {
 
   handlers.forEach(handler => ipcMain.removeHandler(handler));
 
-  // Create service instance once for all handlers
-  const db = getDatabase();
-  const dataDir = getDataDirectory();
-  const config = ServiceFactory.createConfigFromEnv(db, dataDir);
-  const fileService = ServiceFactory.createFileService(config);
+  // Helper to get fresh service instance
+  const getFileService = () => {
+    const db = getDatabase();
+    const dataDir = getDataDirectory();
+    const config = ServiceFactory.createConfigFromEnv(db, dataDir);
+    return ServiceFactory.getFileService(config);
+  };
 
   ipcMain.handle('selectAndImportFiles', async () => {
+    const fileService = getFileService();
     const result = await dialog.showOpenDialog({
       properties: ['openFile', 'multiSelections'],
       filters: [
@@ -106,6 +109,7 @@ export function setupFileProcessHandlers() {
   });
 
   ipcMain.handle('selectAndImportFilesToFolder', async (_, folderId: number) => {
+    const fileService = getFileService();
     const result = await dialog.showOpenDialog({
       properties: ['openFile', 'multiSelections'],
       filters: [
@@ -140,6 +144,7 @@ export function setupFileProcessHandlers() {
   });
 
   ipcMain.handle('selectAndReferenceFiles', async () => {
+    const fileService = getFileService();
     const result = await dialog.showOpenDialog({
       properties: ['openFile', 'multiSelections'],
       filters: [
@@ -174,6 +179,7 @@ export function setupFileProcessHandlers() {
   });
 
   ipcMain.handle('selectAndReferenceFilesToFolder', async (_, folderId: number) => {
+    const fileService = getFileService();
     const result = await dialog.showOpenDialog({
       properties: ['openFile', 'multiSelections'],
       filters: [
@@ -208,10 +214,12 @@ export function setupFileProcessHandlers() {
   });
 
   ipcMain.handle('getAllFiles', async () => {
+    const fileService = getFileService();
     return fileService.getAllFiles();
   });
 
   ipcMain.handle('deleteFile', async (_, fileId: number) => {
+    const fileService = getFileService();
     console.log('deleteFile called:', fileId);
     await fileService.deleteFile(fileId);
     console.log('File deleted');

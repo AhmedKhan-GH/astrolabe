@@ -6,6 +6,7 @@ import { app } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { getDataDirectory, addDatabaseToList } from './settings';
+import { ServiceFactory } from '../src/services/ServiceFactory';
 
 let db: BetterSQLite3Database<typeof schema> | null = null;
 let sqlite: Database.Database | null = null;
@@ -67,5 +68,7 @@ export function getDatabase() {
  */
 export function reinitDatabase() {
   console.log('Reinitializing database...');
+  // Reset service instances before reinitializing database
+  ServiceFactory.reset();
   return initDatabase();
 }

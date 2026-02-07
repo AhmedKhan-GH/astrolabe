@@ -16,15 +16,54 @@ export interface ServiceConfig {
 }
 
 /**
- * Factory for creating file and folder services based on configuration
+ * Factory for creating and managing file and folder services based on configuration
+ * Services are cached as singletons to avoid duplicate instances
  */
 export class ServiceFactory {
+  private static fileServiceInstance: IFileService | null = null;
+  private static folderServiceInstance: IFolderService | null = null;
+
+  /**
+   * Get or create a file service based on the provided configuration
+   * Returns cached instance if available
+   * @param config - Service configuration
+   * @returns IFileService instance (local or remote)
+   */
+  static getFileService(config: ServiceConfig): IFileService {
+    if (!this.fileServiceInstance) {
+      this.fileServiceInstance = this.createFileService(config);
+    }
+    return this.fileServiceInstance;
+  }
+
+  /**
+   * Get or create a folder service based on the provided configuration
+   * Returns cached instance if available
+   * @param config - Service configuration
+   * @returns IFolderService instance (local or remote)
+   */
+  static getFolderService(config: ServiceConfig): IFolderService {
+    if (!this.folderServiceInstance) {
+      this.folderServiceInstance = this.createFolderService(config);
+    }
+    return this.folderServiceInstance;
+  }
+
+  /**
+   * Reset cached service instances
+   * Call this when switching databases or reinitializing
+   */
+  static reset(): void {
+    this.fileServiceInstance = null;
+    this.folderServiceInstance = null;
+  }
+
   /**
    * Create a file service based on the provided configuration
    * @param config - Service configuration
    * @returns IFileService instance (local or remote)
    */
-  static createFileService(config: ServiceConfig): IFileService {
+  private static createFileService(config: ServiceConfig): IFileService {
     if (config.mode === 'remote') {
       if (!config.apiUrl) {
         throw new Error('API URL is required for remote file service');
@@ -44,7 +83,7 @@ export class ServiceFactory {
    * @param config - Service configuration
    * @returns IFolderService instance (local or remote)
    */
-  static createFolderService(config: ServiceConfig): IFolderService {
+  private static createFolderService(config: ServiceConfig): IFolderService {
     if (config.mode === 'remote') {
       if (!config.apiUrl) {
         throw new Error('API URL is required for remote folder service');
