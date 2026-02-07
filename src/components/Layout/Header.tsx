@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import DatabasePickerModal from '../FileTree/DatabasePickerModal'
+import { logger } from '../../utils/logger'
 
 interface HeaderProps {
   onToggleSidebar: () => void
@@ -21,7 +22,7 @@ function Header({ onToggleSidebar }: HeaderProps) {
   }, [])
 
   const handleDatabaseSelect = async (dbPath: string) => {
-    console.log('Selected database:', dbPath)
+    logger.info({ dbPath }, '[Header] Database selected, reloading application')
     setShowDatabasePicker(false)
     // Database has been reinitialized on the backend, reload to refresh UI
     window.location.reload()

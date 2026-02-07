@@ -3,6 +3,7 @@ import { getDatabase } from '../database';
 import { getDataDirectory } from '../settings';
 import { ServiceFactory } from '../../src/services/ServiceFactory';
 import * as schema from '../../src/db/schema';
+import { logger } from '../utils/logger';
 import path from 'path';
 
 /**
@@ -220,8 +221,8 @@ export function setupFileProcessHandlers() {
 
   ipcMain.handle('deleteFile', async (_, fileId: number) => {
     const fileService = getFileService();
-    console.log('deleteFile called:', fileId);
+    logger.info({ fileId }, '[IPC] deleteFile called');
     await fileService.deleteFile(fileId);
-    console.log('File deleted');
+    logger.info({ fileId }, '[IPC] File deleted successfully');
   });
 }

@@ -2,6 +2,7 @@ import { ipcMain } from 'electron';
 import { getDatabase } from '../database';
 import { getDataDirectory } from '../settings';
 import { ServiceFactory } from '../../src/services/ServiceFactory';
+import { logger } from '../utils/logger';
 
 /**
  * Sets up IPC handlers for folder processes
@@ -39,46 +40,46 @@ export function setupFolderProcessHandlers() {
 
   ipcMain.handle('createFolder', async (_, name: string, parentId?: number) => {
     const { folderService } = getServices();
-    console.log('createFolder called with name:', name, 'parentId:', parentId);
+    logger.info({ name, parentId }, '[IPC] createFolder called');
     const inserted = await folderService.createFolder(name, parentId);
-    console.log('Folder created:', inserted);
+    logger.info({ folder: inserted }, '[IPC] Folder created successfully');
     return inserted;
   });
 
   ipcMain.handle('moveFile', async (_, fileId: number, folderId: number) => {
     const { fileService } = getServices();
-    console.log('moveFile called:', { fileId, folderId });
+    logger.info({ fileId, folderId }, '[IPC] moveFile called');
     await fileService.moveFile(fileId, folderId);
-    console.log('File moved');
+    logger.info({ fileId, folderId }, '[IPC] File moved successfully');
   });
 
   ipcMain.handle('includeFileInFolder', async (_, fileId: number, folderId: number) => {
     const { fileService } = getServices();
-    console.log('includeFileInFolder called:', { fileId, folderId });
+    logger.info({ fileId, folderId }, '[IPC] includeFileInFolder called');
     await fileService.addFileToFolder(fileId, folderId);
-    console.log('File added to folder');
+    logger.info({ fileId, folderId }, '[IPC] File added to folder successfully');
   });
 
   ipcMain.handle('moveFolder', async (_, folderId: number, newParentId: number, forceMerge?: boolean) => {
     const { folderService } = getServices();
-    console.log('moveFolder called:', { folderId, newParentId, forceMerge });
+    logger.info({ folderId, newParentId, forceMerge }, '[IPC] moveFolder called');
     const result = await folderService.moveFolder(folderId, newParentId, forceMerge);
-    console.log('Folder moved:', result);
+    logger.info({ result }, '[IPC] Folder moved');
     return result;
   });
 
   ipcMain.handle('removeFileFromFolder', async (_, fileId: number, folderId: number) => {
     const { fileService } = getServices();
-    console.log('removeFileFromFolder called:', { fileId, folderId });
+    logger.info({ fileId, folderId }, '[IPC] removeFileFromFolder called');
     await fileService.removeFileFromFolder(fileId, folderId);
-    console.log('File removed from folder');
+    logger.info({ fileId, folderId }, '[IPC] File removed from folder successfully');
   });
 
   ipcMain.handle('removeFolder', async (_, folderId: number) => {
     const { folderService } = getServices();
-    console.log('removeFolder called:', folderId);
+    logger.info({ folderId }, '[IPC] removeFolder called');
     await folderService.removeFolder(folderId);
-    console.log('Folder removed successfully');
+    logger.info({ folderId }, '[IPC] Folder removed successfully');
   });
 
   ipcMain.handle('toggleFolderExpanded', async (_, folderId: number) => {

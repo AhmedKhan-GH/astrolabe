@@ -124,7 +124,6 @@ export default function ContextMenu({
                 onClick={(e) => {
                   e.stopPropagation()
                   const folderId = parseInt(node.id.replace('folder-', ''))
-                  console.log('Import File clicked for folder:', folderId)
                   onAddFile(folderId)
                 }}
                 className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600"
@@ -137,7 +136,6 @@ export default function ContextMenu({
                 onClick={(e) => {
                   e.stopPropagation()
                   const folderId = parseInt(node.id.replace('folder-', ''))
-                  console.log('Reference File clicked for folder:', folderId)
                   onReferenceFile(folderId)
                 }}
                 className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600"
@@ -186,7 +184,6 @@ export default function ContextMenu({
                 onClick={(e) => {
                   e.stopPropagation()
                   const folderId = parseInt(node.id.replace('folder-', ''))
-                  console.log('Import File clicked for folder:', folderId)
                   onAddFile(folderId)
                 }}
                 className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600"
@@ -199,7 +196,6 @@ export default function ContextMenu({
                 onClick={(e) => {
                   e.stopPropagation()
                   const folderId = parseInt(node.id.replace('folder-', ''))
-                  console.log('Reference File clicked for folder:', folderId)
                   onReferenceFile(folderId)
                 }}
                 className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600"

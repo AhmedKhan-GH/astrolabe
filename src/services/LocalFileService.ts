@@ -4,6 +4,7 @@ import type { File } from '../db/schema';
 import type { IFileService } from './IFileService';
 import { FileOperations } from '../db/operations/FileOperations';
 import { FolderOperations } from '../db/operations/FolderOperations';
+import { logger } from '../utils/logger';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
@@ -68,7 +69,7 @@ export class LocalFileService implements IFileService {
         if (fs.existsSync(storedPath)) fs.unlinkSync(storedPath);
         if (fs.existsSync(hashDir)) {
           try { fs.rmdirSync(hashDir); }
-          catch (e) { console.error('Error cleaning up hash directory:', e); }
+          catch (e) { logger.error({ error: e }, 'Error cleaning up hash directory'); }
         }
         throw error;
       }
@@ -140,7 +141,7 @@ export class LocalFileService implements IFileService {
           }
           fs.rmdirSync(hashDir);
         } catch (error) {
-          console.error('Error deleting hash directory:', error);
+          logger.error({ error }, 'Error deleting hash directory');
         }
       }
     }

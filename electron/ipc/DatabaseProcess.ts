@@ -15,6 +15,7 @@ import {
   getDefaultDatabasePath
 } from '../settings';
 import { shell } from 'electron';
+import { logger } from '../utils/logger';
 
 import fs from 'fs';
 import path from 'path';
@@ -62,67 +63,68 @@ export function setupDatabaseProcessHandlers() {
 
   // Database picker handlers
   ipcMain.handle('selectDatabaseFile', async () => {
-    console.log('[IPC] selectDatabaseFile called');
+    logger.info('[IPC] selectDatabaseFile - Opening file picker dialog...');
     const result = await selectDatabaseFile();
-    console.log('[IPC] selectDatabaseFile result:', result);
+
     if (result) {
-      console.log('[IPC] Switching to database:', result);
+      logger.info({ databasePath: result }, '[IPC] User selected database');
+      logger.info('[IPC] Reinitializing database with selected path...');
+
       // Reinitialize database with new path
       reinitDatabase();
 
       // Reload the window after a small delay to ensure database is ready
-      console.log('[IPC] Setting timeout for window reload...');
+      logger.debug('[IPC] Scheduling window reload (100ms delay)...');
       setTimeout(() => {
         const mainWindow = getMainWindow();
-        console.log('[IPC] mainWindow:', mainWindow ? 'exists' : 'null');
         if (mainWindow) {
-          console.log('[IPC] Reloading window with new database');
+          logger.info('[IPC] Reloading renderer window with new database');
           mainWindow.webContents.reloadIgnoringCache();
         } else {
-          console.error('[IPC] mainWindow is null, cannot reload');
+          logger.error('[IPC] Cannot reload - mainWindow is null');
         }
       }, 100);
     } else {
-      console.log('[IPC] No database selected (user cancelled)');
+      logger.info('[IPC] Database selection cancelled by user');
     }
     return result;
   });
 
   ipcMain.handle('createDatabaseFile', async () => {
-    console.log('[IPC] createDatabaseFile called');
+    logger.info('[IPC] createDatabaseFile - Opening create dialog...');
     const result = await createDatabaseFile();
-    console.log('[IPC] createDatabaseFile result:', result);
+
     if (result) {
-      console.log('[IPC] Created new database:', result);
+      logger.info({ databasePath: result }, '[IPC] New database created successfully');
+      logger.info('[IPC] Reinitializing database with new path...');
+
       // Reinitialize database with new path
       reinitDatabase();
 
       // Reload the window after a small delay to ensure database is ready
-      console.log('[IPC] Setting timeout for window reload...');
+      logger.debug('[IPC] Scheduling window reload (100ms delay)...');
       setTimeout(() => {
         const mainWindow = getMainWindow();
-        console.log('[IPC] mainWindow:', mainWindow ? 'exists' : 'null');
         if (mainWindow) {
-          console.log('[IPC] Reloading window with new database');
+          logger.info('[IPC] Reloading renderer window with new database');
           mainWindow.webContents.reloadIgnoringCache();
         } else {
-          console.error('[IPC] mainWindow is null, cannot reload');
+          logger.error('[IPC] Cannot reload - mainWindow is null');
         }
       }, 100);
     } else {
-      console.log('[IPC] No database created (user cancelled)');
+      logger.info('[IPC] Database creation cancelled by user');
     }
     return result;
   });
 
   // Health check to verify current database path
   ipcMain.handle('getDatabaseHealth', () => {
+    logger.debug('[IPC] getDatabaseHealth - Running health check...');
+
     const dataDir = getDataDirectory();
     const dbPath = path.join(dataDir, 'astrolabe.db');
     const exists = fs.existsSync(dbPath);
-
-    console.log('[Health Check] Current database path:', dbPath);
-    console.log('[Health Check] Database exists:', exists);
 
     let isConnected = false;
     try {
@@ -130,15 +132,24 @@ export function setupDatabaseProcessHandlers() {
       const db = getDatabase();
       isConnected = db !== null;
     } catch (error) {
-      console.log('[Health Check] Database not connected:', error);
+      logger.debug({ error }, '[Health Check] Database connection check failed');
     }
 
-    return {
+    const health = {
       dataDirectory: dataDir,
       databasePath: dbPath,
       exists,
       isConnected
     };
+
+    logger.info({
+      dbPath,
+      exists,
+      isConnected,
+      status: exists && isConnected ? 'healthy' : 'unhealthy'
+    }, `[Health Check] Database status: ${exists && isConnected ? 'healthy' : 'unhealthy'}`);
+
+    return health;
   });
 
   ipcMain.handle('getDatabasesList', () => {
@@ -154,54 +165,56 @@ export function setupDatabaseProcessHandlers() {
   });
 
   ipcMain.handle('switchToDatabase', async (_, dbPath: string) => {
-    console.log('[IPC] switchToDatabase called with:', dbPath);
+    logger.info({ dbPath }, '[IPC] switchToDatabase - Switching to existing database');
     setDataDirectory(dbPath);
 
     // Reinitialize database with new path
+    logger.info('[IPC] Reinitializing database...');
     reinitDatabase();
 
     // Reload the window after a small delay to ensure database is ready
-    console.log('[IPC] Setting timeout for window reload...');
+    logger.debug('[IPC] Scheduling window reload (100ms delay)...');
     setTimeout(() => {
       const mainWindow = getMainWindow();
-      console.log('[IPC] mainWindow:', mainWindow ? 'exists' : 'null');
       if (mainWindow) {
-        console.log('[IPC] Reloading window with new database');
+        logger.info('[IPC] Reloading renderer window with switched database');
         mainWindow.webContents.reloadIgnoringCache();
       } else {
-        console.error('[IPC] mainWindow is null, cannot reload');
+        logger.error('[IPC] Cannot reload - mainWindow is null');
       }
     }, 100);
 
+    logger.info('[IPC] Database switch complete');
     return dbPath;
   });
 
   ipcMain.handle('switchToDefaultDatabase', async () => {
-    console.log('[IPC] switchToDefaultDatabase called');
+    logger.info('[IPC] switchToDefaultDatabase - Switching to default database');
     const defaultPath = resetToDefaultDatabase();
 
     // Reinitialize database with default path
+    logger.info('[IPC] Reinitializing database...');
     reinitDatabase();
 
     // Reload the window after a small delay to ensure database is ready
-    console.log('[IPC] Setting timeout for window reload...');
+    logger.debug('[IPC] Scheduling window reload (100ms delay)...');
     setTimeout(() => {
       const mainWindow = getMainWindow();
-      console.log('[IPC] mainWindow:', mainWindow ? 'exists' : 'null');
       if (mainWindow) {
-        console.log('[IPC] Reloading window with default database');
+        logger.info('[IPC] Reloading window with default database');
         mainWindow.webContents.reloadIgnoringCache();
       } else {
-        console.error('[IPC] mainWindow is null, cannot reload');
+        logger.error('[IPC] Cannot reload - mainWindow is null');
       }
     }, 100);
 
+    logger.info('[IPC] Switched to default database');
     return defaultPath;
   });
 
   ipcMain.handle('deleteDatabase', async (_, dbPath: string) => {
-    console.log('[IPC] deleteDatabase called with:', dbPath);
+    logger.info({ dbPath }, '[IPC] deleteDatabase - Deleting database');
     deleteDatabase(dbPath);
-    console.log('[IPC] Database deleted');
+    logger.info({ dbPath }, '[IPC] Database deleted successfully');
   });
 }

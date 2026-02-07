@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { logger } from '../../utils/logger'
 
 interface DatabasePickerModalProps {
   onSelect: (dbPath: string) => void
@@ -45,7 +46,7 @@ export default function DatabasePickerModal({ onSelect, onClose }: DatabasePicke
         onSelect(result)
       }
     } catch (error) {
-      console.error('Failed to select database:', error)
+      logger.error({ error }, '[DatabasePickerModal] Failed to select database')
     }
   }
 
@@ -56,16 +57,17 @@ export default function DatabasePickerModal({ onSelect, onClose }: DatabasePicke
         onSelect(result)
       }
     } catch (error) {
-      console.error('Failed to create database:', error)
+      logger.error({ error }, '[DatabasePickerModal] Failed to create database')
     }
   }
 
   const handleSwitchToDatabase = async (dbPath: string) => {
     try {
+      logger.info({ dbPath }, '[DatabasePickerModal] Switching to database')
       await window.electron.switchToDatabase(dbPath)
       // The IPC handler will reload the window, so onSelect won't be called
     } catch (error) {
-      console.error('Failed to switch database:', error)
+      logger.error({ error, dbPath }, '[DatabasePickerModal] Failed to switch database')
     }
   }
 
@@ -94,15 +96,17 @@ export default function DatabasePickerModal({ onSelect, onClose }: DatabasePicke
 
       // If we deleted the current database, switch to system default
       if (wasCurrentDatabase) {
+        logger.info('[DatabasePickerModal] Deleted current database, switching to system default')
         await window.electron.switchToDefaultDatabase()
         // Window will reload, so no need to update local state
       } else {
+        logger.info('[DatabasePickerModal] Database deleted, reloading list')
         // Reload databases list
         const dbList = await window.electron.getDatabasesList()
         setDatabases(dbList)
       }
     } catch (error) {
-      console.error('Failed to delete database:', error)
+      logger.error({ error }, '[DatabasePickerModal] Failed to delete database')
     }
   }
 

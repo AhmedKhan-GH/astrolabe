@@ -6,6 +6,7 @@ import { buildFileTree } from '../FileTree/buildFileTree'
 import DirectoryHeader from './DirectoryHeader'
 import FolderInputForm from './FolderInputForm'
 import type { Folder, File } from '../../db/schema'
+import { logger } from '../../utils/logger'
 
 interface ContextMenuState {
   node: TreeNode
@@ -34,21 +35,21 @@ function DirectoryTree() {
     try {
       // Health check to verify we're loading from the correct database
       const health = await window.electron.getDatabaseHealth();
-      console.log('[DirectoryTree] Database health check:', health);
-      console.log('[DirectoryTree] Loading data from:', health.databasePath);
+      logger.info({ health }, '[DirectoryTree] Database health check');
+      logger.info({ databasePath: health.databasePath }, '[DirectoryTree] Loading data from database');
 
       const [folders, files] = await Promise.all([
         window.electron.getAllFolders(),
         window.electron.getAllFiles()
       ])
 
-      console.log('[DirectoryTree] Loaded folders:', folders.length, 'files:', files.length);
+      logger.info({ folderCount: folders.length, fileCount: files.length }, '[DirectoryTree] Data loaded successfully');
 
       setAllFolders(folders)
       setAllFiles(files)
       setTreeData(buildFileTree(folders, files))
     } catch (error) {
-      console.error('Failed to load tree data:', error)
+      logger.error({ error }, '[DirectoryTree] Failed to load tree data')
     }
   }, [])
 
@@ -68,7 +69,7 @@ function DirectoryTree() {
           setTreeData(buildFileTree(folders, files))
         }
       } catch (error) {
-        console.error('Failed to load tree data:', error)
+        logger.error({ error }, '[DirectoryTree] Failed to load tree data in useEffect')
       }
     }
 
@@ -80,11 +81,11 @@ function DirectoryTree() {
   }, [])
 
   const handleNodeClick = async (node: TreeNode) => {
-    console.log('Clicked node:', node)
+    logger.debug({ node }, '[DirectoryTree] Node clicked')
   }
 
   const handleNodeDoubleClick = async (node: TreeNode) => {
-    console.log('Double-clicked node:', node)
+    logger.debug({ node }, '[DirectoryTree] Node double-clicked')
 
     if (node.type === 'file' && node.storageType === 'reference') {
       const fileId = parseInt(node.id.replace('file-', ''))
@@ -92,9 +93,10 @@ function DirectoryTree() {
 
       if (file?.path) {
         try {
+          logger.info({ filePath: file.path }, '[DirectoryTree] Opening file in default app')
           await window.electron.openFileInDefaultApp(file.path)
         } catch (error) {
-          console.error('Failed to open file:', error)
+          logger.error({ error, filePath: file.path }, '[DirectoryTree] Failed to open file')
         }
       }
     }
@@ -114,25 +116,26 @@ function DirectoryTree() {
   const handleMoveTo = async (targetFolderId: number) => {
     if (!contextMenu) return
 
-    console.log('handleMoveTo called:', { nodeType: contextMenu.node.type, nodeId: contextMenu.node.id, targetFolderId })
+    logger.info({ nodeType: contextMenu.node.type, nodeId: contextMenu.node.id, targetFolderId }, '[DirectoryTree] handleMoveTo called')
 
     try {
       if (contextMenu.node.type === 'file') {
         const numericFileId = parseInt(contextMenu.node.id.replace('file-', ''))
-        console.log('Moving file:', numericFileId, 'to folder:', targetFolderId)
+        logger.info({ fileId: numericFileId, targetFolderId }, '[DirectoryTree] Moving file to folder')
         await window.electron.moveFile(numericFileId, targetFolderId)
-        console.log('Move successful, reloading tree')
+        logger.info('[DirectoryTree] File move successful, reloading tree')
         await loadTreeData()
         setContextMenu(null)
       } else {
         const numericFolderId = parseInt(contextMenu.node.id.replace('folder-', ''))
-        console.log('Moving folder:', numericFolderId, 'to parent:', targetFolderId)
+        logger.info({ folderId: numericFolderId, targetFolderId }, '[DirectoryTree] Moving folder to parent')
         const result = await window.electron.moveFolder(numericFolderId, targetFolderId)
 
-        console.log('moveFolder result:', result)
+        logger.info({ result }, '[DirectoryTree] moveFolder result')
 
         // Check if we got a duplicate folder error
         if (result && result.errorCode === 'DUPLICATE_FOLDER_NAME') {
+          logger.warn({ folderName: contextMenu.node.name, sourceFolderId: numericFolderId, targetFolderId }, '[DirectoryTree] Duplicate folder name detected, showing merge modal')
           // Show merge confirmation modal
           setMergeModal({
             folderName: contextMenu.node.name,
@@ -141,13 +144,13 @@ function DirectoryTree() {
           })
           setContextMenu(null)
         } else if (result && result.success) {
-          console.log('Move successful, reloading tree')
+          logger.info('[DirectoryTree] Folder move successful, reloading tree')
           await loadTreeData()
           setContextMenu(null)
         }
       }
     } catch (error) {
-      console.error('Failed to move:', error)
+      logger.error({ error }, '[DirectoryTree] Failed to move')
       alert('Failed to move: ' + error)
     }
   }
@@ -155,18 +158,18 @@ function DirectoryTree() {
   const handleAddTo = async (targetFolderId: number) => {
     if (!contextMenu || contextMenu.node.type !== 'file') return
 
-    console.log('handleAddTo called:', { nodeId: contextMenu.node.id, targetFolderId })
+    logger.info({ nodeId: contextMenu.node.id, targetFolderId }, '[DirectoryTree] handleAddTo called')
 
     try {
       const numericFileId = parseInt(contextMenu.node.id.replace('file-', ''))
-      console.log('Adding file:', numericFileId, 'to folder:', targetFolderId)
+      logger.info({ fileId: numericFileId, targetFolderId }, '[DirectoryTree] Adding file to folder')
       await window.electron.includeFileInFolder(numericFileId, targetFolderId)
 
-      console.log('Add successful, reloading tree')
+      logger.info('[DirectoryTree] Add successful, reloading tree')
       await loadTreeData()
       setContextMenu(null)
     } catch (error) {
-      console.error('Failed to add to folder:', error)
+      logger.error({ error }, '[DirectoryTree] Failed to add to folder')
       alert('Failed to add to folder: ' + error)
     }
   }
@@ -178,11 +181,12 @@ function DirectoryTree() {
     const folderId = contextMenu.folderId
 
     try {
+      logger.info({ fileId, folderId }, '[DirectoryTree] Removing file from folder')
       await window.electron.removeFileFromFolder(fileId, folderId)
       await loadTreeData()
       setContextMenu(null)
     } catch (error) {
-      console.error('Failed to remove file from folder:', error)
+      logger.error({ error, fileId, folderId }, '[DirectoryTree] Failed to remove file from folder')
       alert('Failed to remove file from folder: ' + error)
     }
   }
@@ -197,15 +201,17 @@ function DirectoryTree() {
     if (window.confirm(confirmMessage)) {
       try {
         const id = parseInt(contextMenu.node.id.replace(/^(file|folder)-/, ''))
+        logger.info({ id, type: contextMenu.node.type, name: contextMenu.node.name }, '[DirectoryTree] Deleting node')
         if (contextMenu.node.type === 'file') {
           await window.electron.deleteFile(id)
         } else {
           await window.electron.removeFolder(id)
         }
+        logger.info('[DirectoryTree] Delete successful, reloading tree')
         await loadTreeData()
         setContextMenu(null)
       } catch (error) {
-        console.error('Failed to delete:', error)
+        logger.error({ error }, '[DirectoryTree] Failed to delete')
       }
     }
   }
@@ -218,30 +224,34 @@ function DirectoryTree() {
     if (window.confirm(confirmMessage)) {
       try {
         const id = parseInt(contextMenu.node.id.replace('folder-', ''))
+        logger.info({ folderId: id, folderName: contextMenu.node.name }, '[DirectoryTree] Cascade deleting folder')
         await window.electron.removeFolder(id)
+        logger.info('[DirectoryTree] Folder delete successful, reloading tree')
         await loadTreeData()
         setContextMenu(null)
       } catch (error) {
-        console.error('Failed to delete folder:', error)
+        logger.error({ error }, '[DirectoryTree] Failed to delete folder')
       }
     }
   }
 
   const handleImportFile = async () => {
     try {
+      logger.info('[DirectoryTree] Importing files to root')
       await window.electron.selectAndImportFiles()
       await loadTreeData()
     } catch (error) {
-      console.error('Failed to import files:', error)
+      logger.error({ error }, '[DirectoryTree] Failed to import files')
     }
   }
 
   const handleReferenceFile = async () => {
     try {
+      logger.info('[DirectoryTree] Referencing files to root')
       await window.electron.selectAndReferenceFiles()
       await loadTreeData()
     } catch (error) {
-      console.error('Failed to reference files:', error)
+      logger.error({ error }, '[DirectoryTree] Failed to reference files')
     }
   }
 
@@ -257,30 +267,30 @@ function DirectoryTree() {
   }
 
   const handleAddFileToFolder = async (folderId: number) => {
-    console.log('handleAddFileToFolder called with folderId:', folderId)
+    logger.info({ folderId }, '[DirectoryTree] handleAddFileToFolder called')
     setContextMenu(null)
     try {
-      console.log('Calling selectAndImportFilesToFolder...')
+      logger.info({ folderId }, '[DirectoryTree] Calling selectAndImportFilesToFolder')
       const result = await window.electron.selectAndImportFilesToFolder(folderId)
-      console.log('Import result:', result)
+      logger.info({ result, folderId }, '[DirectoryTree] Import to folder result')
 
       await loadTreeData()
     } catch (error) {
-      console.error('Failed to import files:', error)
+      logger.error({ error, folderId }, '[DirectoryTree] Failed to import files to folder')
     }
   }
 
   const handleReferenceFileToFolder = async (folderId: number) => {
-    console.log('handleReferenceFileToFolder called with folderId:', folderId)
+    logger.info({ folderId }, '[DirectoryTree] handleReferenceFileToFolder called')
     setContextMenu(null)
     try {
-      console.log('Calling selectAndReferenceFilesToFolder...')
+      logger.info({ folderId }, '[DirectoryTree] Calling selectAndReferenceFilesToFolder')
       const result = await window.electron.selectAndReferenceFilesToFolder(folderId)
-      console.log('Reference result:', result)
+      logger.info({ result, folderId }, '[DirectoryTree] Reference to folder result')
 
       await loadTreeData()
     } catch (error) {
-      console.error('Failed to reference files:', error)
+      logger.error({ error, folderId }, '[DirectoryTree] Failed to reference files to folder')
     }
   }
 
@@ -295,14 +305,16 @@ function DirectoryTree() {
 
     try {
       const parentIdForApi = folderParentId ?? 0
+      logger.info({ folderName: folderName.trim(), parentId: parentIdForApi }, '[DirectoryTree] Creating new folder')
       await window.electron.createFolder(folderName.trim(), parentIdForApi)
 
+      logger.info('[DirectoryTree] Folder created successfully, reloading tree')
       await loadTreeData()
       setFolderName('')
       setFolderParentId(null)
       setShowFolderInput(false)
     } catch (error) {
-      console.error('Failed to create folder:', error)
+      logger.error({ error, folderName: folderName.trim() }, '[DirectoryTree] Failed to create folder')
       alert(error instanceof Error ? error.message : 'Failed to create folder')
       // Don't reset state or reload data on error - let user correct their input
       return
@@ -319,15 +331,17 @@ function DirectoryTree() {
     if (!mergeModal) return
 
     try {
+      logger.info({ sourceFolderId: mergeModal.sourceFolderId, targetFolderId: mergeModal.targetFolderId }, '[DirectoryTree] Merging folders')
       const result = await window.electron.moveFolder(mergeModal.sourceFolderId, mergeModal.targetFolderId, true)
       if (result && result.success) {
-        console.log('Merge successful, reloading tree')
+        logger.info('[DirectoryTree] Merge successful, reloading tree')
         await loadTreeData()
       } else {
+        logger.error({ result }, '[DirectoryTree] Merge failed')
         alert('Failed to merge folders')
       }
     } catch (error) {
-      console.error('Failed to merge:', error)
+      logger.error({ error }, '[DirectoryTree] Failed to merge')
       alert('Failed to merge folders: ' + error)
     } finally {
       setMergeModal(null)

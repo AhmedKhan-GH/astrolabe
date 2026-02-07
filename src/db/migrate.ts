@@ -4,6 +4,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import path from 'path';
 import { app } from 'electron';
 import fs from 'fs';
+import { logger } from '../../electron/utils/logger';
 
 export async function runMigrations() {
   try {
@@ -26,14 +27,14 @@ export async function runMigrations() {
       ? path.join(process.resourcesPath, 'drizzle')
       : path.join(process.cwd(), 'drizzle');
 
-    console.log('Running migrations from:', migrationsFolder);
+    logger.info({ migrationsFolder }, 'Running migrations from');
 
     await migrate(db, { migrationsFolder });
 
-    console.log('Migrations completed successfully');
+    logger.info('Migrations completed successfully');
     sqlite.close();
   } catch (error) {
-    console.error('Migration failed:', error);
+    logger.error({ error }, 'Migration failed');
     throw error;
   }
 }

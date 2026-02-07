@@ -3,6 +3,7 @@ import { app, dialog } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import dotenv from 'dotenv';
+import { logger } from './utils/logger';
 
 // Load .env in development
 if (!app.isPackaged) {
@@ -62,8 +63,9 @@ export function getDataDirectory(): string {
  * Set a custom data directory path
  */
 export function setDataDirectory(dirPath: string): void {
-  console.log('[setDataDirectory] Setting custom database path to:', dirPath);
+  logger.info({ dirPath }, 'Setting custom database path');
   store.set('dataDirectory', dirPath);
+  logger.info('Custom database path saved to settings');
 }
 
 /**
