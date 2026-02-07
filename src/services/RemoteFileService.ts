@@ -36,8 +36,7 @@ export class RemoteFileService implements IFileService {
 
   async importFiles(
     filePaths: string[],
-    folderId?: number,
-    _confirmCallback?: (existingFile: File) => Promise<boolean>
+    folderId?: number
   ): Promise<File[]> {
     const response = await this.fetchApi('/files/import', {
       method: 'POST',
@@ -51,8 +50,7 @@ export class RemoteFileService implements IFileService {
 
   async referenceFiles(
     filePaths: string[],
-    folderId?: number,
-    _confirmCallback?: (existingFile: File) => Promise<boolean>
+    folderId?: number
   ): Promise<File[]> {
     const response = await this.fetchApi('/files/reference', {
       method: 'POST',
