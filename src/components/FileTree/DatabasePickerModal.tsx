@@ -20,7 +20,7 @@ export default function DatabasePickerModal({ onSelect, onClose }: DatabasePicke
       const defaultPath = await window.electron.getDefaultDatabasePath()
 
       // Filter out system default from the list
-      const customDatabases = dbList.filter(db => getDatabaseName(db) !== 'data')
+      const customDatabases = dbList.filter(db => db !== defaultPath)
 
       setDatabases(customDatabases)
       setCurrentDatabase(current)
@@ -82,11 +82,19 @@ export default function DatabasePickerModal({ onSelect, onClose }: DatabasePicke
     setDeleteConfirmInput('')
   }
 
+  const getConfirmationText = (dbPath: string) => {
+    // For System Default, require typing "System Default"
+    if (dbPath === defaultDatabase) {
+      return 'System Default'
+    }
+    return getDatabaseName(dbPath)
+  }
+
   const handleConfirmDelete = async () => {
     if (!deleteConfirmDatabase) return
 
-    const dbName = getDatabaseName(deleteConfirmDatabase)
-    if (deleteConfirmInput !== dbName) return
+    const confirmText = getConfirmationText(deleteConfirmDatabase)
+    if (deleteConfirmInput !== confirmText) return
 
     try {
       const wasCurrentDatabase = deleteConfirmDatabase === currentDatabase
@@ -103,7 +111,8 @@ export default function DatabasePickerModal({ onSelect, onClose }: DatabasePicke
         logger.info('[DatabasePickerModal] Database deleted, reloading list')
         // Reload databases list
         const dbList = await window.electron.getDatabasesList()
-        setDatabases(dbList)
+        const customDatabases = dbList.filter(db => db !== defaultDatabase)
+        setDatabases(customDatabases)
       }
     } catch (error) {
       logger.error({ error }, '[DatabasePickerModal] Failed to delete database')
@@ -122,14 +131,14 @@ export default function DatabasePickerModal({ onSelect, onClose }: DatabasePicke
           <h3 className="text-white font-semibold text-lg mb-2">Delete Database</h3>
           <p className="text-slate-300 text-sm mb-4">
             This action <span className="text-red-400 font-semibold">CANNOT be undone</span>.
-            {getDatabaseName(deleteConfirmDatabase) === 'data' ? (
+            {deleteConfirmDatabase === defaultDatabase ? (
               <> This will reset the system default database and delete all its contents.</>
             ) : (
               <> This will permanently delete the database file from your system.</>
             )}
           </p>
           <p className="text-slate-300 text-sm mb-4">
-            Type <span className="font-mono bg-slate-700 px-1.5 py-0.5 rounded text-white">{getDatabaseName(deleteConfirmDatabase)}</span> to confirm:
+            Type <span className="font-mono bg-slate-700 px-1.5 py-0.5 rounded text-white">{getConfirmationText(deleteConfirmDatabase)}</span> to confirm:
           </p>
           <input
             type="text"
@@ -149,7 +158,7 @@ export default function DatabasePickerModal({ onSelect, onClose }: DatabasePicke
             </button>
             <button
               onClick={handleConfirmDelete}
-              disabled={deleteConfirmInput !== getDatabaseName(deleteConfirmDatabase)}
+              disabled={deleteConfirmInput !== getConfirmationText(deleteConfirmDatabase)}
               className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Delete Forever

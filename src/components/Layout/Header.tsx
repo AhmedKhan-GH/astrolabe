@@ -29,6 +29,8 @@ function Header({ onToggleSidebar }: HeaderProps) {
   }
 
   const getDatabaseName = (dbPath: string | null) => {
+    // If no dbPath but we have a defaultDatabase, we're using System Default
+    if (!dbPath && defaultDatabase) return 'System Default'
     if (!dbPath) return 'Database'
     // Extract filename from path (works cross-platform)
     const name = dbPath.split(/[\\/]/).pop() || 'Database'
@@ -38,7 +40,9 @@ function Header({ onToggleSidebar }: HeaderProps) {
   }
 
   const isSystemDefault = () => {
-    if (!currentDatabase || !defaultDatabase) return false
+    if (!defaultDatabase) return false
+    // If no currentDatabase but defaultDatabase exists, we're using System Default
+    if (!currentDatabase) return true
     const currentName = currentDatabase.split(/[\\/]/).pop()
     return currentName === 'data' || currentDatabase === defaultDatabase
   }
