@@ -289,6 +289,15 @@ function DirectoryTree() {
     }
   }
 
+  const checkIsDuplicateFolderName = (name: string): boolean => {
+    const trimmedName = name.trim()
+    if (!trimmedName) return false
+
+    const parentIdForCheck = folderParentId ?? 0
+    const existingFolders = allFolders.filter(f => (f.parentId ?? 0) === parentIdForCheck)
+    return existingFolders.some(f => f.name === trimmedName)
+  }
+
   const submitFolder = async () => {
     if (!folderName.trim()) {
       alert('Folder name cannot be empty')
@@ -357,6 +366,7 @@ function DirectoryTree() {
           onFolderNameChange={setFolderName}
           onSubmit={submitFolder}
           onCancel={cancelFolder}
+          isDuplicate={checkIsDuplicateFolderName(folderName)}
         />
       )}
 
