@@ -41,14 +41,14 @@ export default function FileTreeNode({ node, level, parentFolderId, onNodeClick,
   }
 
   return (
-    <div className="relative">
+    <div className="relative group">
       <div
         className={`flex items-center py-1.5 cursor-pointer text-sm relative rounded ${
           node.isSystemRoot
             ? 'bg-green-700/20 border border-green-600/30 hover:bg-green-700/30 text-green-300 mx-1 px-2'
             : 'hover:bg-slate-700/50'
         }`}
-        style={{ paddingLeft: node.isSystemRoot ? undefined : `${level * 20 + 14}px` }}
+        style={{ paddingLeft: node.isSystemRoot ? undefined : `${level * 20 + 44}px` }}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
         onContextMenu={handleContextMenu}
@@ -58,9 +58,44 @@ export default function FileTreeNode({ node, level, parentFolderId, onNodeClick,
           <div
             key={i}
             className="absolute top-0 bottom-0 w-px bg-slate-600"
-            style={{ left: `${i * 20 + 14 + 8}px` }}
+            style={{ left: `${i * 20 + 44 + 8}px` }}
           />
         ))}
+
+        {/* Left-aligned action buttons (plus and 6-dot) */}
+        {!node.isSystemRoot && (
+          <div className="absolute left-0 flex items-center gap-1 px-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Plus button */}
+            <button
+              className="w-4 h-4 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700/50 hover:border-slate-600 border border-transparent rounded transition-all"
+              onClick={(e) => {
+                e.stopPropagation()
+                // Add handler for add action
+              }}
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 16 16">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 3v10M3 8h10" />
+              </svg>
+            </button>
+            {/* 6-dot button */}
+            <button
+              className="w-4 h-4 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700/50 hover:border-slate-600 border border-transparent rounded transition-all"
+              onClick={(e) => {
+                e.stopPropagation()
+                // Add handler for drag/reorder
+              }}
+            >
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 12 16">
+                <circle cx="3" cy="3" r="1.5" />
+                <circle cx="9" cy="3" r="1.5" />
+                <circle cx="3" cy="8" r="1.5" />
+                <circle cx="9" cy="8" r="1.5" />
+                <circle cx="3" cy="13" r="1.5" />
+                <circle cx="9" cy="13" r="1.5" />
+              </svg>
+            </button>
+          </div>
+        )}
 
         {/* Expand/collapse chevron */}
         {!node.isSystemRoot && (

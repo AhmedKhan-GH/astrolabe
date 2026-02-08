@@ -52,15 +52,5 @@ export function buildFileTree(folders: Folder[], files: File[]): TreeNode[] {
     }
   })
 
-  // Create System Root node that contains everything
-  const systemRootNode: TreeNode = {
-    id: 'folder-0',
-    name: 'System Root',
-    type: 'folder',
-    children: rootChildren,
-    isExpanded: true,
-    isSystemRoot: true
-  }
-
-  return [systemRootNode]
+  return rootChildren
 }
