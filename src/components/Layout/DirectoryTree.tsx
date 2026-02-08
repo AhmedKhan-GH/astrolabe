@@ -359,7 +359,7 @@ function DirectoryTree() {
 
   return (
     <>
-      <Menu />
+      <Menu files={allFiles} />
 
       <DirectoryHeader onUploadFile={handleImportFile} onReferenceFile={handleReferenceFile} onCreateFolder={handleCreateFolder} />
 
