@@ -22,9 +22,6 @@ export default function FileTreeNode({ node, level, parentFolderId, onNodeClick,
   const currentFolderId = isFolder ? parseInt(node.id.replace('folder-', '')) : parentFolderId
 
   const handleClick = () => {
-    if (isFolder && !node.isSystemRoot) {
-      onToggleExpand?.(node.id)
-    }
     onNodeClick?.(node)
   }
 
