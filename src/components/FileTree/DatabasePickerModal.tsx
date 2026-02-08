@@ -202,13 +202,7 @@ export default function DatabasePickerModal({ onSelect, onClose }: DatabasePicke
             <div className="space-y-1 max-h-[300px] overflow-y-auto">
               {/* Database - Always First */}
               {defaultDatabase && (
-                <div
-                  className={`relative group rounded text-sm transition-colors ${
-                    defaultDatabase === currentDatabase
-                      ? 'bg-green-600/30 border border-green-500/60 text-green-200'
-                      : 'bg-green-700/20 border border-green-600/30 text-green-300 hover:bg-green-700/30'
-                  }`}
-                >
+                <div className="relative group rounded text-sm bg-green-700/20 border border-green-600/30 text-green-300 hover:bg-green-700/30 transition-colors">
                   <button
                     onClick={() => handleSwitchToDatabase(defaultDatabase)}
                     className="w-full flex items-center gap-2 px-3 py-2 pr-10 text-left cursor-pointer"
@@ -217,7 +211,12 @@ export default function DatabasePickerModal({ onSelect, onClose }: DatabasePicke
                     <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
                     </svg>
-                    <span className="truncate flex-1">{UI_LABELS.DATABASE}</span>
+                    <span className="truncate">{UI_LABELS.DATABASE}</span>
+                    {defaultDatabase === currentDatabase && (
+                      <svg className="w-4 h-4 flex-shrink-0 text-green-400 ml-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    )}
                   </button>
                   <button
                     onClick={(e) => handleDeleteDatabase(defaultDatabase, e)}
@@ -235,11 +234,7 @@ export default function DatabasePickerModal({ onSelect, onClose }: DatabasePicke
               {databases.map((dbPath, index) => (
                   <div
                     key={index}
-                    className={`relative group rounded text-sm transition-colors ${
-                      dbPath === currentDatabase
-                        ? 'bg-blue-600/20 border border-blue-500/50 text-blue-300'
-                        : 'bg-slate-700/50 hover:bg-slate-700 text-slate-300 hover:text-white'
-                    }`}
+                    className="relative group rounded text-sm bg-slate-700/50 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
                   >
                     <button
                       onClick={() => handleSwitchToDatabase(dbPath)}
@@ -249,7 +244,12 @@ export default function DatabasePickerModal({ onSelect, onClose }: DatabasePicke
                       <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
                       </svg>
-                      <span className="truncate flex-1">{getDatabaseName(dbPath)}</span>
+                      <span className="truncate">{getDatabaseName(dbPath)}</span>
+                      {dbPath === currentDatabase && (
+                        <svg className="w-4 h-4 flex-shrink-0 text-green-400 ml-2" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                      )}
                     </button>
                     <button
                       onClick={(e) => handleDeleteDatabase(dbPath, e)}
