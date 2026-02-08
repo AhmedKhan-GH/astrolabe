@@ -156,7 +156,15 @@ export default function FileTreeNode({ node, level, parentFolderId, onNodeClick,
           </div>
         )}
 
-        <span className="text-slate-200 truncate">{node.name}</span>
+        {/* Filename with extension - extension always visible on right */}
+        {!isFolder && node.name.includes('.') ? (
+          <div className="flex items-center justify-between min-w-0 flex-1">
+            <span className="text-slate-200 truncate">{node.name.substring(0, node.name.lastIndexOf('.'))}</span>
+            <span className="text-slate-400 flex-shrink-0 ml-1">{node.name.substring(node.name.lastIndexOf('.'))}</span>
+          </div>
+        ) : (
+          <span className="text-slate-200 truncate">{node.name}</span>
+        )}
       </div>
       {isFolder && isExpanded && hasChildren && (
         <div>
