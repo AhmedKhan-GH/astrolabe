@@ -23,6 +23,7 @@ export default function FileTreeNode({ node, level, parentFolderId, onNodeClick,
   const currentFolderId = isFolder ? parseInt(node.id.replace('folder-', '')) : parentFolderId
 
   const handleClick = () => {
+    if (node.isDisabled) return
     onNodeClick?.(node)
   }
 
@@ -43,25 +44,28 @@ export default function FileTreeNode({ node, level, parentFolderId, onNodeClick,
 
   return (
     <div className="relative">
+      {/* Vertical lines for parent levels - outside opacity container */}
+      {!node.isSystemRoot && Array.from({ length: level }).map((_, i) => (
+        <div
+          key={i}
+          className="absolute top-0 bottom-0 w-px bg-slate-600"
+          style={{ left: `${i * 20 + (hideActionButtons ? 0 : 44) + 8}px` }}
+        />
+      ))}
+
       <div
-        className={`flex items-center py-1.5 cursor-pointer text-sm relative rounded group ${
-          node.isSystemRoot
-            ? 'bg-green-700/20 border border-green-600/30 hover:bg-green-700/30 text-green-300 mx-1 px-2'
-            : 'hover:bg-slate-700/50'
+        className={`flex items-center py-1.5 text-sm relative rounded group ${
+          node.isDisabled
+            ? 'opacity-40 cursor-not-allowed'
+            : node.isSystemRoot
+            ? 'bg-green-700/20 border border-green-600/30 hover:bg-green-700/30 text-green-300 mx-1 px-2 cursor-pointer'
+            : 'hover:bg-slate-700/50 cursor-pointer'
         }`}
-        style={{ paddingLeft: node.isSystemRoot ? undefined : `${level * 20 + 44}px` }}
+        style={{ paddingLeft: node.isSystemRoot ? undefined : `${level * 20 + (hideActionButtons ? 0 : 44)}px` }}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
         onContextMenu={handleContextMenu}
       >
-        {/* Vertical lines for parent levels */}
-        {!node.isSystemRoot && Array.from({ length: level }).map((_, i) => (
-          <div
-            key={i}
-            className="absolute top-0 bottom-0 w-px bg-slate-600"
-            style={{ left: `${i * 20 + 44 + 8}px` }}
-          />
-        ))}
 
         {/* Left-aligned action buttons (plus and 6-dot) */}
         {!node.isSystemRoot && !hideActionButtons && (

@@ -63,14 +63,19 @@ export default function ContextMenu({
     return descendants
   }
 
-  // Calculate which folders to exclude for "Move to" based on node type
-  const getExcludedFoldersForMove = (): number[] => {
+  // Calculate which folders to grey out for "Move to" based on node type
+  const getGreyedOutFoldersForMove = (): number[] => {
     if (node.type === 'folder') {
       const folderId = parseInt(node.id.replace('folder-', ''))
-      // Exclude the folder itself and all its descendants
-      return getAllDescendantIds(folderId)
+      const folder = allFolders.find(f => f.id === folderId)
+      // Grey out: the folder itself, all its descendants, and its parent (current location)
+      const greyedOut = getAllDescendantIds(folderId)
+      if (folder?.parentId !== undefined) {
+        greyedOut.push(folder.parentId)
+      }
+      return greyedOut
     } else if (node.type === 'file') {
-      // Exclude folders where the file is already located
+      // Grey out folders where the file is already located
       const fileId = parseInt(node.id.replace('file-', ''))
       const file = allFiles.find(f => f.id === fileId)
       if (!file?.folderIds) return []
@@ -79,8 +84,8 @@ export default function ContextMenu({
     return []
   }
 
-  // Calculate which folders to exclude for "Add to" (only for files)
-  const getExcludedFoldersForAdd = (): number[] => {
+  // Calculate which folders to grey out for "Add to" (only for files)
+  const getGreyedOutFoldersForAdd = (): number[] => {
     if (node.type === 'file') {
       const fileId = parseInt(node.id.replace('file-', ''))
       const file = allFiles.find(f => f.id === fileId)
@@ -243,7 +248,7 @@ export default function ContextMenu({
       {showMovePicker && (
         <FolderPickerModal
           allFolders={allFolders}
-          excludeFolderIds={getExcludedFoldersForMove()}
+          greyedOutFolderIds={getGreyedOutFoldersForMove()}
           onSelect={(folderId) => {
             onMoveTo(folderId)
             setShowMovePicker(false)
@@ -256,7 +261,7 @@ export default function ContextMenu({
       {showAddPicker && node.type === 'file' && onAddTo && (
         <FolderPickerModal
           allFolders={allFolders}
-          excludeFolderIds={getExcludedFoldersForAdd()}
+          greyedOutFolderIds={getGreyedOutFoldersForAdd()}
           onSelect={(folderId) => {
             onAddTo(folderId)
             setShowAddPicker(false)

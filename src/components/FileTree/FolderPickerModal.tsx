@@ -6,34 +6,33 @@ interface FolderPickerModalProps {
   allFolders: Folder[]
   onSelect: (folderId: number) => void
   onClose: () => void
-  excludeFolderIds?: number[]  // Folders to exclude from selection
+  greyedOutFolderIds?: number[]  // Folders to grey out (disabled)
   currentFolderId?: number  // Current folder (for context)
 }
 
-export default function FolderPickerModal({ allFolders, onSelect, onClose, excludeFolderIds = [] }: FolderPickerModalProps) {
+export default function FolderPickerModal({ allFolders, onSelect, onClose, greyedOutFolderIds = [] }: FolderPickerModalProps) {
   // Build folder hierarchy and convert to TreeNode format with System Root
   const treeData = useMemo(() => {
     const folderMap: Record<number, TreeNode> = {}
     const rootFolders: TreeNode[] = []
-    const excludeSet = new Set(excludeFolderIds)
+    const greyedOutSet = new Set(greyedOutFolderIds)
 
-    // Create folder nodes (excluding filtered ones)
+    // Create folder nodes (all folders, no exclusions)
     allFolders.forEach((folder) => {
-      if (!excludeSet.has(folder.id)) {
-        folderMap[folder.id] = {
-          id: `folder-${folder.id}`,
-          name: folder.name,
-          type: 'folder',
-          children: [],
-          isExpanded: folder.isExpanded
-        }
+      folderMap[folder.id] = {
+        id: `folder-${folder.id}`,
+        name: folder.name,
+        type: 'folder',
+        children: [],
+        isExpanded: folder.isExpanded,
+        isDisabled: greyedOutSet.has(folder.id)
       }
     })
 
     // Build hierarchy
     allFolders.forEach((folder) => {
       const node = folderMap[folder.id]
-      if (!node) return // Skip if excluded
+      if (!node) return
 
       if (folder.parentId !== 0 && folderMap[folder.parentId]) {
         folderMap[folder.parentId].children!.push(node)
@@ -49,11 +48,12 @@ export default function FolderPickerModal({ allFolders, onSelect, onClose, exclu
       type: 'folder',
       children: rootFolders,
       isExpanded: true,
-      isSystemRoot: true
+      isSystemRoot: true,
+      isDisabled: greyedOutSet.has(0)
     }
 
     return [systemRootNode]
-  }, [allFolders, excludeFolderIds])
+  }, [allFolders, greyedOutFolderIds])
 
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
 
@@ -90,6 +90,8 @@ export default function FolderPickerModal({ allFolders, onSelect, onClose, exclu
           <FileTreeView
             data={treeData}
             onNodeClick={(node) => {
+              // Don't allow clicking disabled nodes
+              if (node.isDisabled) return
               // Extract folder ID from node.id (format: "folder-123")
               const folderId = parseInt(node.id.replace('folder-', ''))
               onSelect(folderId)

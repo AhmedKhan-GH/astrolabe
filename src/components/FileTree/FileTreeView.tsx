@@ -8,6 +8,7 @@ export interface TreeNode {
   children?: TreeNode[]
   isExpanded?: boolean // Only for folders, from database
   isSystemRoot?: boolean // Only for the root folder
+  isDisabled?: boolean // For greying out nodes that can't be selected
 }
 
 interface FileTreeViewProps {

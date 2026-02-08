@@ -244,6 +244,26 @@ export class FolderOperations {
     }
 
     const parentFolderId = folderToDelete.parentId;
+
+    // Get direct child folders before deletion
+    const childFolders = await this.getChildFolders(folderId);
+
+    // Move child folders to parent, merging if names conflict
+    for (const childFolder of childFolders) {
+      const existingFolder = await this.getFolderByNameAndParent(childFolder.name, parentFolderId, childFolder.id);
+
+      if (existingFolder) {
+        // Merge the child folder into the existing folder with the same name
+        await this.mergeFolders(childFolder.id, existingFolder.id, parseFolderIds, updateFileFolderIds, getAllFiles);
+        await this.db.delete(schema.folders).where(eq(schema.folders.id, childFolder.id));
+      } else {
+        // No conflict, just move the folder up
+        await this.db.update(schema.folders)
+          .set({ parentId: parentFolderId })
+          .where(eq(schema.folders.id, childFolder.id));
+      }
+    }
+
     const folderIdsToDelete = await this.getAllDescendantIds(folderId);
 
     // Clean up file references
