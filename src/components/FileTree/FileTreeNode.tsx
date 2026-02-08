@@ -41,9 +41,9 @@ export default function FileTreeNode({ node, level, parentFolderId, onNodeClick,
   }
 
   return (
-    <div className="relative group">
+    <div className="relative">
       <div
-        className={`flex items-center py-1.5 cursor-pointer text-sm relative rounded ${
+        className={`flex items-center py-1.5 cursor-pointer text-sm relative rounded group ${
           node.isSystemRoot
             ? 'bg-green-700/20 border border-green-600/30 hover:bg-green-700/30 text-green-300 mx-1 px-2'
             : 'hover:bg-slate-700/50'
@@ -64,7 +64,7 @@ export default function FileTreeNode({ node, level, parentFolderId, onNodeClick,
 
         {/* Left-aligned action buttons (plus and 6-dot) */}
         {!node.isSystemRoot && (
-          <div className="absolute left-0 flex items-center gap-1 px-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="absolute left-0 flex items-center gap-1 px-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
             {/* Plus button */}
             <button
               className="w-4 h-4 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700/50 hover:border-slate-600 border border-transparent rounded transition-all"
