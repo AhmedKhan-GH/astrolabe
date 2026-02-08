@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import FileTreeView, { type TreeNode } from './FileTreeView'
 import type { Folder } from '../../db/schema'
+import { UI_LABELS } from '../../config/constants'
 
 interface FolderPickerModalProps {
   allFolders: Folder[]
@@ -11,7 +12,7 @@ interface FolderPickerModalProps {
 }
 
 export default function FolderPickerModal({ allFolders, onSelect, onClose, greyedOutFolderIds = [] }: FolderPickerModalProps) {
-  // Build folder hierarchy and convert to TreeNode format with System Root
+  // Build folder hierarchy and convert to TreeNode format with Directory
   const treeData = useMemo(() => {
     const folderMap: Record<number, TreeNode> = {}
     const rootFolders: TreeNode[] = []
@@ -41,10 +42,10 @@ export default function FolderPickerModal({ allFolders, onSelect, onClose, greye
       }
     })
 
-    // Create System Root node that contains everything
+    // Create Directory node that contains everything
     const systemRootNode: TreeNode = {
       id: 'folder-0',
-      name: 'System Root',
+      name: UI_LABELS.DIRECTORY,
       type: 'folder',
       children: rootFolders,
       isExpanded: true,

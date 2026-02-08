@@ -13,14 +13,14 @@ function Sidebar({ isOpen }: SidebarProps) {
 
   return (
     <div
-      className="bg-slate-800 border-r border-slate-700 flex"
+      className="bg-slate-800 border-r border-slate-700 relative"
       style={{ width: `${width}px` }}
     >
-      <div className="flex-1 overflow-y-auto px-2 py-2">
+      <div className="overflow-y-auto overflow-x-hidden px-2 py-2">
         <DirectoryTree />
       </div>
       <div
-        className="w-1 cursor-col-resize hover:bg-blue-500 transition-colors"
+        className="absolute top-0 right-0 bottom-0 w-1 opacity-0 cursor-col-resize hover:bg-blue-500 hover:opacity-100 transition-all"
         onMouseDown={startResizing}
       />
     </div>

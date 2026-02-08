@@ -147,7 +147,7 @@ export function getDefaultDatabasePath(): string {
 }
 
 /**
- * Reset to system default database
+ * Reset to database
  */
 export function resetToDefaultDatabase(): string {
   store.delete('dataDirectory');
@@ -244,12 +244,12 @@ export async function createDatabaseFile(): Promise<string | null> {
 
 /**
  * Delete a database from the list and optionally delete its files
- * If it's the system default, reset it instead of deleting
+ * If it's the database, reset it instead of deleting
  */
 export function deleteDatabase(dbPath: string): void {
   const defaultPath = getDefaultDatabasePath();
 
-  // If deleting system default, just reset it
+  // If deleting database, just reset it
   if (dbPath === defaultPath || path.basename(dbPath) === 'data') {
     // Remove all contents from the data directory
     if (fs.existsSync(dbPath)) {

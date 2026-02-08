@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import DatabasePickerModal from '../FileTree/DatabasePickerModal'
 import { logger } from '../../utils/logger'
+import { UI_LABELS } from '../../config/constants'
 
 interface HeaderProps {
   onToggleSidebar: () => void
@@ -29,19 +30,19 @@ function Header({ onToggleSidebar }: HeaderProps) {
   }
 
   const getDatabaseName = (dbPath: string | null) => {
-    // If no dbPath but we have a defaultDatabase, we're using System Default
-    if (!dbPath && defaultDatabase) return 'System Default'
-    if (!dbPath) return 'Database'
+    // If no dbPath but we have a defaultDatabase, we're using Database
+    if (!dbPath && defaultDatabase) return UI_LABELS.DATABASE
+    if (!dbPath) return UI_LABELS.DATABASE
     // Extract filename from path (works cross-platform)
-    const name = dbPath.split(/[\\/]/).pop() || 'Database'
-    // If it's the system default, show "System Default"
-    if (name === 'data' || dbPath === defaultDatabase) return 'System Default'
+    const name = dbPath.split(/[\\/]/).pop() || UI_LABELS.DATABASE
+    // If it's the database, show "Database"
+    if (name === 'data' || dbPath === defaultDatabase) return UI_LABELS.DATABASE
     return name
   }
 
   const isSystemDefault = () => {
     if (!defaultDatabase) return false
-    // If no currentDatabase but defaultDatabase exists, we're using System Default
+    // If no currentDatabase but defaultDatabase exists, we're using Database
     if (!currentDatabase) return true
     const currentName = currentDatabase.split(/[\\/]/).pop()
     return currentName === 'data' || currentDatabase === defaultDatabase

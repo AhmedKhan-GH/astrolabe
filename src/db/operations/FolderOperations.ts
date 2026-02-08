@@ -2,6 +2,7 @@ import { eq, and } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import * as schema from '../schema';
 import type { Folder } from '../schema';
+import { ERROR_MESSAGES } from '../../config/constants';
 
 /**
  * Folder operations - handles all folder-related business logic
@@ -159,7 +160,7 @@ export class FolderOperations {
     getAllFiles: () => Promise<schema.File[]>
   ): Promise<void> {
     if (folderId === 0) {
-      throw new Error('Cannot move the system root folder');
+      throw new Error(ERROR_MESSAGES.CANNOT_MOVE_DIRECTORY);
     }
 
     if (folderId === newParentId) {
@@ -235,7 +236,7 @@ export class FolderOperations {
     getAllFiles: () => Promise<schema.File[]>
   ): Promise<void> {
     if (folderId === 0) {
-      throw new Error('Cannot remove the system root folder');
+      throw new Error(ERROR_MESSAGES.CANNOT_REMOVE_DIRECTORY);
     }
 
     const folderToDelete = await this.getFolderById(folderId);

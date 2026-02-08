@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { type TreeNode } from './FileTreeView'
 import type { Folder, File } from '../../db/schema'
 import FolderPickerModal from './FolderPickerModal'
+import { UI_LABELS } from '../../config/constants'
 
 interface ContextMenuProps {
   node: TreeNode
@@ -41,7 +42,7 @@ export default function ContextMenu({
   const [showMovePicker, setShowMovePicker] = useState(false)
   const [showAddPicker, setShowAddPicker] = useState(false)
 
-  // Check if this is the system root folder
+  // Check if this is the root directory folder
   const isSystemRoot = node.type === 'folder' && node.id === 'folder-0'
 
   // Check if this file exists in multiple folders
@@ -109,7 +110,7 @@ export default function ContextMenu({
         className="fixed bg-slate-700 border border-slate-600 rounded shadow-lg py-1 z-50 w-[140px]"
         style={{ left: `${x}px`, top: `${y}px` }}
       >
-        {/* For system root folder, only show New Folder, Import File, and Reference File */}
+        {/* For root directory folder, only show New Folder, Import File, and Reference File */}
         {isSystemRoot ? (
           <>
             {onAddFolder && (

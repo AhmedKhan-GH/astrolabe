@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { logger } from '../../utils/logger'
+import { UI_LABELS } from '../../config/constants'
 
 interface DatabasePickerModalProps {
   onSelect: (dbPath: string) => void
@@ -19,7 +20,7 @@ export default function DatabasePickerModal({ onSelect, onClose }: DatabasePicke
       const current = await window.electron.getCurrentDatabase()
       const defaultPath = await window.electron.getDefaultDatabasePath()
 
-      // Filter out system default from the list
+      // Filter out database from the list
       const customDatabases = dbList.filter(db => db !== defaultPath)
 
       setDatabases(customDatabases)
@@ -83,9 +84,9 @@ export default function DatabasePickerModal({ onSelect, onClose }: DatabasePicke
   }
 
   const getConfirmationText = (dbPath: string) => {
-    // For System Default, require typing "System Default"
+    // For Database, require typing "Database"
     if (dbPath === defaultDatabase) {
-      return 'System Default'
+      return UI_LABELS.DATABASE
     }
     return getDatabaseName(dbPath)
   }
@@ -102,9 +103,9 @@ export default function DatabasePickerModal({ onSelect, onClose }: DatabasePicke
       setDeleteConfirmDatabase(null)
       setDeleteConfirmInput('')
 
-      // If we deleted the current database, switch to system default
+      // If we deleted the current database, switch to database
       if (wasCurrentDatabase) {
-        logger.info('[DatabasePickerModal] Deleted current database, switching to system default')
+        logger.info('[DatabasePickerModal] Deleted current database, switching to database')
         await window.electron.switchToDefaultDatabase()
         // Window will reload, so no need to update local state
       } else {
@@ -132,7 +133,7 @@ export default function DatabasePickerModal({ onSelect, onClose }: DatabasePicke
           <p className="text-slate-300 text-sm mb-4">
             This action <span className="text-red-400 font-semibold">CANNOT be undone</span>.
             {deleteConfirmDatabase === defaultDatabase ? (
-              <> This will reset the system default database and delete all its contents.</>
+              <> This will reset the database and delete all its contents.</>
             ) : (
               <> This will permanently delete the database file from your system.</>
             )}
@@ -199,7 +200,7 @@ export default function DatabasePickerModal({ onSelect, onClose }: DatabasePicke
           <div className="mt-4">
             <h4 className="text-slate-300 text-sm font-medium mb-2">Databases</h4>
             <div className="space-y-1 max-h-[300px] overflow-y-auto">
-              {/* System Default Database - Always First */}
+              {/* Database - Always First */}
               {defaultDatabase && (
                 <div
                   className={`relative group rounded text-sm transition-colors ${
@@ -216,7 +217,7 @@ export default function DatabasePickerModal({ onSelect, onClose }: DatabasePicke
                     <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
                     </svg>
-                    <span className="truncate flex-1">System Default</span>
+                    <span className="truncate flex-1">{UI_LABELS.DATABASE}</span>
                   </button>
                   <button
                     onClick={(e) => handleDeleteDatabase(defaultDatabase, e)}
