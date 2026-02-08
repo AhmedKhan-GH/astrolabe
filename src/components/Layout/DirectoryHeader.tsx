@@ -8,7 +8,7 @@ interface DirectoryHeaderProps {
 
 export default function DirectoryHeader({ onUploadFile: onImportFile, onReferenceFile, onCreateFolder }: DirectoryHeaderProps) {
   return (
-    <div className="flex items-center justify-between mb-4">
+    <div className="flex items-center justify-between py-1 mb-2">
       <h2 className="text-white text-lg font-semibold">Directory</h2>
       <div className="flex gap-1 ml-2">
         <button

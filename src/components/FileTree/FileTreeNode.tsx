@@ -10,9 +10,10 @@ interface FileTreeNodeProps {
   onNodeContextMenu?: (node: TreeNode, parentFolderId: number, e: React.MouseEvent) => void
   onToggleExpand?: (nodeId: string) => void
   expandedNodes?: Set<string>
+  hideActionButtons?: boolean
 }
 
-export default function FileTreeNode({ node, level, parentFolderId, onNodeClick, onNodeDoubleClick, onNodeContextMenu, onToggleExpand, expandedNodes }: FileTreeNodeProps) {
+export default function FileTreeNode({ node, level, parentFolderId, onNodeClick, onNodeDoubleClick, onNodeContextMenu, onToggleExpand, expandedNodes, hideActionButtons = false }: FileTreeNodeProps) {
   const isFolder = node.type === 'folder'
   const hasChildren = node.children && node.children.length > 0
   // If expandedNodes is provided (from modal), use it. Otherwise use node.isExpanded (from database)
@@ -63,7 +64,7 @@ export default function FileTreeNode({ node, level, parentFolderId, onNodeClick,
         ))}
 
         {/* Left-aligned action buttons (plus and 6-dot) */}
-        {!node.isSystemRoot && (
+        {!node.isSystemRoot && !hideActionButtons && (
           <div className="absolute left-0 flex items-center gap-1 px-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
             {/* Plus button */}
             <button
@@ -156,7 +157,7 @@ export default function FileTreeNode({ node, level, parentFolderId, onNodeClick,
       {isFolder && isExpanded && hasChildren && (
         <div>
           {node.children!.map((child) => (
-            <FileTreeNode key={child.id} node={child} level={level + 1} parentFolderId={currentFolderId} onNodeClick={onNodeClick} onNodeDoubleClick={onNodeDoubleClick} onNodeContextMenu={onNodeContextMenu} onToggleExpand={onToggleExpand} expandedNodes={expandedNodes} />
+            <FileTreeNode key={child.id} node={child} level={level + 1} parentFolderId={currentFolderId} onNodeClick={onNodeClick} onNodeDoubleClick={onNodeDoubleClick} onNodeContextMenu={onNodeContextMenu} onToggleExpand={onToggleExpand} expandedNodes={expandedNodes} hideActionButtons={hideActionButtons} />
           ))}
         </div>
       )}

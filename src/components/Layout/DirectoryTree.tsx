@@ -5,6 +5,7 @@ import MergeFolderModal from '../FileTree/MergeFolderModal'
 import { buildFileTree } from '../FileTree/buildFileTree'
 import DirectoryHeader from './DirectoryHeader'
 import FolderInputForm from './FolderInputForm'
+import Menu from './Menu'
 import type { Folder, File } from '../../db/schema'
 import { logger } from '../../utils/logger'
 
@@ -358,6 +359,8 @@ function DirectoryTree() {
 
   return (
     <>
+      <Menu />
+
       <DirectoryHeader onUploadFile={handleImportFile} onReferenceFile={handleReferenceFile} onCreateFolder={handleCreateFolder} />
 
       {showFolderInput && (

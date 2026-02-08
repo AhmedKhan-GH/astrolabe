@@ -18,13 +18,14 @@ interface FileTreeViewProps {
   className?: string
   onToggleExpand?: (nodeId: string) => void
   expandedNodes?: Set<string>
+  hideActionButtons?: boolean
 }
 
-export default function FileTreeView({ data, onNodeClick, onNodeDoubleClick, onNodeContextMenu, className = '', onToggleExpand, expandedNodes }: FileTreeViewProps) {
+export default function FileTreeView({ data, onNodeClick, onNodeDoubleClick, onNodeContextMenu, className = '', onToggleExpand, expandedNodes, hideActionButtons = false }: FileTreeViewProps) {
   return (
     <div className={`text-slate-300 relative isolate ${className}`}>
       {data.map((node) => (
-        <FileTreeNode key={node.id} node={node} level={0} parentFolderId={0} onNodeClick={onNodeClick} onNodeDoubleClick={onNodeDoubleClick} onNodeContextMenu={onNodeContextMenu} onToggleExpand={onToggleExpand} expandedNodes={expandedNodes} />
+        <FileTreeNode key={node.id} node={node} level={0} parentFolderId={0} onNodeClick={onNodeClick} onNodeDoubleClick={onNodeDoubleClick} onNodeContextMenu={onNodeContextMenu} onToggleExpand={onToggleExpand} expandedNodes={expandedNodes} hideActionButtons={hideActionButtons} />
       ))}
     </div>
   )

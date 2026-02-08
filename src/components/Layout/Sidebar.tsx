@@ -16,7 +16,7 @@ function Sidebar({ isOpen }: SidebarProps) {
       className="bg-slate-800 border-r border-slate-700 flex"
       style={{ width: `${width}px` }}
     >
-      <div className="flex-1 overflow-y-auto px-2 py-4">
+      <div className="flex-1 overflow-y-auto px-2 py-2">
         <DirectoryTree />
       </div>
       <div

@@ -96,6 +96,7 @@ export default function FolderPickerModal({ allFolders, onSelect, onClose, exclu
             }}
             expandedNodes={expandedNodes}
             onToggleExpand={handleToggleExpand}
+            hideActionButtons={true}
           />
         </div>
 
