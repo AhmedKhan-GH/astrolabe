@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { type TreeNode } from './FileTreeView'
 import type { Folder, File } from '../../db/schema'
 import FolderPickerModal from './FolderPickerModal'
-import { UI_LABELS } from '../../config/constants'
 
 interface ContextMenuProps {
   node: TreeNode
