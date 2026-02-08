@@ -1,12 +1,17 @@
 import DirectoryTree from './DirectoryTree'
 import { useResizable } from '../../hooks/useResizable'
+import { LAYOUT } from '../../config/constants'
 
 interface SidebarProps {
   isOpen: boolean
 }
 
 function Sidebar({ isOpen }: SidebarProps) {
-  const { width, startResizing } = useResizable(250, 150, 600)
+  const { width, startResizing } = useResizable(
+    LAYOUT.SIDEBAR_INITIAL_WIDTH,
+    LAYOUT.SIDEBAR_MIN_WIDTH,
+    LAYOUT.SIDEBAR_MAX_WIDTH
+  )
 
 
   if (!isOpen) return null
