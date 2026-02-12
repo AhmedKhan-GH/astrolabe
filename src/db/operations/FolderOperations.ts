@@ -3,6 +3,7 @@ import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import * as schema from '../schema';
 import type { Folder } from '../schema';
 import { ERROR_MESSAGES } from '../../config/constants';
+import { logger } from '../../utils/logger';
 
 /**
  * Folder operations - handles all folder-related business logic
@@ -190,8 +191,10 @@ export class FolderOperations {
       }
 
       // Merge folders
+      logger.info({ sourceFolderId: folderId, targetFolderId: existingFolder.id, folderName: folder.name, mergeType: 'move-driven' }, '[FolderOperations] Merging folders due to move operation');
       await this.mergeFolders(folderId, existingFolder.id, parseFolderIds, updateFileFolderIds, getAllFiles);
       await this.db.delete(schema.folders).where(eq(schema.folders.id, folderId));
+      logger.info({ sourceFolderId: folderId, targetFolderId: existingFolder.id, mergeType: 'move-driven' }, '[FolderOperations] Move-driven merge completed');
       return;
     }
 
@@ -255,8 +258,10 @@ export class FolderOperations {
 
       if (existingFolder) {
         // Merge the child folder into the existing folder with the same name
+        logger.info({ sourceFolderId: childFolder.id, targetFolderId: existingFolder.id, folderName: childFolder.name, mergeType: 'remove-driven', removedParentId: folderId }, '[FolderOperations] Merging folders due to parent folder removal');
         await this.mergeFolders(childFolder.id, existingFolder.id, parseFolderIds, updateFileFolderIds, getAllFiles);
         await this.db.delete(schema.folders).where(eq(schema.folders.id, childFolder.id));
+        logger.info({ sourceFolderId: childFolder.id, targetFolderId: existingFolder.id, mergeType: 'remove-driven' }, '[FolderOperations] Remove-driven merge completed');
       } else {
         // No conflict, just move the folder up
         await this.db.update(schema.folders)

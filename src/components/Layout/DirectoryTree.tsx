@@ -131,14 +131,17 @@ function DirectoryTree() {
 
         // Check if we got a duplicate folder error
         if (result && result.errorCode === 'DUPLICATE_FOLDER_NAME') {
-          logger.warn({ folderName: contextMenu.node.name, sourceFolderId: numericFolderId, targetFolderId }, '[DirectoryTree] Duplicate folder name detected, showing merge modal')
-          // Show merge confirmation modal
-          setMergeModal({
-            folderName: contextMenu.node.name,
-            sourceFolderId: numericFolderId,
-            targetFolderId: targetFolderId
-          })
-          setContextMenu(null)
+          logger.warn({ folderName: contextMenu.node.name, sourceFolderId: numericFolderId, targetFolderId }, '[DirectoryTree] Duplicate folder name detected, auto-merging')
+          // Automatically merge folders without confirmation
+          const mergeResult = await window.electron.moveFolder(numericFolderId, targetFolderId, true)
+          if (mergeResult && mergeResult.success) {
+            logger.info('[DirectoryTree] Auto-merge successful, reloading tree')
+            await loadTreeData()
+            setContextMenu(null)
+          } else {
+            logger.error({ mergeResult }, '[DirectoryTree] Auto-merge failed')
+            alert('Failed to merge folders')
+          }
         } else if (result && result.success) {
           logger.info('[DirectoryTree] Folder move successful, reloading tree')
           await loadTreeData()
