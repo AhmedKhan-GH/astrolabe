@@ -39,6 +39,8 @@
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "docs": "typedoc",
+    "docs:watch": "typedoc --watch",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
     "postinstall": "electron-builder install-app-deps && npm run rebuild"
   },
@@ -80,6 +82,7 @@
     "rimraf": "^6.1.2",
     "tailwindcss": "^4.1.18",
     "tsx": "^4.21.0",
+    "typedoc": "^0.28.17",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vite": "^7.2.4",

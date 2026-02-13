@@ -57,3 +57,6 @@ data/
 *.sw?
 
 .env
+
+# TypeDoc output
+docs/

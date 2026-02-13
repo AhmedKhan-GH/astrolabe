@@ -191,3 +191,44 @@ const results = await window.electronAPI.searchRecordsByTitle('test');
 ```
 
 The key is using the inferred types (`schema.Record`, `schema.User`) from `$inferSelect` as return types, ensuring type safety from database to UI.
+
+## Documentation
+
+This project uses **TypeDoc** to generate live documentation from your code comments.
+
+### Generating Documentation
+
+```bash
+# Generate documentation once
+npm run docs
+
+# Watch mode - auto-regenerate on file changes
+npm run docs:watch
+```
+
+Documentation will be generated in the `docs/` folder. Open `docs/index.html` in your browser to view it.
+
+### Writing Documentation
+
+Add TSDoc/JSDoc comments above your functions, classes, and types:
+
+```typescript
+/**
+ * Creates a new folder in the database.
+ *
+ * @param db - The database instance
+ * @param name - The folder name
+ * @param parentId - Optional parent folder ID for nested folders
+ * @returns Promise resolving to the created folder's ID
+ *
+ * @example
+ * ```typescript
+ * const folderId = await createFolder(db, 'My Documents', parentFolderId);
+ * ```
+ */
+export async function createFolder(db: Database, name: string, parentId?: string) {
+  // Implementation...
+}
+```
+
+TypeDoc automatically extracts these comments and generates HTML documentation linked to your source code. You maintain documentation in one place—your code—and it stays synced automatically.
