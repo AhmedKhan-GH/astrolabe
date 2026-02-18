@@ -233,6 +233,40 @@ function DirectoryTree() {
     setShowFolderInput(true)
   }
 
+  const handleClearAll = async () => {
+    const confirmMessage = 'Are you sure you want to delete ALL folders and files? This will cascade delete everything in your directory. This action cannot be undone.'
+
+    if (window.confirm(confirmMessage)) {
+      try {
+        logger.info('[DirectoryTree] Clearing all folders and files')
+
+        // Get all direct children of root (folders with parentId = 0)
+        const rootChildren = allFolders.filter(f => f.parentId === 0)
+
+        // Delete each root child folder (cascade deletes all descendants)
+        for (const folder of rootChildren) {
+          logger.info({ folderId: folder.id, folderName: folder.name }, '[DirectoryTree] Deleting root child folder')
+          await window.electron.deleteFolder(folder.id)
+        }
+
+        // Delete all files that are only in root (folderIds = [0] or null)
+        for (const file of allFiles) {
+          const folderIds = file.folderIds ? JSON.parse(file.folderIds) : [0]
+          if (folderIds.length === 1 && folderIds[0] === 0) {
+            logger.info({ fileId: file.id, filename: file.filename }, '[DirectoryTree] Deleting root-only file')
+            await window.electron.deleteFile(file.id)
+          }
+        }
+
+        logger.info('[DirectoryTree] Clear all successful, reloading tree')
+        await loadTreeData()
+      } catch (error) {
+        logger.error({ error }, '[DirectoryTree] Failed to clear all')
+        alert('Failed to clear all: ' + error)
+      }
+    }
+  }
+
   const handleAddFolderToParent = (parentFolderId: number) => {
     setFolderParentId(parentFolderId)
     setShowFolderInput(true)
@@ -314,7 +348,7 @@ function DirectoryTree() {
     <>
       <Menu files={allFiles} />
 
-      <DirectoryHeader onUploadFile={handleImportFile} onReferenceFile={handleReferenceFile} onCreateFolder={handleCreateFolder} />
+      <DirectoryHeader onUploadFile={handleImportFile} onReferenceFile={handleReferenceFile} onCreateFolder={handleCreateFolder} onClearAll={handleClearAll} />
 
       {showFolderInput && (
         <FolderInputForm

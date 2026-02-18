@@ -1,13 +1,14 @@
-import { PlusIcon, ImportFileIcon, ReferenceFileIcon, FolderIconLarge } from '../icons/FileIcons'
+import { PlusIcon, ImportFileIcon, ReferenceFileIcon, FolderIconLarge, TrashIcon } from '../icons/FileIcons'
 import { UI_LABELS } from '../../config/constants'
 
 interface DirectoryHeaderProps {
   onUploadFile: () => void
   onReferenceFile: () => void
   onCreateFolder: () => void
+  onClearAll: () => void
 }
 
-export default function DirectoryHeader({ onUploadFile: onImportFile, onReferenceFile, onCreateFolder }: DirectoryHeaderProps) {
+export default function DirectoryHeader({ onUploadFile: onImportFile, onReferenceFile, onCreateFolder, onClearAll }: DirectoryHeaderProps) {
   return (
     <div className="flex items-center justify-between py-1 mb-2">
       <h2 className="text-white text-lg font-semibold">{UI_LABELS.DIRECTORY}</h2>
@@ -35,6 +36,13 @@ export default function DirectoryHeader({ onUploadFile: onImportFile, onReferenc
         >
           <PlusIcon className="w-2.5 h-2.5 group-hover:text-white" />
           <FolderIconLarge className="w-3 h-3 group-hover:text-slate-200" />
+        </button>
+        <button
+          onClick={onClearAll}
+          className="group relative flex items-center justify-center px-1.5 py-1 rounded border border-slate-600 text-slate-300 hover:bg-red-900/50 hover:border-red-600 hover:text-red-400 transition-colors"
+          title="Clear all folders and files"
+        >
+          <TrashIcon className="w-3 h-3 group-hover:text-red-400" />
         </button>
       </div>
     </div>
