@@ -155,7 +155,6 @@ export class FolderOperations {
   async moveFolder(
     folderId: number,
     newParentId: number,
-    forceMerge: boolean = false,
     parseFolderIds: (json: string | null) => number[],
     updateFileFolderIds: (fileId: number, folderIds: number[]) => Promise<void>,
     getAllFiles: () => Promise<schema.File[]>
@@ -186,11 +185,7 @@ export class FolderOperations {
     const existingFolder = await this.getFolderByNameAndParent(folder.name, newParentId, folderId);
 
     if (existingFolder) {
-      if (!forceMerge) {
-        throw new Error('DUPLICATE_FOLDER_NAME');
-      }
-
-      // Merge folders
+      // Auto-merge folders when duplicate name detected
       logger.info({ sourceFolderId: folderId, targetFolderId: existingFolder.id, folderName: folder.name, mergeType: 'move-driven' }, '[FolderOperations] Merging folders due to move operation');
       await this.mergeFolders(folderId, existingFolder.id, parseFolderIds, updateFileFolderIds, getAllFiles);
       await this.db.delete(schema.folders).where(eq(schema.folders.id, folderId));

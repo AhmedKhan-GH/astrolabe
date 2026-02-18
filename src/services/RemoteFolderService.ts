@@ -45,15 +45,14 @@ export class RemoteFolderService implements IFolderService {
 
   async moveFolder(
     folderId: number,
-    newParentId: number,
-    forceMerge?: boolean
-  ): Promise<{ success: boolean; errorCode?: string }> {
+    newParentId: number
+  ): Promise<{ success: boolean }> {
     const response = await this.fetchApi(`/folders/${folderId}/move`, {
       method: 'PUT',
-      body: JSON.stringify({ newParentId, forceMerge }),
+      body: JSON.stringify({ newParentId }),
     });
 
-    return response.json() as Promise<{ success: boolean; errorCode?: string }>;
+    return response.json() as Promise<{ success: boolean }>;
   }
 
   async removeFolder(folderId: number): Promise<void> {

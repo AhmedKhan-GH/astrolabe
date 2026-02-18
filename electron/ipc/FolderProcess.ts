@@ -60,10 +60,10 @@ export function setupFolderProcessHandlers() {
     logger.info({ fileId, folderId }, '[IPC] File added to folder successfully');
   });
 
-  ipcMain.handle('moveFolder', async (_, folderId: number, newParentId: number, forceMerge?: boolean) => {
+  ipcMain.handle('moveFolder', async (_, folderId: number, newParentId: number) => {
     const { folderService } = getServices();
-    logger.info({ folderId, newParentId, forceMerge }, '[IPC] moveFolder called');
-    const result = await folderService.moveFolder(folderId, newParentId, forceMerge);
+    logger.info({ folderId, newParentId }, '[IPC] moveFolder called');
+    const result = await folderService.moveFolder(folderId, newParentId);
     logger.info({ result }, '[IPC] Folder moved');
     return result;
   });

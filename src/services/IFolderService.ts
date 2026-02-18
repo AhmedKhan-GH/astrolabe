@@ -15,12 +15,12 @@ export interface IFolderService {
 
   /**
    * Move a folder to a new parent
+   * Automatically merges with existing folder if name conflict occurs
    * @param folderId - Folder ID to move
    * @param newParentId - New parent folder ID
-   * @param forceMerge - If true, merge with existing folder of same name
    * @returns Success status
    */
-  moveFolder(folderId: number, newParentId: number, forceMerge?: boolean): Promise<{ success: boolean; errorCode?: string }>;
+  moveFolder(folderId: number, newParentId: number): Promise<{ success: boolean }>;
 
   /**
    * Remove a folder and all descendants

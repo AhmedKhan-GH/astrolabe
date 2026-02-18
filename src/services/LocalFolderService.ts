@@ -25,25 +25,16 @@ export class LocalFolderService implements IFolderService {
 
   async moveFolder(
     folderId: number,
-    newParentId: number,
-    forceMerge?: boolean
-  ): Promise<{ success: boolean; errorCode?: string }> {
-    try {
-      await this.folderOps.moveFolder(
-        folderId,
-        newParentId,
-        forceMerge,
-        this.fileOps.parseFolderIds.bind(this.fileOps),
-        this.fileOps.updateFileFolderIds.bind(this.fileOps),
-        this.fileOps.getAllFiles.bind(this.fileOps)
-      );
-      return { success: true };
-    } catch (error) {
-      if (error instanceof Error && error.message === 'DUPLICATE_FOLDER_NAME') {
-        return { success: false, errorCode: 'DUPLICATE_FOLDER_NAME' };
-      }
-      throw error;
-    }
+    newParentId: number
+  ): Promise<{ success: boolean }> {
+    await this.folderOps.moveFolder(
+      folderId,
+      newParentId,
+      this.fileOps.parseFolderIds.bind(this.fileOps),
+      this.fileOps.updateFileFolderIds.bind(this.fileOps),
+      this.fileOps.getAllFiles.bind(this.fileOps)
+    );
+    return { success: true };
   }
 
   async removeFolder(folderId: number): Promise<void> {
