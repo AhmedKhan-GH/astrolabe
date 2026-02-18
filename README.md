@@ -61,7 +61,7 @@ export default {
 ### Usage in React Components
 
 Use Tailwind utility classes directly in your JSX:
-```typescript
+``tsx
 function MyComponent() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
@@ -222,9 +222,7 @@ Add TSDoc/JSDoc comments above your functions, classes, and types:
  * @returns Promise resolving to the created folder's ID
  *
  * @example
- * ```typescript
  * const folderId = await createFolder(db, 'My Documents', parentFolderId);
- * ```
  */
 export async function createFolder(db: Database, name: string, parentId?: string) {
   // Implementation...
