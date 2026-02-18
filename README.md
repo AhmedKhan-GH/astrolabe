@@ -1,6 +1,6 @@
-# Astrolabe - Electron + React + Vite + Tailwind + SQLite + Drizzle
+# Astrolabe - Electron + React + Vite + Tailwind + SQLite + Drizzle + TypeDoc + Pino
 
-A modern desktop application built with Electron, React, Vite, Tailwind CSS, and SQLite with Drizzle ORM.
+A modern desktop application built with Electron, React, Vite, Tailwind CSS, SQLite with Drizzle ORM, TypeDoc for documentation, and Pino for logging.
 
 ## Prerequisites
 
@@ -232,3 +232,45 @@ export async function createFolder(db: Database, name: string, parentId?: string
 ```
 
 TypeDoc automatically extracts these comments and generates HTML documentation linked to your source code. You maintain documentation in one place—your code—and it stays synced automatically.
+
+## Logging with Pino
+
+This project uses **Pino** for fast, structured logging throughout the application.
+
+### Using the Logger
+
+Import and use the logger in your code:
+
+```typescript
+import { logger } from './path/to/logger';
+
+// Different log levels
+logger.info('Application started');
+logger.debug('Debug information', { userId: 123 });
+logger.warn('Warning message');
+logger.error('Error occurred', { error: err });
+
+// Structured logging with context
+logger.info({
+  action: 'database-query',
+  table: 'records',
+  duration: 45
+}, 'Query completed');
+```
+
+### Log Levels
+
+Pino supports multiple log levels (in order of severity):
+- `trace` - Very detailed debugging
+- `debug` - Debugging information
+- `info` - General informational messages
+- `warn` - Warning messages
+- `error` - Error messages
+- `fatal` - Fatal errors
+
+### Benefits
+
+- **Fast**: JSON logging with minimal overhead
+- **Structured**: Easy to parse and analyze logs
+- **Context-aware**: Add metadata to every log entry
+- **Production-ready**: Optimized for performance
