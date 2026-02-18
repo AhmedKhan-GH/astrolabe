@@ -19,13 +19,17 @@ describe('FolderOperations - Data Structure Protection', () => {
   let folderOps: FolderOperations;
   let mockDb: BetterSQLite3Database<typeof schema>;
 
-  // Mock helper functions used by move/remove operations
+  // Mock helper functions used by move/remove/delete operations
   const mockParseFolderIds = vi.fn((json: string | null) => {
     if (!json) return [];
     return JSON.parse(json);
   });
 
   const mockUpdateFileFolderIds = vi.fn(async () => {
+    // Mock implementation
+  });
+
+  const mockDeleteFile = vi.fn(async () => {
     // Mock implementation
   });
 
@@ -38,6 +42,7 @@ describe('FolderOperations - Data Structure Protection', () => {
     vi.clearAllMocks();
     mockParseFolderIds.mockClear();
     mockUpdateFileFolderIds.mockClear();
+    mockDeleteFile.mockClear();
     mockGetAllFiles.mockClear();
 
     // Create a minimal mock database
@@ -167,6 +172,38 @@ describe('FolderOperations - Data Structure Protection', () => {
     });
   });
 
+  describe('Root Folder Cannot Be Deleted', () => {
+    /**
+     * Core protection: Root folder (ID=0) cannot be deleted
+     *
+     * deleteFolder cascade deletes all subfolders and unique files.
+     * For root, this would delete the entire folder structure, so it's blocked.
+     */
+    it('should throw error when attempting to delete root folder', async () => {
+      await expect(
+        folderOps.deleteFolder(0, mockParseFolderIds, mockDeleteFile, mockUpdateFileFolderIds, mockGetAllFiles)
+      ).rejects.toThrow(ERROR_MESSAGES.CANNOT_REMOVE_DIRECTORY);
+    });
+
+    /**
+     * Verify protection happens before ANY database operations
+     * This ensures the check is not fragile or corrected after the fact
+     */
+    it('should reject root deletion before executing database operations', async () => {
+      try {
+        await folderOps.deleteFolder(0, mockParseFolderIds, mockDeleteFile, mockUpdateFileFolderIds, mockGetAllFiles);
+      } catch {
+        // Expected to throw
+      }
+
+      // Database should never be touched
+      expect(mockDb.select).not.toHaveBeenCalled();
+      expect(mockDb.update).not.toHaveBeenCalled();
+      expect(mockDb.delete).not.toHaveBeenCalled();
+      expect(mockDeleteFile).not.toHaveBeenCalled();
+    });
+  });
+
   describe('Error Messages Are Reliable', () => {
     /**
      * Error messages must be constant and not constructed on-the-fly
@@ -185,6 +222,15 @@ describe('FolderOperations - Data Structure Protection', () => {
       // Test remove error
       try {
         await folderOps.removeFolder(0, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles);
+      } catch (error) {
+        if (error instanceof Error) {
+          expect(error.message).toBe(ERROR_MESSAGES.CANNOT_REMOVE_DIRECTORY);
+        }
+      }
+
+      // Test delete error
+      try {
+        await folderOps.deleteFolder(0, mockParseFolderIds, mockDeleteFile, mockUpdateFileFolderIds, mockGetAllFiles);
       } catch (error) {
         if (error instanceof Error) {
           expect(error.message).toBe(ERROR_MESSAGES.CANNOT_REMOVE_DIRECTORY);
