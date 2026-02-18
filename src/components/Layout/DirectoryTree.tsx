@@ -198,7 +198,7 @@ function DirectoryTree() {
       try {
         const id = parseInt(contextMenu.node.id.replace('folder-', ''))
         logger.info({ folderId: id, folderName: contextMenu.node.name }, '[DirectoryTree] Cascade deleting folder')
-        await window.electron.removeFolder(id)
+        await window.electron.deleteFolder(id)
         logger.info('[DirectoryTree] Folder delete successful, reloading tree')
         await loadTreeData()
         setContextMenu(null)

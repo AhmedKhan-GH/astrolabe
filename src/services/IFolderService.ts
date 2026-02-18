@@ -23,10 +23,17 @@ export interface IFolderService {
   moveFolder(folderId: number, newParentId: number): Promise<{ success: boolean }>;
 
   /**
-   * Remove a folder and all descendants
+   * Remove a folder (moves children to parent)
    * @param folderId - Folder ID to remove
    */
   removeFolder(folderId: number): Promise<void>;
+
+  /**
+   * Delete a folder and cascade delete all descendants
+   * Files unique to deleted folders are deleted, files in other folders have folder references updated
+   * @param folderId - Folder ID to delete
+   */
+  deleteFolder(folderId: number): Promise<void>;
 
   /**
    * Toggle folder expanded state

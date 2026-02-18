@@ -285,4 +285,55 @@ export class FolderOperations {
 
     await this.db.delete(schema.folders).where(eq(schema.folders.id, folderId));
   }
+
+  async deleteFolder(
+    folderId: number,
+    parseFolderIds: (json: string | null) => number[],
+    deleteFile: (fileId: number) => Promise<void>,
+    updateFileFolderIds: (fileId: number, folderIds: number[]) => Promise<void>,
+    getAllFiles: () => Promise<schema.File[]>
+  ): Promise<void> {
+    if (folderId === 0) {
+      throw new Error(ERROR_MESSAGES.CANNOT_REMOVE_DIRECTORY);
+    }
+
+    const folderToDelete = await this.getFolderById(folderId);
+    if (!folderToDelete) {
+      throw new Error('Folder not found');
+    }
+
+    // Get ALL descendant folder IDs BEFORE any modifications
+    const folderIdsToDelete = await this.getAllDescendantIds(folderId);
+    logger.info({ folderId, folderIdsToDelete }, '[FolderOperations] Cascade deleting folder and all descendants');
+
+    // Handle file cleanup
+    const files = await getAllFiles();
+    for (const file of files) {
+      if (!file.folderIds) continue;
+
+      const folderIds = parseFolderIds(file.folderIds);
+      const hasDeletedFolder = folderIds.some(id => folderIdsToDelete.includes(id));
+
+      if (!hasDeletedFolder) continue;
+
+      // Remove deleted folder IDs from file's folder list
+      const newFolderIds = folderIds.filter(id => !folderIdsToDelete.includes(id));
+
+      if (newFolderIds.length === 0) {
+        // File is ONLY in folders being deleted - delete the file completely
+        logger.info({ fileId: file.id, filename: file.filename }, '[FolderOperations] Deleting file (unique to deleted folders)');
+        await deleteFile(file.id);
+      } else {
+        // File exists in other folders - just update folder list
+        await updateFileFolderIds(file.id, newFolderIds);
+      }
+    }
+
+    // Delete all folders (including descendants)
+    for (const deleteFolderId of folderIdsToDelete) {
+      await this.db.delete(schema.folders).where(eq(schema.folders.id, deleteFolderId));
+    }
+
+    logger.info({ folderId, deletedCount: folderIdsToDelete.length }, '[FolderOperations] Cascade delete completed');
+  }
 }

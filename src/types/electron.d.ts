@@ -10,9 +10,10 @@ export interface ElectronAPI {
   createFolder: (name: string, parentId?: number) => Promise<Folder>;
   moveFile: (fileId: number, folderId: number | null) => Promise<void>;
   includeFileInFolder: (fileId: number, folderId: number) => Promise<void>;
-  moveFolder: (folderId: number, newParentId: number | null) => Promise<{ success: boolean }>;
+  moveFolder: (folderId: number, newParentId: number) => Promise<{ success: boolean }>;
   deleteFile: (fileId: number) => Promise<void>;
   removeFolder: (folderId: number) => Promise<void>;
+  deleteFolder: (folderId: number) => Promise<void>;
   removeFileFromFolder: (fileId: number, folderId: number) => Promise<void>;
   getDataDirectory: () => Promise<string>;
   chooseDataDirectory: () => Promise<string | null>;

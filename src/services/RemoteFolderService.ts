@@ -56,6 +56,12 @@ export class RemoteFolderService implements IFolderService {
   }
 
   async removeFolder(folderId: number): Promise<void> {
+    await this.fetchApi(`/folders/${folderId}/remove`, {
+      method: 'DELETE',
+    });
+  }
+
+  async deleteFolder(folderId: number): Promise<void> {
     await this.fetchApi(`/folders/${folderId}`, {
       method: 'DELETE',
     });

@@ -17,6 +17,7 @@ export function setupFolderProcessHandlers() {
     'moveFolder',
     'removeFileFromFolder',
     'removeFolder',
+    'deleteFolder',
     'toggleFolderExpanded'
   ];
 
@@ -80,6 +81,13 @@ export function setupFolderProcessHandlers() {
     logger.info({ folderId }, '[IPC] removeFolder called');
     await folderService.removeFolder(folderId);
     logger.info({ folderId }, '[IPC] Folder removed successfully');
+  });
+
+  ipcMain.handle('deleteFolder', async (_, folderId: number) => {
+    const { folderService } = getServices();
+    logger.info({ folderId }, '[IPC] deleteFolder called - cascade delete');
+    await folderService.deleteFolder(folderId);
+    logger.info({ folderId }, '[IPC] Folder cascade deleted successfully');
   });
 
   ipcMain.handle('toggleFolderExpanded', async (_, folderId: number) => {

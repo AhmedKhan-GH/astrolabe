@@ -46,6 +46,16 @@ export class LocalFolderService implements IFolderService {
     );
   }
 
+  async deleteFolder(folderId: number): Promise<void> {
+    await this.folderOps.deleteFolder(
+      folderId,
+      this.fileOps.parseFolderIds.bind(this.fileOps),
+      async (fileId: number) => { await this.fileOps.deleteFile(fileId); },
+      this.fileOps.updateFileFolderIds.bind(this.fileOps),
+      this.fileOps.getAllFiles.bind(this.fileOps)
+    );
+  }
+
   async toggleFolderExpanded(folderId: number): Promise<void> {
     await this.folderOps.toggleFolderExpanded(folderId);
   }
