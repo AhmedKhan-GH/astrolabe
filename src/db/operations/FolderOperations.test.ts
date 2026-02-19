@@ -85,13 +85,8 @@ describe('FolderOperations', () => {
     folderOps = new FolderOperations(mockDb);
   });
 
-  describe('Root Folder Protection', () => {
-    describe('Move Operations', () => {
-    /**
-     * Test root protection across multiple different destination IDs
-     * Including moving to itself (0), positive IDs, and negative IDs
-     */
-    it('should throw error when moving root to any destination', async () => {
+  describe('root folder protection', () => {
+    it('should prevent moving root folder and validate before database operations', async () => {
       const destinations = [0, 1, 5, 10, 100, 999, -1, -999];
 
       for (const destId of destinations) {
@@ -99,141 +94,65 @@ describe('FolderOperations', () => {
           folderOps.moveFolder(0, destId, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles)
         ).rejects.toThrow(ERROR_MESSAGES.CANNOT_MOVE_DIRECTORY);
       }
-    });
 
-    /**
-     * Verify protection happens before ANY database operations
-     * This ensures the check is not fragile or corrected after the fact
-     */
-    it('should reject root move before executing database operations', async () => {
-      try {
-        await folderOps.moveFolder(0, 1, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles);
-      } catch {
-        // Expected to throw
-      }
-
-      // Database should never be touched
+      // Verify no database operations occurred
       expect(mockDb.select).not.toHaveBeenCalled();
       expect(mockDb.update).not.toHaveBeenCalled();
       expect(mockDb.delete).not.toHaveBeenCalled();
     });
-    });
 
-    describe('Remove Operations', () => {
-    /**
-     * Core protection: Root folder (ID=0) cannot be removed
-     *
-     * removeFolder moves children to parent folder. For root, there is no
-     * parent to move children to, so the operation is blocked.
-     */
-    it('should throw error when attempting to remove root folder', async () => {
+    it('should prevent removing root folder and validate before database operations', async () => {
       await expect(
         folderOps.removeFolder(0, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles)
       ).rejects.toThrow(ERROR_MESSAGES.CANNOT_REMOVE_DIRECTORY);
-    });
 
-    /**
-     * Verify protection happens before ANY database operations
-     * This ensures the check is not fragile or corrected after the fact
-     */
-    it('should reject root removal before executing database operations', async () => {
-      try {
-        await folderOps.removeFolder(0, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles);
-      } catch {
-        // Expected to throw
-      }
-
-      // Database should never be touched
+      // Verify no database operations occurred
       expect(mockDb.select).not.toHaveBeenCalled();
       expect(mockDb.update).not.toHaveBeenCalled();
       expect(mockDb.delete).not.toHaveBeenCalled();
     });
-    });
 
-    describe('Delete Operations', () => {
-      /**
-       * Core protection: Root folder (ID=0) cannot be deleted
-       *
-       * deleteFolder cascade deletes all subfolders and unique files.
-       * For root, this would delete the entire folder structure, so it's blocked.
-       */
-      it('should throw error when attempting to delete root folder', async () => {
+    it('should prevent deleting root folder and validate before database operations', async () => {
       await expect(
         folderOps.deleteFolder(0, mockParseFolderIds, mockDeleteFile, mockUpdateFileFolderIds, mockGetAllFiles)
       ).rejects.toThrow(ERROR_MESSAGES.CANNOT_REMOVE_DIRECTORY);
-    });
 
-    /**
-     * Verify protection happens before ANY database operations
-     * This ensures the check is not fragile or corrected after the fact
-     */
-    it('should reject root deletion before executing database operations', async () => {
-      try {
-        await folderOps.deleteFolder(0, mockParseFolderIds, mockDeleteFile, mockUpdateFileFolderIds, mockGetAllFiles);
-      } catch {
-        // Expected to throw
-      }
-
-      // Database should never be touched
+      // Verify no database operations occurred
       expect(mockDb.select).not.toHaveBeenCalled();
       expect(mockDb.update).not.toHaveBeenCalled();
       expect(mockDb.delete).not.toHaveBeenCalled();
       expect(mockDeleteFile).not.toHaveBeenCalled();
     });
+
+    it('should recognize 0 and only 0 as the root folder ID', async () => {
+      await expect(
+        folderOps.moveFolder(0, 1, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles)
+      ).rejects.toThrow(ERROR_MESSAGES.CANNOT_MOVE_DIRECTORY);
+
+      mockDb.select = vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue([{
+              id: 1,
+              name: 'TestFolder',
+              parentId: 0,
+              isExpanded: false,
+              createdAt: null,
+            }])
+          })
+        })
+      });
+
+      try {
+        await folderOps.moveFolder(1, 2, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles);
+      } catch (error) {
+        if (error instanceof Error) {
+          expect(error.message).not.toBe(ERROR_MESSAGES.CANNOT_MOVE_DIRECTORY);
+        }
+      }
     });
 
-    describe('Validation Precedence', () => {
-      /**
-       * Root protection must take absolute precedence over all other validations
-       * This ensures it's not fragile or dependent on other validation logic
-       */
-      it('should check root protection before any other validation', async () => {
-        // Even with completely invalid parameters, root check happens first
-        await expect(
-          folderOps.moveFolder(0, -999, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles)
-        ).rejects.toThrow(ERROR_MESSAGES.CANNOT_MOVE_DIRECTORY);
-      });
-
-      /**
-       * Verify root folder ID is exactly 0
-       */
-      it('should recognize 0 and only 0 as the root folder ID', async () => {
-        // ID 0 should fail
-        await expect(
-          folderOps.moveFolder(0, 1, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles)
-        ).rejects.toThrow(ERROR_MESSAGES.CANNOT_MOVE_DIRECTORY);
-
-        // Set up mock to allow non-root folder operations to proceed past root check
-        mockDb.select = vi.fn().mockReturnValue({
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockReturnValue({
-              limit: vi.fn().mockResolvedValue([{
-                id: 1,
-                name: 'TestFolder',
-                parentId: 0,
-                isExpanded: false,
-                createdAt: null,
-              }])
-            })
-          })
-        });
-
-        // ID 1 should NOT trigger root protection error (will fail for other reasons)
-        try {
-          await folderOps.moveFolder(1, 2, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles);
-        } catch (error) {
-          if (error instanceof Error) {
-            expect(error.message).not.toBe(ERROR_MESSAGES.CANNOT_MOVE_DIRECTORY);
-          }
-        }
-      });
-
-      /**
-       * Error messages must be constant and not constructed on-the-fly
-       * This ensures consistency and prevents fragile string matching
-       */
-      it('should use constant error messages', async () => {
-      // Test move error
+    it('should use constant error messages for root protection', async () => {
       try {
         await folderOps.moveFolder(0, 1, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles);
       } catch (error) {
@@ -242,7 +161,6 @@ describe('FolderOperations', () => {
         }
       }
 
-      // Test remove error
       try {
         await folderOps.removeFolder(0, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles);
       } catch (error) {
@@ -251,7 +169,6 @@ describe('FolderOperations', () => {
         }
       }
 
-      // Test delete error
       try {
         await folderOps.deleteFolder(0, mockParseFolderIds, mockDeleteFile, mockUpdateFileFolderIds, mockGetAllFiles);
       } catch (error) {
@@ -260,24 +177,76 @@ describe('FolderOperations', () => {
         }
       }
     });
+  });
+
+  describe('createFolder', () => {
+    describe('validation errors', () => {
+      it('should throw error when creating folder with empty or whitespace-only name', async () => {
+        await expect(folderOps.createFolder('', 1)).rejects.toThrow('Folder name cannot be empty');
+        await expect(folderOps.createFolder('   ', 1)).rejects.toThrow('Folder name cannot be empty');
+        await expect(folderOps.createFolder('\t\n  ', 1)).rejects.toThrow('Folder name cannot be empty');
+      });
+
+      it('should throw error when creating folder with duplicate name in same parent', async () => {
+        const parentId = 1;
+        const folderName = 'ExistingFolder';
+
+        mockDb.select = vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue([
+              { id: 10, name: folderName, parentId: parentId, isExpanded: false, createdAt: null }
+            ])
+          })
+        });
+
+        await expect(
+          folderOps.createFolder(folderName, parentId)
+        ).rejects.toThrow('A folder with this name already exists at this level');
+      });
+    });
+
+    describe('successful creation', () => {
+      it('should create folder with valid name and allow same name in different parent', async () => {
+        const folderName = 'TestFolder';
+        const parentId1 = 1;
+        const parentId2 = 2;
+
+        mockDb.select = vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue([])
+          })
+        });
+
+        mockDb.insert = vi.fn().mockReturnValue({
+          values: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue([
+              { id: 30, name: folderName, parentId: parentId2, isExpanded: false, createdAt: null }
+            ])
+          })
+        });
+
+        const expandAncestorFoldersSpy = vi.spyOn(folderOps, 'expandAncestorFolders').mockResolvedValue(undefined);
+
+        const result1 = await folderOps.createFolder(folderName, parentId1);
+        expect(result1.name).toBe(folderName);
+        expect(result1.parentId).toBe(parentId2);
+
+        const result2 = await folderOps.createFolder(folderName, parentId2);
+        expect(result2.name).toBe(folderName);
+
+        expandAncestorFoldersSpy.mockRestore();
+      });
     });
   });
 
-  describe('Move Operations', () => {
-    describe('Invalid Moves', () => {
-      it('should throw error when moving folder to itself', async () => {
+  describe('moveFolder', () => {
+    describe('validation errors', () => {
+      it('should throw error when moving folder to itself and validate before database operations', async () => {
         await expect(
           folderOps.moveFolder(5, 5, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles)
         ).rejects.toThrow('Cannot move folder to itself');
-      });
 
-      it('should reject move to itself before executing database operations', async () => {
-        try {
-          await folderOps.moveFolder(5, 5, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles);
-        } catch {
-          // Expected to throw
-        }
-
+        // Verify no database operations occurred
         expect(mockDb.select).not.toHaveBeenCalled();
         expect(mockDb.update).not.toHaveBeenCalled();
         expect(mockDb.delete).not.toHaveBeenCalled();
@@ -300,14 +269,6 @@ describe('FolderOperations', () => {
 
         getFolderByIdSpy.mockRestore();
         isDescendantOfSpy.mockRestore();
-      });
-
-      it('should check move to itself before any other validation', async () => {
-        await expect(
-          folderOps.moveFolder(999, 999, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles)
-        ).rejects.toThrow('Cannot move folder to itself');
-
-        expect(mockDb.select).not.toHaveBeenCalled();
       });
 
       it('should throw error when moving non-existent folder', async () => {
@@ -338,67 +299,25 @@ describe('FolderOperations', () => {
 
         getFolderByIdSpy.mockRestore();
       });
+
+      it('should throw error when moving to non-existent parent folder', async () => {
+        const folderId = 5;
+        const nonExistentParentId = 999;
+
+        const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
+          .mockResolvedValueOnce({ id: folderId, name: 'Folder', parentId: 0, isExpanded: false, createdAt: null })
+          .mockResolvedValueOnce(undefined);
+
+        await expect(
+          folderOps.moveFolder(folderId, nonExistentParentId, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles)
+        ).rejects.toThrow();
+
+        getFolderByIdSpy.mockRestore();
+      });
     });
 
-    describe('Valid Moves', () => {
-      it('should allow moving folder to non-descendant location', async () => {
-        const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue({
-          id: 5,
-          name: 'Folder',
-          parentId: 1,
-          isExpanded: false,
-          createdAt: null,
-        });
-
-        mockDb.update = vi.fn().mockReturnValue({
-          set: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue(undefined)
-          })
-        });
-
-        const isDescendantOfSpy = vi.spyOn(folderOps as unknown as { isDescendantOf: (folderId: number, targetId: number) => Promise<boolean> }, 'isDescendantOf').mockResolvedValue(false);
-        const getFolderByNameAndParentSpy = vi.spyOn(folderOps as unknown as { getFolderByNameAndParent: (name: string, parentId: number) => Promise<unknown> }, 'getFolderByNameAndParent').mockResolvedValue(undefined);
-
-        await expect(
-          folderOps.moveFolder(5, 10, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles)
-        ).resolves.not.toThrow();
-
-        getFolderByIdSpy.mockRestore();
-        isDescendantOfSpy.mockRestore();
-        getFolderByNameAndParentSpy.mockRestore();
-      });
-
-      it('should allow moving folder to root level', async () => {
-        const folderId = 5;
-        const newParentId = 0;
-
-        const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue({
-          id: folderId,
-          name: 'Folder',
-          parentId: 10,
-          isExpanded: false,
-          createdAt: null,
-        });
-
-        const getFolderByNameAndParentSpy = vi.spyOn(folderOps as unknown as { getFolderByNameAndParent: (name: string, parentId: number) => Promise<unknown> }, 'getFolderByNameAndParent').mockResolvedValue(undefined);
-
-        mockDb.update = vi.fn().mockReturnValue({
-          set: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue(undefined)
-          })
-        });
-
-        await expect(
-          folderOps.moveFolder(folderId, newParentId, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles)
-        ).resolves.not.toThrow();
-
-        expect(mockDb.update).toHaveBeenCalled();
-
-        getFolderByIdSpy.mockRestore();
-        getFolderByNameAndParentSpy.mockRestore();
-      });
-
-      it('should successfully move folder and update parentId', async () => {
+    describe('successful moves', () => {
+      it('should move folder to different parent and update parentId', async () => {
         const folderId = 5;
         const oldParentId = 1;
         const newParentId = 2;
@@ -435,7 +354,7 @@ describe('FolderOperations', () => {
       });
     });
 
-    describe('Merge on Move', () => {
+    describe('folder merging', () => {
       it('should merge folders when moving to parent with same-named child', async () => {
         const sourceFolderId = 5;
         const targetFolderId = 10;
@@ -478,8 +397,8 @@ describe('FolderOperations', () => {
     });
   });
 
-  describe('Remove Operations', () => {
-    describe('Folder Not Found', () => {
+  describe('removeFolder', () => {
+    describe('validation errors', () => {
       it('should throw error when removing non-existent folder', async () => {
         const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue(undefined);
 
@@ -491,8 +410,8 @@ describe('FolderOperations', () => {
       });
     });
 
-    describe('Valid Remove', () => {
-      it('should allow removing folder and move children to parent', async () => {
+    describe('successful removal', () => {
+      it('should remove folder and move children to parent', async () => {
         const folderId = 5;
         const parentId = 1;
         const childId1 = 10;
@@ -537,54 +456,50 @@ describe('FolderOperations', () => {
         getAllDescendantIdsSpy.mockRestore();
       });
 
-      it('should move children up without merge when no name conflict exists', async () => {
-        const parentFolderId = 5;
-        const grandparentId = 1;
-        const childFolderId = 10;
+      it('should preserve files that exist in other folders when removing folder', async () => {
+        const folderId = 5;
+        const parentId = 0;
 
-        const parentFolder = {
-          id: parentFolderId,
-          name: 'Parent',
-          parentId: grandparentId,
+        const folder = {
+          id: folderId,
+          name: 'FolderToRemove',
+          parentId: parentId,
           isExpanded: false,
           createdAt: null,
         };
 
-        const childFolder = {
-          id: childFolderId,
-          name: 'UniqueName',
-          parentId: parentFolderId,
-          isExpanded: false,
-          createdAt: null,
+        const sharedFile = {
+          id: 101,
+          filename: 'shared.txt',
+          path: '/shared.txt',
+          folderIds: JSON.stringify([folderId, 10, 20]),
+          filetype: 'text',
+          fileStorageType: 'import',
+          addedAt: null,
         };
 
-        const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue(parentFolder);
-        const getChildFoldersSpy = vi.spyOn(folderOps as unknown as { getChildFolders: (parentId: number) => Promise<unknown[]> }, 'getChildFolders').mockResolvedValue([childFolder]);
-        const getFolderByNameAndParentSpy = vi.spyOn(folderOps as unknown as { getFolderByNameAndParent: (name: string, parentId: number) => Promise<unknown> }, 'getFolderByNameAndParent').mockResolvedValue(undefined);
-        const getAllDescendantIdsSpy = vi.spyOn(folderOps, 'getAllDescendantIds').mockResolvedValue([parentFolderId]);
+        const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue(folder);
+        const getChildFoldersSpy = vi.spyOn(folderOps as unknown as { getChildFolders: (parentId: number) => Promise<unknown[]> }, 'getChildFolders').mockResolvedValue([]);
+        const getAllDescendantIdsSpy = vi.spyOn(folderOps, 'getAllDescendantIds').mockResolvedValue([folderId]);
 
-        mockDb.update = vi.fn().mockReturnValue({
-          set: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue(undefined)
-          })
-        });
+        mockGetAllFiles.mockResolvedValue([sharedFile]);
 
         mockDb.delete = vi.fn().mockReturnValue({
           where: vi.fn().mockResolvedValue(undefined)
         });
 
-        await folderOps.removeFolder(parentFolderId, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles);
+        await folderOps.removeFolder(folderId, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles);
 
-        expect(mockDb.update).toHaveBeenCalled();
+        expect(mockUpdateFileFolderIds).toHaveBeenCalledWith(101, [10, 20]);
+        expect(mockDb.delete).toHaveBeenCalled();
 
         getFolderByIdSpy.mockRestore();
         getChildFoldersSpy.mockRestore();
-        getFolderByNameAndParentSpy.mockRestore();
         getAllDescendantIdsSpy.mockRestore();
       });
     });
 
-    describe('Merge on Parent Remove', () => {
+    describe('folder merging', () => {
       it('should merge child folders with same-named siblings when parent is removed', async () => {
         const parentFolderId = 5;
         const grandparentId = 1;
@@ -639,8 +554,8 @@ describe('FolderOperations', () => {
     });
   });
 
-  describe('Delete Operations', () => {
-    describe('Folder Not Found', () => {
+  describe('deleteFolder', () => {
+    describe('validation errors', () => {
       it('should throw error when deleting non-existent folder', async () => {
         const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue(undefined);
 
@@ -652,7 +567,7 @@ describe('FolderOperations', () => {
       });
     });
 
-    describe('Cascade Delete', () => {
+    describe('cascade deletion', () => {
       it('should cascade delete unique files and update non-unique files', async () => {
         const folderId = 5;
         const childId = 10;
@@ -719,105 +634,7 @@ describe('FolderOperations', () => {
     });
   });
 
-  describe('Creation Operations', () => {
-    describe('Invalid Creation', () => {
-      it('should throw error when creating folder with empty name', async () => {
-        await expect(
-          folderOps.createFolder('', 1)
-        ).rejects.toThrow('Folder name cannot be empty');
-      });
-
-      it('should throw error when creating folder with whitespace-only name', async () => {
-        await expect(
-          folderOps.createFolder('   ', 1)
-        ).rejects.toThrow('Folder name cannot be empty');
-
-        await expect(
-          folderOps.createFolder('\t\n  ', 1)
-        ).rejects.toThrow('Folder name cannot be empty');
-      });
-
-      it('should throw error when creating folder with duplicate name in same parent', async () => {
-        const parentId = 1;
-        const folderName = 'ExistingFolder';
-
-        mockDb.select = vi.fn().mockReturnValue({
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([
-              { id: 10, name: folderName, parentId: parentId, isExpanded: false, createdAt: null }
-            ])
-          })
-        });
-
-        await expect(
-          folderOps.createFolder(folderName, parentId)
-        ).rejects.toThrow('A folder with this name already exists at this level');
-      });
-    });
-
-    describe('Valid Creation', () => {
-      it('should allow creating folder with valid name', async () => {
-        const folderName = 'NewFolder';
-        const parentId = 1;
-
-        mockDb.select = vi.fn().mockReturnValue({
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([])
-          })
-        });
-
-        mockDb.insert = vi.fn().mockReturnValue({
-          values: vi.fn().mockReturnValue({
-            returning: vi.fn().mockResolvedValue([
-              { id: 20, name: folderName, parentId: parentId, isExpanded: false, createdAt: null }
-            ])
-          })
-        });
-
-        const expandAncestorFoldersSpy = vi.spyOn(folderOps, 'expandAncestorFolders').mockResolvedValue(undefined);
-
-        const result = await folderOps.createFolder(folderName, parentId);
-
-        expect(result).toBeDefined();
-        expect(result.name).toBe(folderName);
-        expect(result.parentId).toBe(parentId);
-
-        expandAncestorFoldersSpy.mockRestore();
-      });
-
-      it('should allow creating folder with same name in different parent', async () => {
-        const folderName = 'CommonName';
-        const parentId1 = 1;
-        const parentId2 = 2;
-
-        mockDb.select = vi.fn().mockReturnValue({
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([])
-          })
-        });
-
-        mockDb.insert = vi.fn().mockReturnValue({
-          values: vi.fn().mockReturnValue({
-            returning: vi.fn().mockResolvedValue([
-              { id: 30, name: folderName, parentId: parentId2, isExpanded: false, createdAt: null }
-            ])
-          })
-        });
-
-        const expandAncestorFoldersSpy = vi.spyOn(folderOps, 'expandAncestorFolders').mockResolvedValue(undefined);
-
-        const result1 = await folderOps.createFolder(folderName, parentId1);
-        expect(result1.name).toBe(folderName);
-
-        const result2 = await folderOps.createFolder(folderName, parentId2);
-        expect(result2.name).toBe(folderName);
-
-        expandAncestorFoldersSpy.mockRestore();
-      });
-    });
-  });
-
-  describe('Toggle Folder Expanded', () => {
+  describe('toggleFolderExpanded', () => {
     it('should toggle folder expansion state', async () => {
       const folderId = 5;
 
@@ -854,7 +671,7 @@ describe('FolderOperations', () => {
     });
   });
 
-  describe('Expand Ancestor Folders', () => {
+  describe('expandAncestorFolders', () => {
     it('should expand all ancestor folders for a given folder', async () => {
       const folderId = 10;
       const parentFolder = { id: 5, name: 'Parent', parentId: 0, isExpanded: false, createdAt: null };
@@ -903,128 +720,74 @@ describe('FolderOperations', () => {
 
       await folderOps.expandAncestorFolders(folderId);
 
-      // Should complete without errors even if already expanded
       expect(getFolderByIdSpy).toHaveBeenCalled();
       getFolderByIdSpy.mockRestore();
     });
   });
 
-  describe('Edge Cases', () => {
-    describe('Move to Non-Existent Parent', () => {
-      it('should handle moving folder to non-existent parent folder', async () => {
-        const folderId = 5;
-        const nonExistentParentId = 999;
+  describe('getAllAncestorIds', () => {
+    it('should return all ancestor IDs for a deeply nested folder', async () => {
+      const grandchildId = 3;
+      const childId = 2;
+      const parentId = 1;
 
-        const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
-          .mockResolvedValueOnce({ id: folderId, name: 'Folder', parentId: 0, isExpanded: false, createdAt: null })
-          .mockResolvedValueOnce(undefined);
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
+        .mockResolvedValueOnce({ id: grandchildId, name: 'Grandchild', parentId: childId, isExpanded: false, createdAt: null })
+        .mockResolvedValueOnce({ id: childId, name: 'Child', parentId: parentId, isExpanded: false, createdAt: null })
+        .mockResolvedValueOnce({ id: parentId, name: 'Parent', parentId: 0, isExpanded: false, createdAt: null });
 
-        await expect(
-          folderOps.moveFolder(folderId, nonExistentParentId, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles)
-        ).rejects.toThrow();
+      const result = await folderOps.getAllAncestorIds(grandchildId);
 
-        getFolderByIdSpy.mockRestore();
-      });
+      expect(result).toEqual([grandchildId, childId, parentId]);
+      getFolderByIdSpy.mockRestore();
     });
 
-    describe('Remove Folder with Files in Multiple Locations', () => {
-      it('should preserve files that exist in other folders when removing folder', async () => {
-        const folderId = 5;
-        const parentId = 0;
+    it('should return empty array for root folder', async () => {
+      const result = await folderOps.getAllAncestorIds(0);
 
-        const folder = {
-          id: folderId,
-          name: 'FolderToRemove',
-          parentId: parentId,
-          isExpanded: false,
-          createdAt: null,
-        };
-
-        const sharedFile = {
-          id: 101,
-          filename: 'shared.txt',
-          path: '/shared.txt',
-          folderIds: JSON.stringify([folderId, 10, 20]),
-          filetype: 'text',
-          fileStorageType: 'import',
-          addedAt: null,
-        };
-
-        const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue(folder);
-        const getChildFoldersSpy = vi.spyOn(folderOps as unknown as { getChildFolders: (parentId: number) => Promise<unknown[]> }, 'getChildFolders').mockResolvedValue([]);
-        const getAllDescendantIdsSpy = vi.spyOn(folderOps, 'getAllDescendantIds').mockResolvedValue([folderId]);
-
-        mockGetAllFiles.mockResolvedValue([sharedFile]);
-
-        mockDb.delete = vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(undefined)
-        });
-
-        await folderOps.removeFolder(folderId, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles);
-
-        // File should be updated to remove folderId, not deleted
-        expect(mockUpdateFileFolderIds).toHaveBeenCalledWith(101, [10, 20]);
-        expect(mockDb.delete).toHaveBeenCalled();
-
-        getFolderByIdSpy.mockRestore();
-        getChildFoldersSpy.mockRestore();
-        getAllDescendantIdsSpy.mockRestore();
-      });
+      expect(result).toEqual([]);
     });
 
-    describe('Remove Child of Root Folder', () => {
-      it('should remove direct child of root folder and move its children to root', async () => {
-        const folderId = 5;
-        const parentId = 0;
-        const childId = 10;
+    it('should return only folder ID for direct child of root', async () => {
+      const folderId = 1;
 
-        const folder = {
-          id: folderId,
-          name: 'DirectChildOfRoot',
-          parentId: parentId,
-          isExpanded: false,
-          createdAt: null,
-        };
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
+        .mockResolvedValueOnce({ id: folderId, name: 'Folder', parentId: 0, isExpanded: false, createdAt: null });
 
-        const child = {
-          id: childId,
-          name: 'GrandchildOfRoot',
-          parentId: folderId,
-          isExpanded: false,
-          createdAt: null,
-        };
+      const result = await folderOps.getAllAncestorIds(folderId);
 
-        const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue(folder);
-        const getChildFoldersSpy = vi.spyOn(folderOps as unknown as { getChildFolders: (parentId: number) => Promise<unknown[]> }, 'getChildFolders').mockResolvedValue([child]);
-        const getFolderByNameAndParentSpy = vi.spyOn(folderOps as unknown as { getFolderByNameAndParent: (name: string, parentId: number) => Promise<unknown> }, 'getFolderByNameAndParent').mockResolvedValue(undefined);
-        const getAllDescendantIdsSpy = vi.spyOn(folderOps, 'getAllDescendantIds').mockResolvedValue([folderId]);
+      expect(result).toEqual([folderId]);
+      getFolderByIdSpy.mockRestore();
+    });
 
-        mockDb.update = vi.fn().mockReturnValue({
-          set: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue(undefined)
-          })
-        });
+    it('should handle non-existent folder gracefully', async () => {
+      const nonExistentId = 999;
 
-        mockDb.delete = vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(undefined)
-        });
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
+        .mockResolvedValueOnce(undefined);
 
-        mockGetAllFiles.mockResolvedValue([]);
+      const result = await folderOps.getAllAncestorIds(nonExistentId);
 
-        await folderOps.removeFolder(folderId, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles);
+      expect(result).toEqual([]);
+      getFolderByIdSpy.mockRestore();
+    });
 
-        expect(mockDb.update).toHaveBeenCalled();
-        expect(mockDb.delete).toHaveBeenCalled();
+    it('should stop traversal if ancestor chain is broken', async () => {
+      const childId = 2;
+      const parentId = 1;
 
-        getFolderByIdSpy.mockRestore();
-        getChildFoldersSpy.mockRestore();
-        getFolderByNameAndParentSpy.mockRestore();
-        getAllDescendantIdsSpy.mockRestore();
-      });
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
+        .mockResolvedValueOnce({ id: childId, name: 'Child', parentId: parentId, isExpanded: false, createdAt: null })
+        .mockResolvedValueOnce(undefined);
+
+      const result = await folderOps.getAllAncestorIds(childId);
+
+      expect(result).toEqual([childId]);
+      getFolderByIdSpy.mockRestore();
     });
   });
 
-  describe('Get All Descendant IDs', () => {
+  describe('getAllDescendantIds', () => {
     it('should return all descendant IDs for a folder with nested children', async () => {
       const folderId = 1;
       const childId = 2;

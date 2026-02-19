@@ -67,21 +67,35 @@ export class FolderOperations {
 
   // ============ Helper Methods ============
 
-  async expandAncestorFolders(folderId: number): Promise<void> {
-    if (folderId === 0) return;
+  async getAllAncestorIds(folderId: number): Promise<number[]> {
+    if (folderId === 0) return [];
 
+    const ancestorIds: number[] = [];
     let currentId: number | null = folderId;
+
     while (currentId !== null && currentId !== 0) {
       const folder = await this.getFolderById(currentId);
       if (!folder) break;
 
-      if (!folder.isExpanded) {
+      ancestorIds.push(currentId);
+      currentId = folder.parentId;
+    }
+
+    return ancestorIds;
+  }
+
+  async expandAncestorFolders(folderId: number): Promise<void> {
+    if (folderId === 0) return;
+
+    const ancestorIds = await this.getAllAncestorIds(folderId);
+
+    for (const ancestorId of ancestorIds) {
+      const folder = await this.getFolderById(ancestorId);
+      if (folder && !folder.isExpanded) {
         await this.db.update(schema.folders)
           .set({ isExpanded: true })
-          .where(eq(schema.folders.id, currentId));
+          .where(eq(schema.folders.id, ancestorId));
       }
-
-      currentId = folder.parentId;
     }
   }
 
