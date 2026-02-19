@@ -793,6 +793,11 @@ describe('FolderOperations', () => {
       const childId = 2;
       const grandchildId = 3;
 
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
+        .mockResolvedValueOnce({ id: folderId, name: 'Folder', parentId: 0, isExpanded: false, createdAt: null })
+        .mockResolvedValueOnce({ id: childId, name: 'Child', parentId: folderId, isExpanded: false, createdAt: null })
+        .mockResolvedValueOnce({ id: grandchildId, name: 'Grandchild', parentId: childId, isExpanded: false, createdAt: null });
+
       mockDb.select = vi.fn()
         .mockReturnValueOnce({
           from: vi.fn().mockReturnValue({
@@ -813,10 +818,14 @@ describe('FolderOperations', () => {
       const result = await folderOps.getAllDescendantIds(folderId);
 
       expect(result).toEqual([folderId, childId, grandchildId]);
+      getFolderByIdSpy.mockRestore();
     });
 
     it('should return only the folder ID when folder has no children', async () => {
       const folderId = 1;
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
+        .mockResolvedValueOnce({ id: folderId, name: 'Folder', parentId: 0, isExpanded: false, createdAt: null });
 
       mockDb.select = vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
@@ -827,12 +836,18 @@ describe('FolderOperations', () => {
       const result = await folderOps.getAllDescendantIds(folderId);
 
       expect(result).toEqual([folderId]);
+      getFolderByIdSpy.mockRestore();
     });
 
     it('should handle folder with single level children', async () => {
       const folderId = 1;
       const child1Id = 2;
       const child2Id = 3;
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
+        .mockResolvedValueOnce({ id: folderId, name: 'Folder', parentId: 0, isExpanded: false, createdAt: null })
+        .mockResolvedValueOnce({ id: child1Id, name: 'Child1', parentId: folderId, isExpanded: false, createdAt: null })
+        .mockResolvedValueOnce({ id: child2Id, name: 'Child2', parentId: folderId, isExpanded: false, createdAt: null });
 
       mockDb.select = vi.fn()
         .mockReturnValueOnce({
@@ -857,6 +872,41 @@ describe('FolderOperations', () => {
       const result = await folderOps.getAllDescendantIds(folderId);
 
       expect(result).toEqual([folderId, child1Id, child2Id]);
+      getFolderByIdSpy.mockRestore();
+    });
+
+    it('should return empty array for non-existent folder', async () => {
+      const nonExistentFolderId = 999;
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue(undefined);
+
+      const result = await folderOps.getAllDescendantIds(nonExistentFolderId);
+
+      expect(result).toEqual([]);
+      expect(result).toHaveLength(0);
+
+      getFolderByIdSpy.mockRestore();
+    });
+
+    it('should stop traversal if descendant chain is broken', async () => {
+      const folderId = 1;
+      const childId = 2;
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
+        .mockResolvedValueOnce({ id: folderId, name: 'Folder', parentId: 0, isExpanded: false, createdAt: null })
+        .mockResolvedValueOnce(undefined);
+
+      mockDb.select = vi.fn()
+        .mockReturnValueOnce({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue([{ id: childId, name: 'Child', parentId: folderId, isExpanded: false, createdAt: null }])
+          })
+        });
+
+      const result = await folderOps.getAllDescendantIds(folderId);
+
+      expect(result).toEqual([folderId]);
+      getFolderByIdSpy.mockRestore();
     });
   });
 });

@@ -30,6 +30,12 @@ export class FolderOperations {
   }
 
   async getAllDescendantIds(folderId: number): Promise<number[]> {
+    // Check if folder exists (root folder 0 always exists)
+    if (folderId !== 0) {
+      const folder = await this.getFolderById(folderId);
+      if (!folder) return [];
+    }
+
     const children = await this.db.select().from(schema.folders)
       .where(eq(schema.folders.parentId, folderId));
 
