@@ -99,11 +99,10 @@ export class FolderOperations {
   // ============ Validation Methods ============
 
   private validateFolderName(name: string): string {
-    const trimmedName = name.trim();
-    if (!trimmedName) {
+    if (!name || !name.trim()) {
       throw new Error('Folder name cannot be empty');
     }
-    return trimmedName;
+    return name;
   }
 
   private async validateNoDuplicateFolderName(
