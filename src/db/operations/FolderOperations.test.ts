@@ -433,7 +433,7 @@ describe('FolderOperations', () => {
         const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue(folder);
         const getChildFoldersSpy = vi.spyOn(folderOps as unknown as { getChildFolders: (parentId: number) => Promise<unknown[]> }, 'getChildFolders').mockResolvedValue(children);
         const getFolderByNameAndParentSpy = vi.spyOn(folderOps as unknown as { getFolderByNameAndParent: (name: string, parentId: number) => Promise<unknown> }, 'getFolderByNameAndParent').mockResolvedValue(undefined);
-        const getAllDescendantIdsSpy = vi.spyOn(folderOps, 'getAllDescendantIds').mockResolvedValue([folderId]);
+        const getAllDescendantIdsSpy = vi.spyOn(folderOps, 'getAllDescendantIds').mockResolvedValue([]);
 
         mockDb.update = vi.fn().mockReturnValue({
           set: vi.fn().mockReturnValue({
@@ -480,7 +480,7 @@ describe('FolderOperations', () => {
 
         const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue(folder);
         const getChildFoldersSpy = vi.spyOn(folderOps as unknown as { getChildFolders: (parentId: number) => Promise<unknown[]> }, 'getChildFolders').mockResolvedValue([]);
-        const getAllDescendantIdsSpy = vi.spyOn(folderOps, 'getAllDescendantIds').mockResolvedValue([folderId]);
+        const getAllDescendantIdsSpy = vi.spyOn(folderOps, 'getAllDescendantIds').mockResolvedValue([]);
 
         mockGetAllFiles.mockResolvedValue([sharedFile]);
 
@@ -533,7 +533,7 @@ describe('FolderOperations', () => {
         const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue(parentFolder);
         const getChildFoldersSpy = vi.spyOn(folderOps as unknown as { getChildFolders: (parentId: number) => Promise<unknown[]> }, 'getChildFolders').mockResolvedValue([childFolder]);
         const getFolderByNameAndParentSpy = vi.spyOn(folderOps as unknown as { getFolderByNameAndParent: (name: string, parentId: number) => Promise<unknown> }, 'getFolderByNameAndParent').mockResolvedValue(existingSibling);
-        const getAllDescendantIdsSpy = vi.spyOn(folderOps, 'getAllDescendantIds').mockResolvedValue([parentFolderId]);
+        const getAllDescendantIdsSpy = vi.spyOn(folderOps, 'getAllDescendantIds').mockResolvedValue([]);
         const mergeFoldersSpy = vi.spyOn(folderOps as unknown as { mergeFolders: (sourceId: number, targetId: number, parseFolderIds: (json: string | null) => number[], updateFileFolderIds: (fileId: number, folderIds: number[]) => Promise<void>, getAllFiles: () => Promise<unknown[]>) => Promise<void> }, 'mergeFolders').mockResolvedValue(undefined);
 
         mockDb.delete = vi.fn().mockReturnValue({
@@ -611,7 +611,7 @@ describe('FolderOperations', () => {
         };
 
         const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue(folder);
-        const getAllDescendantIdsSpy = vi.spyOn(folderOps, 'getAllDescendantIds').mockResolvedValue([folderId, childId]);
+        const getAllDescendantIdsSpy = vi.spyOn(folderOps, 'getAllDescendantIds').mockResolvedValue([childId]);
 
         mockGetAllFiles.mockResolvedValue([uniqueFile, sharedFile, otherFile]);
 
@@ -742,33 +742,20 @@ describe('FolderOperations', () => {
       getFolderByIdSpy.mockRestore();
     });
 
-    it('should return empty array for root folder', async () => {
-      const result = await folderOps.getAllAncestorIds(0);
-
-      expect(result).toEqual([]);
+    it('should return empty array when folder has no ancestors', async () => {
+      // Test with root folder (id=0)
+      const rootResult = await folderOps.getAllAncestorIds(0);
+      expect(rootResult).toEqual([]);
     });
 
-    it('should return only folder ID for direct child of root', async () => {
-      const folderId = 1;
-
-      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
-        .mockResolvedValueOnce({ id: folderId, name: 'Folder', parentId: 0, isExpanded: false, createdAt: null });
-
-      const result = await folderOps.getAllAncestorIds(folderId);
-
-      expect(result).toEqual([folderId]);
-      getFolderByIdSpy.mockRestore();
-    });
-
-    it('should handle non-existent folder gracefully', async () => {
-      const nonExistentId = 999;
-
+    it('should throw error for non-existent folder', async () => {
       const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
         .mockResolvedValueOnce(undefined);
 
-      const result = await folderOps.getAllAncestorIds(nonExistentId);
+      await expect(
+        folderOps.getAllAncestorIds(999)
+      ).rejects.toThrow('Folder not found');
 
-      expect(result).toEqual([]);
       getFolderByIdSpy.mockRestore();
     });
 
@@ -788,7 +775,7 @@ describe('FolderOperations', () => {
   });
 
   describe('getAllDescendantIds', () => {
-    it('should return all descendant IDs for a folder with nested children', async () => {
+    it('should return all descendant IDs for a folder with nested descendants', async () => {
       const folderId = 1;
       const childId = 2;
       const grandchildId = 3;
@@ -796,6 +783,8 @@ describe('FolderOperations', () => {
       const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
         .mockResolvedValueOnce({ id: folderId, name: 'Folder', parentId: 0, isExpanded: false, createdAt: null })
         .mockResolvedValueOnce({ id: childId, name: 'Child', parentId: folderId, isExpanded: false, createdAt: null })
+        .mockResolvedValueOnce({ id: childId, name: 'Child', parentId: folderId, isExpanded: false, createdAt: null })
+        .mockResolvedValueOnce({ id: grandchildId, name: 'Grandchild', parentId: childId, isExpanded: false, createdAt: null })
         .mockResolvedValueOnce({ id: grandchildId, name: 'Grandchild', parentId: childId, isExpanded: false, createdAt: null });
 
       mockDb.select = vi.fn()
@@ -817,13 +806,13 @@ describe('FolderOperations', () => {
 
       const result = await folderOps.getAllDescendantIds(folderId);
 
-      expect(result).toEqual([folderId, childId, grandchildId]);
+      expect(result).toEqual([childId, grandchildId]);
       getFolderByIdSpy.mockRestore();
     });
 
-    it('should return only the folder ID when folder has no children', async () => {
+    it('should return empty array when folder has no descendants', async () => {
+      // Test with regular folder
       const folderId = 1;
-
       const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
         .mockResolvedValueOnce({ id: folderId, name: 'Folder', parentId: 0, isExpanded: false, createdAt: null });
 
@@ -834,56 +823,23 @@ describe('FolderOperations', () => {
       });
 
       const result = await folderOps.getAllDescendantIds(folderId);
+      expect(result).toEqual([]);
 
-      expect(result).toEqual([folderId]);
+      // Test with root folder (id=0)
+      const rootResult = await folderOps.getAllDescendantIds(0);
+      expect(rootResult).toEqual([]);
+
       getFolderByIdSpy.mockRestore();
     });
 
-    it('should handle folder with single level children', async () => {
-      const folderId = 1;
-      const child1Id = 2;
-      const child2Id = 3;
-
-      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
-        .mockResolvedValueOnce({ id: folderId, name: 'Folder', parentId: 0, isExpanded: false, createdAt: null })
-        .mockResolvedValueOnce({ id: child1Id, name: 'Child1', parentId: folderId, isExpanded: false, createdAt: null })
-        .mockResolvedValueOnce({ id: child2Id, name: 'Child2', parentId: folderId, isExpanded: false, createdAt: null });
-
-      mockDb.select = vi.fn()
-        .mockReturnValueOnce({
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([
-              { id: child1Id, name: 'Child1', parentId: folderId, isExpanded: false, createdAt: null },
-              { id: child2Id, name: 'Child2', parentId: folderId, isExpanded: false, createdAt: null }
-            ])
-          })
-        })
-        .mockReturnValueOnce({
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([])
-          })
-        })
-        .mockReturnValueOnce({
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([])
-          })
-        });
-
-      const result = await folderOps.getAllDescendantIds(folderId);
-
-      expect(result).toEqual([folderId, child1Id, child2Id]);
-      getFolderByIdSpy.mockRestore();
-    });
-
-    it('should return empty array for non-existent folder', async () => {
+    it('should throw error for non-existent folder', async () => {
       const nonExistentFolderId = 999;
 
       const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue(undefined);
 
-      const result = await folderOps.getAllDescendantIds(nonExistentFolderId);
-
-      expect(result).toEqual([]);
-      expect(result).toHaveLength(0);
+      await expect(
+        folderOps.getAllDescendantIds(nonExistentFolderId)
+      ).rejects.toThrow('Folder not found');
 
       getFolderByIdSpy.mockRestore();
     });
@@ -905,7 +861,7 @@ describe('FolderOperations', () => {
 
       const result = await folderOps.getAllDescendantIds(folderId);
 
-      expect(result).toEqual([folderId]);
+      expect(result).toEqual([]);
       getFolderByIdSpy.mockRestore();
     });
   });

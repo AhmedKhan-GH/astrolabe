@@ -33,16 +33,28 @@ export class FolderOperations {
     // Check if folder exists (root folder 0 always exists)
     if (folderId !== 0) {
       const folder = await this.getFolderById(folderId);
-      if (!folder) return [];
+      if (!folder) {
+        throw new Error('Folder not found');
+      }
     }
 
     const children = await this.db.select().from(schema.folders)
       .where(eq(schema.folders.parentId, folderId));
 
-    let allIds: number[] = [folderId];
+    // If no children, return empty array
+    if (children.length === 0) {
+      return [];
+    }
+
+    let allIds: number[] = [];
     for (const child of children) {
-      const childIds = await this.getAllDescendantIds(child.id);
-      allIds = allIds.concat(childIds);
+      // Verify child exists before adding
+      const childFolder = await this.getFolderById(child.id);
+      if (childFolder) {
+        allIds.push(child.id);
+        const childDescendants = await this.getAllDescendantIds(child.id);
+        allIds = allIds.concat(childDescendants);
+      }
     }
     return allIds;
   }
@@ -81,7 +93,14 @@ export class FolderOperations {
 
     while (currentId !== null && currentId !== 0) {
       const folder = await this.getFolderById(currentId);
-      if (!folder) break;
+      if (!folder) {
+        // If this is the starting folder, throw error
+        if (currentId === folderId) {
+          throw new Error('Folder not found');
+        }
+        // Otherwise, stop traversal (broken chain)
+        break;
+      }
 
       ancestorIds.push(currentId);
       currentId = folder.parentId;
@@ -284,7 +303,8 @@ export class FolderOperations {
       }
     }
 
-    const folderIdsToDelete = await this.getAllDescendantIds(folderId);
+    const descendantIds = await this.getAllDescendantIds(folderId);
+    const folderIdsToDelete = [folderId, ...descendantIds];
 
     // Clean up file references
     const files = await getAllFiles();
@@ -322,7 +342,8 @@ export class FolderOperations {
     }
 
     // Get ALL descendant folder IDs BEFORE any modifications
-    const folderIdsToDelete = await this.getAllDescendantIds(folderId);
+    const descendantIds = await this.getAllDescendantIds(folderId);
+    const folderIdsToDelete = [folderId, ...descendantIds];
     logger.info({ folderId, folderIdsToDelete }, '[FolderOperations] Cascade deleting folder and all descendants');
 
     // Handle file cleanup
