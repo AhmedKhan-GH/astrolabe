@@ -11,10 +11,10 @@ interface DirectoryHeaderProps {
 export default function DirectoryHeader({ onMenuClick, onUploadFile: onImportFile, onReferenceFile, onCreateFolder }: DirectoryHeaderProps) {
   return (
     <div className="flex items-center justify-between py-1 mb-2">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
         <button
           onClick={onMenuClick}
-          className="flex items-center justify-center w-6 h-6 text-slate-400 hover:text-white hover:bg-slate-700/50 hover:border-slate-600 border border-transparent rounded transition-all"
+          className="flex items-center justify-center w-5 h-5 text-slate-400 hover:text-white hover:bg-slate-700/50 hover:border-slate-600 border border-transparent rounded transition-all"
           title="Directory options"
         >
           <SixDotMenuIcon className="w-3 h-3" />
