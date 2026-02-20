@@ -5,7 +5,7 @@ import RootDirectoryContextMenu from './RootDirectoryContextMenu'
 import { buildFileTree } from '../FileTree/buildFileTree'
 import DirectoryHeader from './DirectoryHeader'
 import FolderInputForm from './FolderInputForm'
-import Menu from './Menu'
+import FileFilter from './FileFilter'
 import type { Folder, File } from '../../db/schema'
 import { logger } from '../../utils/logger'
 
@@ -383,7 +383,7 @@ function DirectoryTree() {
 
   return (
     <>
-      <Menu files={allFiles} />
+      <FileFilter files={allFiles} />
 
       <DirectoryHeader onMenuClick={handleRootMenuClick} onUploadFile={handleImportFile} onReferenceFile={handleReferenceFile} onCreateFolder={handleCreateFolder} />
 

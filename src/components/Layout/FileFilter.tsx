@@ -1,13 +1,13 @@
-import MenuButton from './MenuButton'
+import FileFilterButton from './FileFilterButton'
 import type { File } from '../../db/schema'
 
-interface MenuProps {
+interface FileFilterProps {
   files?: File[]
 }
 
-function Menu({ files = [] }: MenuProps) {
-  const handleMenuClick = (id: string) => {
-    console.log('Menu item clicked:', id)
+function FileFilter({ files = [] }: FileFilterProps) {
+  const handleFilterClick = (id: string) => {
+    console.log('Filter item clicked:', id)
   }
 
   const allCount = files.length
@@ -15,7 +15,7 @@ function Menu({ files = [] }: MenuProps) {
   const referencesCount = files.filter(f => f.fileStorageType === 'reference').length
   const trashCount = 0 // TODO: Implement trash functionality
 
-  const menuItems = [
+  const filterItems = [
     { id: 'all', label: 'All', count: allCount },
     { id: 'trash', label: 'Trash', count: trashCount },
     { id: 'imports', label: 'Imports', count: importsCount },
@@ -24,17 +24,16 @@ function Menu({ files = [] }: MenuProps) {
 
   return (
     <div className="border-b border-slate-700 py-1 mb-2">
-      <h2 className="text-white text-lg font-semibold mb-0.5">Menu</h2>
-      {menuItems.map((item) => (
-        <MenuButton
+      {filterItems.map((item) => (
+        <FileFilterButton
           key={item.id}
           label={item.label}
           count={item.count}
-          onClick={() => handleMenuClick(item.id)}
+          onClick={() => handleFilterClick(item.id)}
         />
       ))}
     </div>
   )
 }
 
-export default Menu
+export default FileFilter
