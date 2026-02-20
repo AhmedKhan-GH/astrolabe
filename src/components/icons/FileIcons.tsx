@@ -99,3 +99,16 @@ export function TrashIcon({ className = "w-3 h-3" }: IconProps) {
     </svg>
   )
 }
+
+export function SixDotMenuIcon({ className = "w-4 h-4" }: IconProps) {
+  return (
+    <svg className={className} fill="currentColor" viewBox="0 0 12 16">
+      <circle cx="3" cy="3" r="1.5" />
+      <circle cx="9" cy="3" r="1.5" />
+      <circle cx="3" cy="8" r="1.5" />
+      <circle cx="9" cy="8" r="1.5" />
+      <circle cx="3" cy="13" r="1.5" />
+      <circle cx="9" cy="13" r="1.5" />
+    </svg>
+  )
+}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import FileTreeView, { type TreeNode } from '../FileTree/FileTreeView'
 import ContextMenu from '../FileTree/ContextMenu'
+import RootDirectoryContextMenu from './RootDirectoryContextMenu'
 import { buildFileTree } from '../FileTree/buildFileTree'
 import DirectoryHeader from './DirectoryHeader'
 import FolderInputForm from './FolderInputForm'
@@ -15,12 +16,18 @@ interface ContextMenuState {
   folderId: number
 }
 
+interface RootContextMenuState {
+  x: number
+  y: number
+}
+
 function DirectoryTree() {
   const [treeData, setTreeData] = useState<TreeNode[]>([])
   const [showFolderInput, setShowFolderInput] = useState(false)
   const [folderName, setFolderName] = useState('')
   const [folderParentId, setFolderParentId] = useState<number | null>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const [rootContextMenu, setRootContextMenu] = useState<RootContextMenuState | null>(null)
   const [allFolders, setAllFolders] = useState<Folder[]>([])
   const [allFiles, setAllFiles] = useState<File[]>([])
 
@@ -344,12 +351,41 @@ function DirectoryTree() {
     setShowFolderInput(false)
   }
 
+  const handleRootMenuClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setRootContextMenu({ x: e.clientX, y: e.clientY })
+  }
+
+  const handleRootMenuClose = () => {
+    setRootContextMenu(null)
+  }
+
+  const handleRootImportFile = () => {
+    setRootContextMenu(null)
+    void handleImportFile()
+  }
+
+  const handleRootReferenceFile = () => {
+    setRootContextMenu(null)
+    void handleReferenceFile()
+  }
+
+  const handleRootCreateFolder = () => {
+    setRootContextMenu(null)
+    handleCreateFolder()
+  }
+
+  const handleRootClearAll = () => {
+    setRootContextMenu(null)
+    void handleClearAll()
+  }
 
   return (
     <>
       <Menu files={allFiles} />
 
-      <DirectoryHeader onUploadFile={handleImportFile} onReferenceFile={handleReferenceFile} onCreateFolder={handleCreateFolder} onClearAll={handleClearAll} />
+      <DirectoryHeader onMenuClick={handleRootMenuClick} onUploadFile={handleImportFile} onReferenceFile={handleReferenceFile} onCreateFolder={handleCreateFolder} />
 
       {showFolderInput && (
         <FolderInputForm
@@ -380,6 +416,18 @@ function DirectoryTree() {
           onDelete={handleDeleteNode}
           onDeleteFolder={contextMenu.node.type === 'folder' ? handleDeleteFolder : undefined}
           onClose={() => setContextMenu(null)}
+        />
+      )}
+
+      {rootContextMenu && (
+        <RootDirectoryContextMenu
+          x={rootContextMenu.x}
+          y={rootContextMenu.y}
+          onImportFile={handleRootImportFile}
+          onReferenceFile={handleRootReferenceFile}
+          onCreateFolder={handleRootCreateFolder}
+          onClearAll={handleRootClearAll}
+          onClose={handleRootMenuClose}
         />
       )}
 
