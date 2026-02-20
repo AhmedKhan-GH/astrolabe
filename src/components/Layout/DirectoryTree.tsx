@@ -249,13 +249,14 @@ function DirectoryTree() {
           await window.electron.deleteFolder(folder.id)
         }
 
-        // Delete all files that are only in root (folderIds = [0] or null)
-        for (const file of allFiles) {
-          const folderIds = file.folderIds ? JSON.parse(file.folderIds) : [0]
-          if (folderIds.length === 1 && folderIds[0] === 0) {
-            logger.info({ fileId: file.id, filename: file.filename }, '[DirectoryTree] Deleting root-only file')
-            await window.electron.deleteFile(file.id)
-          }
+        // After cascade deleting all folders, get fresh file list to see what remains
+        const remainingFiles = await window.electron.getAllFiles()
+
+        // Delete ALL remaining files (they should all be root-only at this point)
+        // The cascade delete operation already handled removing files from deleted folders
+        for (const file of remainingFiles) {
+          logger.info({ fileId: file.id, filename: file.filename }, '[DirectoryTree] Deleting remaining file')
+          await window.electron.deleteFile(file.id)
         }
 
         logger.info('[DirectoryTree] Clear all successful, reloading tree')

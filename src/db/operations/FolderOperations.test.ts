@@ -621,6 +621,79 @@ describe('FolderOperations', () => {
       getFolderByIdSpy.mockRestore();
       getAllDescendantIdsSpy.mockRestore();
     });
+
+    it('should handle files in root and other folders when deleting all root children', async () => {
+      // Simulates the "clear all" scenario: file exists in root (0) and a folder that will be deleted
+      const folderId = 5;
+
+      const folder = {
+        id: folderId,
+        name: 'RootChildFolder',
+        parentId: 0,
+        isExpanded: false,
+        createdAt: null,
+      };
+
+      // File exists in both root (0) and folder 5
+      const multiplyImportedFile = {
+        id: 101,
+        filename: 'multi.txt',
+        path: '/multi.txt',
+        folderIds: JSON.stringify([0, folderId]),
+        filetype: 'text',
+        fileStorageType: 'import',
+        addedAt: null,
+      };
+
+      // File only exists in folder 5
+      const uniqueFile = {
+        id: 102,
+        filename: 'unique.txt',
+        path: '/unique.txt',
+        folderIds: JSON.stringify([folderId]),
+        filetype: 'text',
+        fileStorageType: 'import',
+        addedAt: null,
+      };
+
+      // File only exists in root
+      const rootOnlyFile = {
+        id: 103,
+        filename: 'root.txt',
+        path: '/root.txt',
+        folderIds: JSON.stringify([0]),
+        filetype: 'text',
+        fileStorageType: 'import',
+        addedAt: null,
+      };
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue(folder);
+      const getAllDescendantIdsSpy = vi.spyOn(folderOps, 'getAllDescendantIds').mockResolvedValue([]);
+
+      mockGetAllFiles.mockResolvedValue([multiplyImportedFile, uniqueFile, rootOnlyFile]);
+
+      mockDb.delete = vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(undefined)
+      });
+
+      await folderOps.deleteFolder(folderId, mockParseFolderIds, mockDeleteFile, mockUpdateFileFolderIds, mockGetAllFiles);
+
+      // Multiply-imported file should be updated to only have root (0)
+      expect(mockUpdateFileFolderIds).toHaveBeenCalledWith(101, [0]);
+
+      // Unique file should be completely deleted
+      expect(mockDeleteFile).toHaveBeenCalledWith(102);
+
+      // Root-only file should not be touched at all
+      expect(mockDeleteFile).not.toHaveBeenCalledWith(103);
+      expect(mockUpdateFileFolderIds).not.toHaveBeenCalledWith(103, expect.anything());
+
+      // Folder should be deleted
+      expect(mockDb.delete).toHaveBeenCalled();
+
+      getFolderByIdSpy.mockRestore();
+      getAllDescendantIdsSpy.mockRestore();
+    });
   });
 
   describe('toggleFolderExpanded', () => {
