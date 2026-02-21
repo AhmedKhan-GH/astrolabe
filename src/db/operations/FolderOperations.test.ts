@@ -4,6 +4,16 @@ import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import * as schema from '../schema';
 import { ERROR_MESSAGES } from '../../config/constants';
 
+// Mock the logger module
+vi.mock('../../utils/logger', () => ({
+  logger: {
+    info: vi.fn(),
+    debug: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
 // Mock the schema module
 vi.mock('../schema', () => ({
   folders: {
