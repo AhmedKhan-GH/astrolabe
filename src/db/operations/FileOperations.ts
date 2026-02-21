@@ -84,7 +84,7 @@ export class FileOperations {
     storageType: 'import' | 'reference',
     confirmCallback: (existingFile: File) => Promise<boolean>,
     expandAncestors: (folderId: number) => Promise<void>
-  ): Promise<{ isUpdate: boolean; file: File; existingFile?: File }> {
+  ): Promise<{ isUpdate: boolean; file?: File; existingFile?: File; cancelled?: boolean }> {
     // Check for existing file
     const existingFile = await this.getFileByFilenameAndStorageType(filename, storageType);
 
@@ -97,7 +97,7 @@ export class FileOperations {
       // Ask user for confirmation
       const shouldUpdate = await confirmCallback(existingFile);
       if (!shouldUpdate) {
-        throw new Error('Add file cancelled by user');
+        return { isUpdate: false, cancelled: true, existingFile };
       }
 
       // Update metadata
