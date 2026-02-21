@@ -64,7 +64,9 @@ export class LocalFileService implements IFileService {
           this.folderOps.expandAncestorFolders.bind(this.folderOps)
         );
 
-        importedFiles.push(result.file);
+        if (!result.cancelled && result.file) {
+          importedFiles.push(result.file);
+        }
       } catch (error) {
         if (fs.existsSync(storedPath)) fs.unlinkSync(storedPath);
         if (fs.existsSync(hashDir)) {
@@ -99,7 +101,9 @@ export class LocalFileService implements IFileService {
         this.folderOps.expandAncestorFolders.bind(this.folderOps)
       );
 
-      referencedFiles.push(result.file);
+      if (!result.cancelled && result.file) {
+        referencedFiles.push(result.file);
+      }
     }
 
     return referencedFiles;
