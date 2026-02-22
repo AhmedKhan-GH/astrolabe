@@ -34,9 +34,13 @@ function Header({ onToggleSidebar }: HeaderProps) {
     if (!dbPath && defaultDatabase) return UI_LABELS.DATABASE
     if (!dbPath) return UI_LABELS.DATABASE
     // Extract filename from path (works cross-platform)
-    const name = dbPath.split(/[\\/]/).pop() || UI_LABELS.DATABASE
+    let name = dbPath.split(/[\\/]/).pop() || UI_LABELS.DATABASE
     // If it's the database, show "Database"
     if (name === 'data' || dbPath === defaultDatabase) return UI_LABELS.DATABASE
+    // Remove .astro extension if present
+    if (name.endsWith('.astro')) {
+      name = name.slice(0, -6)
+    }
     return name
   }
 

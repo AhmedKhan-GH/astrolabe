@@ -8,6 +8,7 @@ import FolderInputForm from './FolderInputForm'
 import FileFilter from './FileFilter'
 import type { Folder, File } from '../../db/schema'
 import { logger } from '../../utils/logger'
+import { UI_LABELS } from '../../config/constants'
 
 interface ContextMenuState {
   node: TreeNode
@@ -30,6 +31,8 @@ function DirectoryTree() {
   const [rootContextMenu, setRootContextMenu] = useState<RootContextMenuState | null>(null)
   const [allFolders, setAllFolders] = useState<Folder[]>([])
   const [allFiles, setAllFiles] = useState<(File & { folderIds: string })[]>([])
+  const [currentDatabase, setCurrentDatabase] = useState<string | null>(null)
+  const [defaultDatabase, setDefaultDatabase] = useState<string | null>(null)
 
   const loadTreeData = useCallback(async () => {
     try {
@@ -53,15 +56,19 @@ function DirectoryTree() {
 
     const fetchData = async () => {
       try {
-        const [folders, files] = await Promise.all([
+        const [folders, files, current, defaultPath] = await Promise.all([
           window.electron.getAllFolders(),
-          window.electron.getAllFiles()
+          window.electron.getAllFiles(),
+          window.electron.getCurrentDatabase(),
+          window.electron.getDefaultDatabasePath()
         ])
 
         if (isMounted) {
           setAllFolders(folders)
           setAllFiles(files)
           setTreeData(buildFileTree(folders, files))
+          setCurrentDatabase(current)
+          setDefaultDatabase(defaultPath)
         }
       } catch (error) {
         logger.error({ error }, '[DirectoryTree] Failed to load tree data in useEffect')
@@ -409,11 +416,32 @@ function DirectoryTree() {
     await loadTreeData()
   }
 
+  const getDatabaseName = (dbPath: string | null) => {
+    // If no dbPath but we have a defaultDatabase, we're using Database
+    if (!dbPath && defaultDatabase) return UI_LABELS.DATABASE
+    if (!dbPath) return UI_LABELS.DATABASE
+    // Extract filename from path (works cross-platform)
+    let name = dbPath.split(/[\\/]/).pop() || UI_LABELS.DATABASE
+    // If it's the database, show "Database"
+    if (name === 'data' || dbPath === defaultDatabase) return UI_LABELS.DATABASE
+    // Remove .astro extension if present
+    if (name.endsWith('.astro')) {
+      name = name.slice(0, -6)
+    }
+    return name
+  }
+
   return (
     <>
       <FileFilter files={allFiles} />
 
-      <DirectoryHeader onMenuClick={handleRootMenuClick} onUploadFile={handleImportFile} onReferenceFile={handleReferenceFile} onCreateFolder={handleCreateFolder} />
+      <DirectoryHeader
+        databaseName={getDatabaseName(currentDatabase)}
+        onMenuClick={handleRootMenuClick}
+        onUploadFile={handleImportFile}
+        onReferenceFile={handleReferenceFile}
+        onCreateFolder={handleCreateFolder}
+      />
 
       {showFolderInput && (
         <FolderInputForm

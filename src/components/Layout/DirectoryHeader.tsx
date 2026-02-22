@@ -1,27 +1,25 @@
 import { SixDotMenuIcon, PlusIcon, ImportFileIcon, ReferenceFileIcon, FolderIconLarge } from '../icons/FileIcons'
-import { UI_LABELS } from '../../config/constants'
 
 interface DirectoryHeaderProps {
+  databaseName: string
   onMenuClick: (e: React.MouseEvent) => void
   onUploadFile: () => void
   onReferenceFile: () => void
   onCreateFolder: () => void
 }
 
-export default function DirectoryHeader({ onMenuClick, onUploadFile: onImportFile, onReferenceFile, onCreateFolder }: DirectoryHeaderProps) {
+export default function DirectoryHeader({ databaseName, onMenuClick, onUploadFile: onImportFile, onReferenceFile, onCreateFolder }: DirectoryHeaderProps) {
   return (
-    <div className="flex items-center justify-between py-1 mb-2">
-      <div className="flex items-center gap-1">
-        <button
-          onClick={onMenuClick}
-          className="flex items-center justify-center w-5 h-5 text-slate-400 hover:text-white hover:bg-slate-700/50 hover:border-slate-600 border border-transparent rounded transition-all"
-          title="Directory options"
-        >
-          <SixDotMenuIcon className="w-3 h-3" />
-        </button>
-        <h2 className="text-white text-lg font-semibold">{UI_LABELS.DIRECTORY}</h2>
-      </div>
-      <div className="flex gap-1 ml-2">
+    <div className="flex items-center py-0 mb-0 min-w-0">
+      <button
+        onClick={onMenuClick}
+        className="flex items-center justify-center w-5 h-5 text-slate-400 hover:text-white hover:bg-slate-700/50 hover:border-slate-600 border border-transparent rounded transition-all flex-shrink-0 mr-1"
+        title="Directory options"
+      >
+        <SixDotMenuIcon className="w-3 h-3" />
+      </button>
+      <h2 className="text-white text-lg font-semibold truncate mr-2" style={{ maxWidth: 'calc(100% - 130px)' }} title={databaseName}>{databaseName}</h2>
+      <div className="flex gap-1 flex-shrink-0 ml-auto">
         <button
           onClick={onImportFile}
           className="group relative flex items-center justify-center gap-0.5 px-1.5 py-1 rounded border border-slate-600 text-slate-300 hover:bg-slate-700/50 hover:text-white transition-colors"
