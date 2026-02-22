@@ -11,13 +11,15 @@ interface FileTreeNodeProps {
   onToggleExpand?: (nodeId: string) => void
   expandedNodes?: Set<string>
   hideActionButtons?: boolean
+  highlightedNodeId?: string
 }
 
-export default function FileTreeNode({ node, level, parentFolderId, onNodeClick, onNodeDoubleClick, onNodeContextMenu, onToggleExpand, expandedNodes, hideActionButtons = false }: FileTreeNodeProps) {
+export default function FileTreeNode({ node, level, parentFolderId, onNodeClick, onNodeDoubleClick, onNodeContextMenu, onToggleExpand, expandedNodes, hideActionButtons = false, highlightedNodeId }: FileTreeNodeProps) {
   const isFolder = node.type === 'folder'
   const hasChildren = node.children && node.children.length > 0
   // If expandedNodes is provided (from modal), use it. Otherwise use node.isExpanded (from database)
   const isExpanded = node.isSystemRoot ? true : (expandedNodes ? expandedNodes.has(node.id) : (node.isExpanded || false))
+  const isHighlighted = highlightedNodeId === node.id
 
   // Determine the current folder ID (for context menu)
   const currentFolderId = isFolder ? parseInt(node.id.replace('folder-', '')) : parentFolderId
@@ -52,6 +54,7 @@ export default function FileTreeNode({ node, level, parentFolderId, onNodeClick,
           style={{ left: `${i * 20 + (hideActionButtons ? 0 : 44) + 8}px` }}
         />
       ))}
+
 
       <div
         className={`flex items-center py-1.5 text-sm relative rounded group ${
@@ -125,7 +128,7 @@ export default function FileTreeNode({ node, level, parentFolderId, onNodeClick,
 
         {/* File/folder icon */}
         {isFolder ? (
-          <div className="mr-2 flex-shrink-0">
+          <div className={`mr-2 flex-shrink-0 ${isHighlighted ? 'ring-2 ring-blue-500 rounded' : ''}`}>
             {node.isSystemRoot ? (
               <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
@@ -169,7 +172,7 @@ export default function FileTreeNode({ node, level, parentFolderId, onNodeClick,
       {isFolder && isExpanded && hasChildren && (
         <div>
           {node.children!.map((child) => (
-            <FileTreeNode key={child.id} node={child} level={level + 1} parentFolderId={currentFolderId} onNodeClick={onNodeClick} onNodeDoubleClick={onNodeDoubleClick} onNodeContextMenu={onNodeContextMenu} onToggleExpand={onToggleExpand} expandedNodes={expandedNodes} hideActionButtons={hideActionButtons} />
+            <FileTreeNode key={child.id} node={child} level={level + 1} parentFolderId={currentFolderId} onNodeClick={onNodeClick} onNodeDoubleClick={onNodeDoubleClick} onNodeContextMenu={onNodeContextMenu} onToggleExpand={onToggleExpand} expandedNodes={expandedNodes} hideActionButtons={hideActionButtons} highlightedNodeId={highlightedNodeId} />
           ))}
         </div>
       )}

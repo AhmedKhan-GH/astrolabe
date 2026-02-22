@@ -11,7 +11,7 @@ interface FolderPickerModalProps {
   currentFolderId?: number  // Current folder (for context)
 }
 
-export default function FolderPickerModal({ allFolders, onSelect, onClose, greyedOutFolderIds = [] }: FolderPickerModalProps) {
+export default function FolderPickerModal({ allFolders, onSelect, onClose, greyedOutFolderIds = [], currentFolderId }: FolderPickerModalProps) {
   // Build folder hierarchy and convert to TreeNode format with Directory
   const treeData = useMemo(() => {
     const folderMap: Record<number, TreeNode> = {}
@@ -56,7 +56,34 @@ export default function FolderPickerModal({ allFolders, onSelect, onClose, greye
     return [systemRootNode]
   }, [allFolders, greyedOutFolderIds])
 
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
+  // Function to get all ancestor folder IDs
+  const getAncestorIds = (folderId: number): number[] => {
+    const ancestors: number[] = []
+    let currentId = folderId
+
+    while (currentId !== 0) {
+      const folder = allFolders.find(f => f.id === currentId)
+      if (!folder) break
+      ancestors.push(currentId)
+      currentId = folder.parentId
+    }
+
+    return ancestors
+  }
+
+  // Initialize expanded nodes to include current folder and all its ancestors
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(() => {
+    const initialExpanded = new Set<string>(['folder-0']) // Always expand root
+
+    if (currentFolderId !== undefined) {
+      const ancestorIds = getAncestorIds(currentFolderId)
+      ancestorIds.forEach(id => {
+        initialExpanded.add(`folder-${id}`)
+      })
+    }
+
+    return initialExpanded
+  })
 
   const handleToggleExpand = (nodeId: string) => {
     setExpandedNodes(prev => {
@@ -100,6 +127,7 @@ export default function FolderPickerModal({ allFolders, onSelect, onClose, greye
             expandedNodes={expandedNodes}
             onToggleExpand={handleToggleExpand}
             hideActionButtons={true}
+            highlightedNodeId={currentFolderId !== undefined ? `folder-${currentFolderId}` : undefined}
           />
         </div>
 

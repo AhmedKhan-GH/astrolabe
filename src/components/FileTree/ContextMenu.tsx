@@ -27,6 +27,7 @@ export default function ContextMenu({
   y,
   allFolders,
   allFiles,
+  currentFolderId,
   onMoveTo,
   onAddTo,
   onAddFolder,
@@ -199,6 +200,7 @@ export default function ContextMenu({
       {showMovePicker && (
         <FolderPickerModal
           allFolders={allFolders}
+          currentFolderId={currentFolderId}
           greyedOutFolderIds={getGreyedOutFoldersForMove()}
           onSelect={(folderId) => {
             onMoveTo(folderId)
@@ -212,6 +214,7 @@ export default function ContextMenu({
       {showAddPicker && node.type === 'file' && onAddTo && (
         <FolderPickerModal
           allFolders={allFolders}
+          currentFolderId={currentFolderId}
           greyedOutFolderIds={getGreyedOutFoldersForAdd()}
           onSelect={(folderId) => {
             onAddTo(folderId)
