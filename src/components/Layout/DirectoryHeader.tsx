@@ -1,4 +1,5 @@
 import { SixDotMenuIcon, PlusIcon, ImportFileIcon, ReferenceFileIcon, FolderIconLarge } from '../icons/FileIcons'
+import { useRef, useEffect, useState } from 'react'
 
 interface DirectoryHeaderProps {
   databaseName: string
@@ -9,8 +10,18 @@ interface DirectoryHeaderProps {
 }
 
 export default function DirectoryHeader({ databaseName, onMenuClick, onUploadFile: onImportFile, onReferenceFile, onCreateFolder }: DirectoryHeaderProps) {
+  const measureRef = useRef<HTMLSpanElement>(null)
+  const [minWidth, setMinWidth] = useState(0)
+
+  useEffect(() => {
+    if (measureRef.current) {
+      setMinWidth(measureRef.current.offsetWidth)
+    }
+  }, [])
+
   return (
     <div className="flex items-center py-0 mb-0 min-w-0">
+      <span ref={measureRef} className="absolute invisible text-lg font-semibold whitespace-nowrap">Database</span>
       <button
         onClick={onMenuClick}
         className="flex items-center justify-center w-5 h-5 text-slate-400 hover:text-white hover:bg-slate-700/50 hover:border-slate-600 border border-transparent rounded transition-all flex-shrink-0 mr-1"
@@ -18,7 +29,7 @@ export default function DirectoryHeader({ databaseName, onMenuClick, onUploadFil
       >
         <SixDotMenuIcon className="w-3 h-3" />
       </button>
-      <h2 className="text-white text-lg font-semibold truncate mr-2" style={{ maxWidth: 'calc(100% - 130px)' }} title={databaseName}>{databaseName}</h2>
+      <h2 className="text-white text-lg font-semibold truncate mr-2 min-w-0" style={{ maxWidth: 'calc(100% - 130px)', minWidth: `${minWidth}px` }} title={databaseName}>{databaseName}</h2>
       <div className="flex gap-1 flex-shrink-0 ml-auto">
         <button
           onClick={onImportFile}
