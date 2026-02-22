@@ -367,31 +367,25 @@ export class FolderOperations {
       }
     }
 
-    const descendantIds = await this.getAllDescendantIds(folderId);
-    const folderIdsToDelete = [folderId, ...descendantIds];
-
-    // Clean up file-folder links
+    // Clean up file-folder links for the folder being removed
     const files = await getAllFiles();
     for (const file of files) {
       const folderIds = await getFolderIdsForFile(file.id);
-      const hasDeletedFolder = folderIds.some(id => folderIdsToDelete.includes(id));
 
-      if (hasDeletedFolder) {
-        // Remove links to deleted folders
-        for (const fId of folderIdsToDelete) {
-          if (folderIds.includes(fId)) {
-            await removeFileFolderLink(file.id, fId);
-          }
-        }
+      // Check if file is in the folder being removed
+      if (folderIds.includes(folderId)) {
+        // Remove link to the folder being removed
+        await removeFileFolderLink(file.id, folderId);
 
         // If file has no remaining folders, add it to parent
-        const remainingFolderIds = folderIds.filter(id => !folderIdsToDelete.includes(id));
+        const remainingFolderIds = folderIds.filter(id => id !== folderId);
         if (remainingFolderIds.length === 0) {
           await addFileFolderLink(file.id, parentFolderId);
         }
       }
     }
 
+    // Delete only the folder itself (children have been moved)
     await this.db.delete(schema.folders).where(eq(schema.folders.id, folderId));
   }
 

@@ -216,7 +216,7 @@ function DirectoryTree() {
 
     const confirmMessage = contextMenu.node.type === 'file'
       ? `Are you sure you want to delete "${contextMenu.node.name}"?`
-      : `Are you sure you want to remove the folder "${contextMenu.node.name}"? This will not delete the files inside.`
+      : `Are you sure you want to remove the folder "${contextMenu.node.name}"? Child folders and files will be moved to the parent folder.`
 
     if (window.confirm(confirmMessage)) {
       try {

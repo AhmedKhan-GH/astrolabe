@@ -154,6 +154,7 @@ export default function ContextMenu({
                 Add To
               </button>
             )}
+            {node.type === 'folder' && <div className="h-px bg-slate-600 my-1" />}
             {node.type === 'folder' && onAddFolder && (
               <button
                 onClick={(e) => {
