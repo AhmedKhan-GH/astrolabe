@@ -149,10 +149,13 @@ export class FileOperations {
         return { isUpdate: false, cancelled: true, existingFile };
       }
 
-      // Update metadata
-      await this.db.update(schema.files)
-        .set({ path, filetype, fileStorageType: storageType })
-        .where(eq(schema.files.id, existingFile.id));
+      // Update metadata only for reference files (they need path updates)
+      // Import files use hash-based storage, so their path doesn't change
+      if (storageType === 'reference') {
+        await this.db.update(schema.files)
+          .set({ path, filetype, fileStorageType: storageType })
+          .where(eq(schema.files.id, existingFile.id));
+      }
 
       // Add to folder
       await this.addFileFolderLink(existingFile.id, folderId);
@@ -164,7 +167,9 @@ export class FileOperations {
 
       return {
         isUpdate: true,
-        file: { ...existingFile, path, filetype, fileStorageType: storageType },
+        file: storageType === 'reference'
+          ? { ...existingFile, path, filetype, fileStorageType: storageType }
+          : existingFile,
         existingFile
       };
     }

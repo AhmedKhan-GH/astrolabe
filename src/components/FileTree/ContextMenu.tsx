@@ -119,7 +119,6 @@ export default function ContextMenu({
             >
               Move to
             </button>
-            <div className="h-px bg-slate-600 my-1" />
             {node.type === 'file' && onAddTo && (
               <button
                 onClick={(e) => {

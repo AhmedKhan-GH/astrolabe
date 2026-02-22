@@ -17,9 +17,30 @@ export function getFilePathFromHash(hash: string, filename: string): string {
 }
 
 /**
- * Creates a confirmation callback for file import/reference operations
+ * Creates a confirmation callback for file import operations
  */
-function createConfirmCallback(filename: string) {
+function createImportConfirmCallback(filename: string) {
+  return async (existingFile: schema.File) => {
+    const addedDate = existingFile.addedAt
+      ? new Date(existingFile.addedAt).toLocaleString()
+      : 'Unknown';
+
+    const response = await dialog.showMessageBox({
+      type: 'question',
+      buttons: ['Cancel', 'Add to Location'],
+      defaultId: 1,
+      title: 'File Already Exists',
+      message: `File "${filename}" already exists in the database.`,
+      detail: `Existing file:\n• Added: ${addedDate}\n\nDo you want to add the existing file to this location?`
+    });
+    return response.response === 1; // 1 = Add to Location button
+  };
+}
+
+/**
+ * Creates a confirmation callback for file reference operations
+ */
+function createReferenceConfirmCallback(filename: string) {
   return async (existingFile: schema.File) => {
     const addedDate = existingFile.addedAt
       ? new Date(existingFile.addedAt).toLocaleString()
@@ -94,7 +115,7 @@ export function setupFileProcessHandlers() {
         const files = await fileService.importFiles(
           [filePath],
           undefined,
-          createConfirmCallback(filename)
+          createImportConfirmCallback(filename)
         );
         importedFiles.push(...files);
       } catch (error) {
@@ -129,7 +150,7 @@ export function setupFileProcessHandlers() {
         const files = await fileService.importFiles(
           [filePath],
           folderId,
-          createConfirmCallback(filename)
+          createImportConfirmCallback(filename)
         );
         importedFiles.push(...files);
       } catch (error) {
@@ -164,7 +185,7 @@ export function setupFileProcessHandlers() {
         const files = await fileService.referenceFiles(
           [filePath],
           undefined,
-          createConfirmCallback(filename)
+          createReferenceConfirmCallback(filename)
         );
         referencedFiles.push(...files);
       } catch (error) {
@@ -199,7 +220,7 @@ export function setupFileProcessHandlers() {
         const files = await fileService.referenceFiles(
           [filePath],
           folderId,
-          createConfirmCallback(filename)
+          createReferenceConfirmCallback(filename)
         );
         referencedFiles.push(...files);
       } catch (error) {
