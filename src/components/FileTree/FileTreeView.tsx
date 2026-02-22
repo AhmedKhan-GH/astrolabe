@@ -1,4 +1,5 @@
 import FileTreeNode from './FileTreeNode'
+import type { Folder, File } from '../../db/schema'
 
 export interface TreeNode {
   id: string
@@ -25,13 +26,18 @@ interface FileTreeViewProps {
   onAddFolder?: (folderId: number) => void
   onAddFile?: (folderId: number) => void
   onReferenceFile?: (folderId: number) => void
+  onExpandAll?: (folderId: number) => void
+  onCollapseAll?: (folderId: number) => void
+  onMoveTo?: (folderId: number) => void
+  allFolders?: Folder[]
+  allFiles?: (File & { folderIds: string })[]
 }
 
-export default function FileTreeView({ data, onNodeClick, onNodeDoubleClick, onNodeContextMenu, className = '', onToggleExpand, expandedNodes, hideActionButtons = false, highlightedNodeId, onAddFolder, onAddFile, onReferenceFile }: FileTreeViewProps) {
+export default function FileTreeView({ data, onNodeClick, onNodeDoubleClick, onNodeContextMenu, className = '', onToggleExpand, expandedNodes, hideActionButtons = false, highlightedNodeId, onAddFolder, onAddFile, onReferenceFile, onExpandAll, onCollapseAll, onMoveTo, allFolders, allFiles }: FileTreeViewProps) {
   return (
     <div className={`text-slate-300 relative isolate ${className}`}>
       {data.map((node) => (
-        <FileTreeNode key={node.id} node={node} level={0} parentFolderId={0} onNodeClick={onNodeClick} onNodeDoubleClick={onNodeDoubleClick} onNodeContextMenu={onNodeContextMenu} onToggleExpand={onToggleExpand} expandedNodes={expandedNodes} hideActionButtons={hideActionButtons} highlightedNodeId={highlightedNodeId} onAddFolder={onAddFolder} onAddFile={onAddFile} onReferenceFile={onReferenceFile} />
+        <FileTreeNode key={node.id} node={node} level={0} parentFolderId={0} onNodeClick={onNodeClick} onNodeDoubleClick={onNodeDoubleClick} onNodeContextMenu={onNodeContextMenu} onToggleExpand={onToggleExpand} expandedNodes={expandedNodes} hideActionButtons={hideActionButtons} highlightedNodeId={highlightedNodeId} onAddFolder={onAddFolder} onAddFile={onAddFile} onReferenceFile={onReferenceFile} onExpandAll={onExpandAll} onCollapseAll={onCollapseAll} onMoveTo={onMoveTo} allFolders={allFolders} allFiles={allFiles} />
       ))}
     </div>
   )

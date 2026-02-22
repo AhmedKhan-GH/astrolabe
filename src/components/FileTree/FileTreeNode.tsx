@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { type TreeNode } from './FileTreeView'
 import { FilledDocumentIcon, OutlinedDocumentIcon, DatabaseBadge, LinkBadge, FolderIconLarge } from '../icons/FileIcons'
+import FolderPickerModal from './FolderPickerModal'
+import type { Folder, File } from '../../db/schema'
 
 interface FileTreeNodeProps {
   node: TreeNode
@@ -16,12 +18,23 @@ interface FileTreeNodeProps {
   onAddFolder?: (folderId: number) => void
   onAddFile?: (folderId: number) => void
   onReferenceFile?: (folderId: number) => void
+  onExpandAll?: (folderId: number) => void
+  onCollapseAll?: (folderId: number) => void
+  onMoveTo?: (folderId: number) => void
+  allFolders?: Folder[]
+  allFiles?: (File & { folderIds: string })[]
 }
 
-export default function FileTreeNode({ node, level, parentFolderId, onNodeClick, onNodeDoubleClick, onNodeContextMenu, onToggleExpand, expandedNodes, hideActionButtons = false, highlightedNodeId, onAddFolder, onAddFile, onReferenceFile }: FileTreeNodeProps) {
+export default function FileTreeNode({ node, level, parentFolderId, onNodeClick, onNodeDoubleClick, onNodeContextMenu, onToggleExpand, expandedNodes, hideActionButtons = false, highlightedNodeId, onAddFolder, onAddFile, onReferenceFile, onExpandAll, onCollapseAll, onMoveTo, allFolders = [], allFiles = [] }: FileTreeNodeProps) {
   const [showPlusMenu, setShowPlusMenu] = useState(false)
+  const [showDotMenu, setShowDotMenu] = useState(false)
+  const [showMovePickerFromDot, setShowMovePickerFromDot] = useState(false)
+  const [plusMenuPosition, setPlusMenuPosition] = useState({ x: 0, y: 0 })
+  const [dotMenuPosition, setDotMenuPosition] = useState({ x: 0, y: 0 })
   const plusMenuRef = useRef<HTMLDivElement>(null)
   const plusButtonRef = useRef<HTMLButtonElement>(null)
+  const dotMenuRef = useRef<HTMLDivElement>(null)
+  const dotButtonRef = useRef<HTMLButtonElement>(null)
   const isFolder = node.type === 'folder'
   const hasChildren = node.children && node.children.length > 0
   // If expandedNodes is provided (from modal), use it. Otherwise use node.isExpanded (from database)
@@ -31,7 +44,7 @@ export default function FileTreeNode({ node, level, parentFolderId, onNodeClick,
   // Determine the current folder ID (for context menu)
   const currentFolderId = isFolder ? parseInt(node.id.replace('folder-', '')) : parentFolderId
 
-  // Close menu when clicking outside
+  // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (showPlusMenu &&
@@ -41,17 +54,25 @@ export default function FileTreeNode({ node, level, parentFolderId, onNodeClick,
           !plusButtonRef.current.contains(event.target as Node)) {
         setShowPlusMenu(false)
       }
+      if (showDotMenu &&
+          dotMenuRef.current &&
+          dotButtonRef.current &&
+          !dotMenuRef.current.contains(event.target as Node) &&
+          !dotButtonRef.current.contains(event.target as Node)) {
+        setShowDotMenu(false)
+      }
     }
 
     document.addEventListener('mousedown', handleClickOutside)
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showPlusMenu])
+  }, [showPlusMenu, showDotMenu])
 
   const handleClick = () => {
     if (node.isDisabled) return
     setShowPlusMenu(false)
+    setShowDotMenu(false)
     onNodeClick?.(node)
   }
 
@@ -68,6 +89,7 @@ export default function FileTreeNode({ node, level, parentFolderId, onNodeClick,
 
   const handleContextMenu = (e: React.MouseEvent) => {
     setShowPlusMenu(false)
+    setShowDotMenu(false)
     onNodeContextMenu?.(node, currentFolderId, e)
   }
 
@@ -108,6 +130,10 @@ export default function FileTreeNode({ node, level, parentFolderId, onNodeClick,
                   className="w-4 h-4 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700/50 hover:border-slate-600 border border-transparent rounded transition-all"
                   onClick={(e) => {
                     e.stopPropagation()
+                    if (!showPlusMenu && plusButtonRef.current) {
+                      const rect = plusButtonRef.current.getBoundingClientRect()
+                      setPlusMenuPosition({ x: rect.left, y: rect.bottom + 2 })
+                    }
                     setShowPlusMenu(!showPlusMenu)
                   }}
                 >
@@ -120,7 +146,8 @@ export default function FileTreeNode({ node, level, parentFolderId, onNodeClick,
                 {showPlusMenu && (
                   <div
                     ref={plusMenuRef}
-                    className="absolute left-0 top-5 bg-slate-700 border border-slate-600 rounded shadow-lg py-1 z-50 w-[140px]"
+                    className="fixed bg-slate-700 border border-slate-600 rounded shadow-lg py-1 z-[9999] w-[140px]"
+                    style={{ left: `${plusMenuPosition.x}px`, top: `${plusMenuPosition.y}px` }}
                     onClick={(e) => e.stopPropagation()}
                   >
                     {onAddFolder && (
@@ -163,23 +190,94 @@ export default function FileTreeNode({ node, level, parentFolderId, onNodeClick,
                 )}
               </div>
             )}
-            {/* 6-dot button */}
-            <button
-              className="w-4 h-4 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700/50 hover:border-slate-600 border border-transparent rounded transition-all"
-              onClick={(e) => {
-                e.stopPropagation()
-                // Add handler for drag/reorder
-              }}
-            >
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 12 16">
-                <circle cx="3" cy="3" r="1.5" />
-                <circle cx="9" cy="3" r="1.5" />
-                <circle cx="3" cy="8" r="1.5" />
-                <circle cx="9" cy="8" r="1.5" />
-                <circle cx="3" cy="13" r="1.5" />
-                <circle cx="9" cy="13" r="1.5" />
-              </svg>
-            </button>
+            {/* 6-dot button with dropdown for folders */}
+            {isFolder && (
+              <div className="relative">
+                <button
+                  ref={dotButtonRef}
+                  className="w-4 h-4 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700/50 hover:border-slate-600 border border-transparent rounded transition-all"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (!showDotMenu && dotButtonRef.current) {
+                      const rect = dotButtonRef.current.getBoundingClientRect()
+                      setDotMenuPosition({ x: rect.left, y: rect.bottom + 2 })
+                    }
+                    setShowDotMenu(!showDotMenu)
+                  }}
+                >
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 12 16">
+                    <circle cx="3" cy="3" r="1.5" />
+                    <circle cx="9" cy="3" r="1.5" />
+                    <circle cx="3" cy="8" r="1.5" />
+                    <circle cx="9" cy="8" r="1.5" />
+                    <circle cx="3" cy="13" r="1.5" />
+                    <circle cx="9" cy="13" r="1.5" />
+                  </svg>
+                </button>
+
+                {/* 6-dot button dropdown menu */}
+                {showDotMenu && (
+                  <div
+                    ref={dotMenuRef}
+                    className="fixed bg-slate-700 border border-slate-600 rounded shadow-lg py-1 z-[9999] w-[140px]"
+                    style={{ left: `${dotMenuPosition.x}px`, top: `${dotMenuPosition.y}px` }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {onMoveTo && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setShowMovePickerFromDot(true)
+                          setShowDotMenu(false)
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600"
+                      >
+                        Move to
+                      </button>
+                    )}
+                    {onExpandAll && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onExpandAll(currentFolderId)
+                          setShowDotMenu(false)
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600"
+                      >
+                        Expand All
+                      </button>
+                    )}
+                    {onCollapseAll && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onCollapseAll(currentFolderId)
+                          setShowDotMenu(false)
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600"
+                      >
+                        Collapse All
+                      </button>
+                    )}
+                    {onAddFolder && (
+                      <>
+                        <div className="h-px bg-slate-600 my-1" />
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onAddFolder(currentFolderId)
+                            setShowDotMenu(false)
+                          }}
+                          className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600"
+                        >
+                          New Folder
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -250,10 +348,44 @@ export default function FileTreeNode({ node, level, parentFolderId, onNodeClick,
       {isFolder && isExpanded && hasChildren && (
         <div>
           {node.children!.map((child) => (
-            <FileTreeNode key={child.id} node={child} level={level + 1} parentFolderId={currentFolderId} onNodeClick={onNodeClick} onNodeDoubleClick={onNodeDoubleClick} onNodeContextMenu={onNodeContextMenu} onToggleExpand={onToggleExpand} expandedNodes={expandedNodes} hideActionButtons={hideActionButtons} highlightedNodeId={highlightedNodeId} onAddFolder={onAddFolder} onAddFile={onAddFile} onReferenceFile={onReferenceFile} />
+            <FileTreeNode key={child.id} node={child} level={level + 1} parentFolderId={currentFolderId} onNodeClick={onNodeClick} onNodeDoubleClick={onNodeDoubleClick} onNodeContextMenu={onNodeContextMenu} onToggleExpand={onToggleExpand} expandedNodes={expandedNodes} hideActionButtons={hideActionButtons} highlightedNodeId={highlightedNodeId} onAddFolder={onAddFolder} onAddFile={onAddFile} onReferenceFile={onReferenceFile} onExpandAll={onExpandAll} onCollapseAll={onCollapseAll} onMoveTo={onMoveTo} allFolders={allFolders} allFiles={allFiles} />
           ))}
         </div>
       )}
+
+      {/* Folder picker modal for Move to from 6-dot menu */}
+      {showMovePickerFromDot && isFolder && onMoveTo && (
+        <FolderPickerModal
+          allFolders={allFolders}
+          currentFolderId={currentFolderId}
+          greyedOutFolderIds={(() => {
+            const folderId = currentFolderId
+            const descendants = getAllDescendantIds(folderId, allFolders)
+            const folder = allFolders.find(f => f.id === folderId)
+            const greyedOut = [folderId, ...descendants]
+            if (folder?.parentId !== undefined) {
+              greyedOut.push(folder.parentId)
+            }
+            return greyedOut
+          })()}
+          onSelect={(folderId) => {
+            onMoveTo(folderId)
+            setShowMovePickerFromDot(false)
+          }}
+          onClose={() => setShowMovePickerFromDot(false)}
+        />
+      )}
     </div>
   )
+}
+
+// Helper function to get all descendant IDs
+function getAllDescendantIds(folderId: number, allFolders: Folder[] = []): number[] {
+  const descendants: number[] = []
+  const children = allFolders.filter(f => f.parentId === folderId)
+  children.forEach(child => {
+    descendants.push(child.id)
+    descendants.push(...getAllDescendantIds(child.id, allFolders))
+  })
+  return descendants
 }

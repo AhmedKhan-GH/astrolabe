@@ -425,7 +425,7 @@ function DirectoryTree() {
         />
       )}
 
-      <FileTreeView data={treeData} onNodeClick={handleNodeClick} onNodeDoubleClick={handleNodeDoubleClick} onNodeContextMenu={handleNodeContextMenu} onToggleExpand={handleToggleExpand} onAddFolder={handleAddFolderToParent} onAddFile={handleAddFileToFolder} onReferenceFile={handleReferenceFileToFolder} />
+      <FileTreeView data={treeData} onNodeClick={handleNodeClick} onNodeDoubleClick={handleNodeDoubleClick} onNodeContextMenu={handleNodeContextMenu} onToggleExpand={handleToggleExpand} onAddFolder={handleAddFolderToParent} onAddFile={handleAddFileToFolder} onReferenceFile={handleReferenceFileToFolder} onExpandAll={handleExpandAll} onCollapseAll={handleCollapseAll} onMoveTo={handleMoveTo} allFolders={allFolders} allFiles={allFiles} />
 
       {contextMenu && (
         <ContextMenu
