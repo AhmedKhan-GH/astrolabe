@@ -175,6 +175,25 @@ function DirectoryTree() {
     }
   }
 
+  const handleAddContentsTo = async (targetParentId: number) => {
+    if (!contextMenu || contextMenu.node.type !== 'folder') return
+
+    logger.info({ nodeId: contextMenu.node.id, targetParentId }, '[DirectoryTree] handleAddContentsTo called')
+
+    try {
+      const sourceFolderId = parseInt(contextMenu.node.id.replace('folder-', ''))
+      logger.info({ sourceFolderId, targetParentId }, '[DirectoryTree] Duplicating folder to target parent')
+      await window.electron.duplicateFolderTo(sourceFolderId, targetParentId)
+
+      logger.info('[DirectoryTree] Duplicate successful, reloading tree')
+      await loadTreeData()
+      setContextMenu(null)
+    } catch (error) {
+      logger.error({ error }, '[DirectoryTree] Failed to duplicate folder')
+      alert('Failed to duplicate folder: ' + error)
+    }
+  }
+
   const handleRemoveFromFolder = async () => {
     if (!contextMenu || contextMenu.node.type !== 'file') return
 
@@ -465,6 +484,7 @@ function DirectoryTree() {
           currentFolderId={contextMenu.folderId}
           onMoveTo={handleMoveTo}
           onAddTo={contextMenu.node.type === 'file' ? handleAddTo : undefined}
+          onAddContentsTo={contextMenu.node.type === 'folder' ? handleAddContentsTo : undefined}
           onAddFolder={contextMenu.node.type === 'folder' ? handleAddFolderToParent : undefined}
           onAddFile={contextMenu.node.type === 'folder' ? handleAddFileToFolder : undefined}
           onReferenceFile={contextMenu.node.type === 'folder' ? handleReferenceFileToFolder : undefined}

@@ -24,6 +24,7 @@ export interface ElectronAPI {
   collapseAllDescendants: (folderId: number) => Promise<void>;
   expandAllFolders: () => Promise<void>;
   collapseAllFolders: () => Promise<void>;
+  duplicateFolderTo: (sourceFolderId: number, targetParentId: number) => Promise<Folder>;
   selectDatabaseFile: () => Promise<string | null>;
   createDatabaseFile: () => Promise<string | null>;
   getDatabaseHealth: () => Promise<{

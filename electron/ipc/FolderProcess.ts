@@ -22,7 +22,8 @@ export function setupFolderProcessHandlers() {
     'expandAllDescendants',
     'collapseAllDescendants',
     'expandAllFolders',
-    'collapseAllFolders'
+    'collapseAllFolders',
+    'duplicateFolderTo'
   ];
 
   handlers.forEach(handler => ipcMain.removeHandler(handler));
@@ -125,5 +126,13 @@ export function setupFolderProcessHandlers() {
     logger.info('[IPC] collapseAllFolders called');
     await folderService.collapseAllFolders();
     logger.info('[IPC] Collapsed all folders successfully');
+  });
+
+  ipcMain.handle('duplicateFolderTo', async (_, sourceFolderId: number, targetParentId: number) => {
+    const { folderService } = getServices();
+    logger.info({ sourceFolderId, targetParentId }, '[IPC] duplicateFolderTo called');
+    const newFolder = await folderService.duplicateFolderTo(sourceFolderId, targetParentId);
+    logger.info({ sourceFolderId, targetParentId, newFolderId: newFolder.id }, '[IPC] Folder duplicated successfully');
+    return newFolder;
   });
 }

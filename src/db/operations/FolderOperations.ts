@@ -448,4 +448,95 @@ export class FolderOperations {
 
     logger.info({ folderId, deletedCount: folderIdsToDelete.length }, '[FolderOperations] Cascade delete completed');
   }
+
+  /**
+   * Duplicate a folder structure and add it as a child of target folder
+   * Recursively copies folder structure and references all files
+   * @param sourceFolderId - Source folder ID to duplicate
+   * @param targetParentId - Target parent folder ID where duplicate will be added
+   * @param addFileFolderLink - Function to add file-folder relationship
+   * @param getAllFiles - Function to get all files
+   */
+  async duplicateFolderTo(
+    sourceFolderId: number,
+    targetParentId: number,
+    addFileFolderLink: (fileId: number, folderId: number) => Promise<void>,
+    getAllFiles: () => Promise<(schema.File & { folderIds: string })[]>
+  ): Promise<Folder> {
+    // Validate source folder exists
+    const sourceFolder = await this.getFolderById(sourceFolderId);
+    if (!sourceFolder) {
+      throw new Error('Failed to duplicate folder: Source folder not found');
+    }
+
+    // Validate target parent exists
+    if (targetParentId !== 0) {
+      const targetParent = await this.getFolderById(targetParentId);
+      if (!targetParent) {
+        throw new Error('Failed to duplicate folder: Target parent folder not found');
+      }
+    }
+
+    // Can't duplicate folder to itself or its descendants
+    if (targetParentId !== 0) {
+      const isDescendant = await this.isDescendantOf(targetParentId, sourceFolderId);
+      if (sourceFolderId === targetParentId || isDescendant) {
+        throw new Error('Failed to duplicate folder: Cannot add folder to itself or its descendants');
+      }
+    }
+
+    logger.info({ sourceFolderId, targetParentId }, '[FolderOperations] Duplicating folder structure');
+
+    // Create the new folder with same name and expansion state as source
+    const newFolder = await this.createFolder(sourceFolder.name, targetParentId);
+
+    // Set the expansion state to match source folder
+    await this.db.update(schema.folders)
+      .set({ isExpanded: sourceFolder.isExpanded })
+      .where(eq(schema.folders.id, newFolder.id));
+
+    // Recursively duplicate the folder structure
+    await this.duplicateFolderStructure(sourceFolderId, newFolder.id, addFileFolderLink, getAllFiles);
+
+    logger.info({ sourceFolderId, newFolderId: newFolder.id }, '[FolderOperations] Folder duplicated successfully');
+    return { ...newFolder, isExpanded: sourceFolder.isExpanded };
+  }
+
+  /**
+   * Helper to recursively duplicate folder structure
+   */
+  private async duplicateFolderStructure(
+    sourceFolderId: number,
+    targetFolderId: number,
+    addFileFolderLink: (fileId: number, folderId: number) => Promise<void>,
+    getAllFiles: () => Promise<(schema.File & { folderIds: string })[]>
+  ): Promise<void> {
+    // Get all files in the source folder
+    const allFiles = await getAllFiles();
+    for (const file of allFiles) {
+      const folderIdsStr = file.folderIds;
+      if (!folderIdsStr) continue;
+
+      const fileFolderIds = JSON.parse(folderIdsStr) as number[];
+      if (fileFolderIds.includes(sourceFolderId)) {
+        // Add this file to the target folder
+        await addFileFolderLink(file.id, targetFolderId);
+      }
+    }
+
+    // Get child folders
+    const childFolders = await this.getChildFolders(sourceFolderId);
+
+    // Recursively duplicate each child folder
+    for (const childFolder of childFolders) {
+      const newChildFolder = await this.createFolder(childFolder.name, targetFolderId);
+
+      // Set the expansion state to match source child folder
+      await this.db.update(schema.folders)
+        .set({ isExpanded: childFolder.isExpanded })
+        .where(eq(schema.folders.id, newChildFolder.id));
+
+      await this.duplicateFolderStructure(childFolder.id, newChildFolder.id, addFileFolderLink, getAllFiles);
+    }
+  }
 }

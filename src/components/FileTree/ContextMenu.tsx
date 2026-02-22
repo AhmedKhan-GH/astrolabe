@@ -12,6 +12,7 @@ interface ContextMenuProps {
   currentFolderId: number
   onMoveTo: (folderId: number) => void
   onAddTo?: (folderId: number) => void
+  onAddContentsTo?: (targetFolderId: number) => void
   onAddFolder?: (parentFolderId: number) => void
   onAddFile?: (folderId: number) => void
   onReferenceFile?: (folderId: number) => void
@@ -32,6 +33,7 @@ export default function ContextMenu({
   currentFolderId,
   onMoveTo,
   onAddTo,
+  onAddContentsTo,
   onAddFolder,
   onAddFile,
   onReferenceFile,
@@ -44,6 +46,7 @@ export default function ContextMenu({
 }: ContextMenuProps) {
   const [showMovePicker, setShowMovePicker] = useState(false)
   const [showAddPicker, setShowAddPicker] = useState(false)
+  const [showAddContentsPicker, setShowAddContentsPicker] = useState(false)
 
   // Check if this file exists in multiple folders
   const fileExistsInMultipleFolders = node.type === 'file' ? (() => {
@@ -96,6 +99,16 @@ export default function ContextMenu({
     return []
   }
 
+  // Calculate which folders to grey out for "Add Contents To" (for folders)
+  const getGreyedOutFoldersForAddContents = (): number[] => {
+    if (node.type === 'folder') {
+      const folderId = parseInt(node.id.replace('folder-', ''))
+      // Grey out the folder itself and all its descendants
+      return getAllDescendantIds(folderId).concat([folderId])
+    }
+    return []
+  }
+
   useEffect(() => {
     const handleClickOutside = () => {
       onClose()
@@ -128,6 +141,17 @@ export default function ContextMenu({
                 className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600 cursor-pointer"
               >
                 Add to
+              </button>
+            )}
+            {node.type === 'folder' && onAddContentsTo && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowAddContentsPicker(true)
+                }}
+                className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600 cursor-pointer"
+              >
+                Add To
               </button>
             )}
             {node.type === 'folder' && onAddFolder && (
@@ -254,6 +278,20 @@ export default function ContextMenu({
             setShowAddPicker(false)
           }}
           onClose={() => setShowAddPicker(false)}
+        />
+      )}
+
+      {/* Add Contents To picker modal */}
+      {showAddContentsPicker && node.type === 'folder' && onAddContentsTo && (
+        <FolderPickerModal
+          allFolders={allFolders}
+          currentFolderId={currentFolderId}
+          greyedOutFolderIds={getGreyedOutFoldersForAddContents()}
+          onSelect={(folderId) => {
+            onAddContentsTo(folderId)
+            setShowAddContentsPicker(false)
+          }}
+          onClose={() => setShowAddContentsPicker(false)}
         />
       )}
 

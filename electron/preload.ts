@@ -24,6 +24,7 @@ const electronAPI = {
   collapseAllDescendants: (folderId: number) => ipcRenderer.invoke('collapseAllDescendants', folderId),
   expandAllFolders: () => ipcRenderer.invoke('expandAllFolders'),
   collapseAllFolders: () => ipcRenderer.invoke('collapseAllFolders'),
+  duplicateFolderTo: (sourceFolderId: number, targetParentId: number) => ipcRenderer.invoke('duplicateFolderTo', sourceFolderId, targetParentId),
   selectDatabaseFile: () => ipcRenderer.invoke('selectDatabaseFile'),
   createDatabaseFile: () => ipcRenderer.invoke('createDatabaseFile'),
   getDatabaseHealth: () => ipcRenderer.invoke('getDatabaseHealth'),

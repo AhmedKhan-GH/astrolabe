@@ -101,4 +101,13 @@ export class RemoteFolderService implements IFolderService {
     const response = await this.fetchApi('/folders');
     return response.json() as Promise<Folder[]>;
   }
+
+  async duplicateFolderTo(sourceFolderId: number, targetParentId: number): Promise<Folder> {
+    const response = await this.fetchApi(`/folders/${sourceFolderId}/duplicate`, {
+      method: 'POST',
+      body: JSON.stringify({ targetParentId }),
+    });
+
+    return response.json() as Promise<Folder>;
+  }
 }
