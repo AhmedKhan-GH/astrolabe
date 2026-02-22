@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react'
 import { type TreeNode } from './FileTreeView'
 import { FilledDocumentIcon, OutlinedDocumentIcon, DatabaseBadge, LinkBadge, FolderIconLarge } from '../icons/FileIcons'
 
@@ -12,9 +13,15 @@ interface FileTreeNodeProps {
   expandedNodes?: Set<string>
   hideActionButtons?: boolean
   highlightedNodeId?: string
+  onAddFolder?: (folderId: number) => void
+  onAddFile?: (folderId: number) => void
+  onReferenceFile?: (folderId: number) => void
 }
 
-export default function FileTreeNode({ node, level, parentFolderId, onNodeClick, onNodeDoubleClick, onNodeContextMenu, onToggleExpand, expandedNodes, hideActionButtons = false, highlightedNodeId }: FileTreeNodeProps) {
+export default function FileTreeNode({ node, level, parentFolderId, onNodeClick, onNodeDoubleClick, onNodeContextMenu, onToggleExpand, expandedNodes, hideActionButtons = false, highlightedNodeId, onAddFolder, onAddFile, onReferenceFile }: FileTreeNodeProps) {
+  const [showPlusMenu, setShowPlusMenu] = useState(false)
+  const plusMenuRef = useRef<HTMLDivElement>(null)
+  const plusButtonRef = useRef<HTMLButtonElement>(null)
   const isFolder = node.type === 'folder'
   const hasChildren = node.children && node.children.length > 0
   // If expandedNodes is provided (from modal), use it. Otherwise use node.isExpanded (from database)
@@ -24,8 +31,27 @@ export default function FileTreeNode({ node, level, parentFolderId, onNodeClick,
   // Determine the current folder ID (for context menu)
   const currentFolderId = isFolder ? parseInt(node.id.replace('folder-', '')) : parentFolderId
 
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showPlusMenu &&
+          plusMenuRef.current &&
+          plusButtonRef.current &&
+          !plusMenuRef.current.contains(event.target as Node) &&
+          !plusButtonRef.current.contains(event.target as Node)) {
+        setShowPlusMenu(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showPlusMenu])
+
   const handleClick = () => {
     if (node.isDisabled) return
+    setShowPlusMenu(false)
     onNodeClick?.(node)
   }
 
@@ -41,6 +67,7 @@ export default function FileTreeNode({ node, level, parentFolderId, onNodeClick,
   }
 
   const handleContextMenu = (e: React.MouseEvent) => {
+    setShowPlusMenu(false)
     onNodeContextMenu?.(node, currentFolderId, e)
   }
 
@@ -73,18 +100,69 @@ export default function FileTreeNode({ node, level, parentFolderId, onNodeClick,
         {/* Left-aligned action buttons (plus and 6-dot) */}
         {!node.isSystemRoot && !hideActionButtons && (
           <div className="absolute left-0 flex items-center gap-1 px-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-            {/* Plus button */}
-            <button
-              className="w-4 h-4 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700/50 hover:border-slate-600 border border-transparent rounded transition-all"
-              onClick={(e) => {
-                e.stopPropagation()
-                // Add handler for add action
-              }}
-            >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 16 16">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 3v10M3 8h10" />
-              </svg>
-            </button>
+            {/* Plus button with dropdown for folders */}
+            {isFolder && (
+              <div className="relative">
+                <button
+                  ref={plusButtonRef}
+                  className="w-4 h-4 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700/50 hover:border-slate-600 border border-transparent rounded transition-all"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowPlusMenu(!showPlusMenu)
+                  }}
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 16 16">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 3v10M3 8h10" />
+                  </svg>
+                </button>
+
+                {/* Plus button dropdown menu */}
+                {showPlusMenu && (
+                  <div
+                    ref={plusMenuRef}
+                    className="absolute left-0 top-5 bg-slate-700 border border-slate-600 rounded shadow-lg py-1 z-50 w-[140px]"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {onAddFolder && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onAddFolder(currentFolderId)
+                          setShowPlusMenu(false)
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600"
+                      >
+                        New Folder
+                      </button>
+                    )}
+                    {onAddFile && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onAddFile(currentFolderId)
+                          setShowPlusMenu(false)
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600"
+                      >
+                        Import File
+                      </button>
+                    )}
+                    {onReferenceFile && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onReferenceFile(currentFolderId)
+                          setShowPlusMenu(false)
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600"
+                      >
+                        Reference File
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             {/* 6-dot button */}
             <button
               className="w-4 h-4 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700/50 hover:border-slate-600 border border-transparent rounded transition-all"
@@ -172,7 +250,7 @@ export default function FileTreeNode({ node, level, parentFolderId, onNodeClick,
       {isFolder && isExpanded && hasChildren && (
         <div>
           {node.children!.map((child) => (
-            <FileTreeNode key={child.id} node={child} level={level + 1} parentFolderId={currentFolderId} onNodeClick={onNodeClick} onNodeDoubleClick={onNodeDoubleClick} onNodeContextMenu={onNodeContextMenu} onToggleExpand={onToggleExpand} expandedNodes={expandedNodes} hideActionButtons={hideActionButtons} highlightedNodeId={highlightedNodeId} />
+            <FileTreeNode key={child.id} node={child} level={level + 1} parentFolderId={currentFolderId} onNodeClick={onNodeClick} onNodeDoubleClick={onNodeDoubleClick} onNodeContextMenu={onNodeContextMenu} onToggleExpand={onToggleExpand} expandedNodes={expandedNodes} hideActionButtons={hideActionButtons} highlightedNodeId={highlightedNodeId} onAddFolder={onAddFolder} onAddFile={onAddFile} onReferenceFile={onReferenceFile} />
           ))}
         </div>
       )}
