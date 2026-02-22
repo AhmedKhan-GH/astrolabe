@@ -42,6 +42,28 @@ export interface IFolderService {
   toggleFolderExpanded(folderId: number): Promise<void>;
 
   /**
+   * Expand all descendant folders
+   * @param folderId - Folder ID to expand (including all descendants)
+   */
+  expandAllDescendants(folderId: number): Promise<void>;
+
+  /**
+   * Collapse all descendant folders
+   * @param folderId - Folder ID to collapse (including all descendants)
+   */
+  collapseAllDescendants(folderId: number): Promise<void>;
+
+  /**
+   * Expand all folders in the entire tree
+   */
+  expandAllFolders(): Promise<void>;
+
+  /**
+   * Collapse all folders in the entire tree
+   */
+  collapseAllFolders(): Promise<void>;
+
+  /**
    * Get all folders
    * @returns Array of all folders
    */

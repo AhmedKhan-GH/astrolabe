@@ -18,6 +18,8 @@ interface ContextMenuProps {
   onRemove?: () => void
   onDelete: () => void
   onDeleteFolder?: () => void
+  onExpandAll?: (folderId: number) => void
+  onCollapseAll?: (folderId: number) => void
   onClose: () => void
 }
 
@@ -36,6 +38,8 @@ export default function ContextMenu({
   onRemove,
   onDelete,
   onDeleteFolder,
+  onExpandAll,
+  onCollapseAll,
   onClose
 }: ContextMenuProps) {
   const [showMovePicker, setShowMovePicker] = useState(false)
@@ -161,6 +165,35 @@ export default function ContextMenu({
               >
                 Reference File
               </button>
+            )}
+            {node.type === 'folder' && (onExpandAll || onCollapseAll) && (
+              <>
+                <div className="h-px bg-slate-600 my-1" />
+                {onExpandAll && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const folderId = parseInt(node.id.replace('folder-', ''))
+                      onExpandAll(folderId)
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600"
+                  >
+                    Expand All
+                  </button>
+                )}
+                {onCollapseAll && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const folderId = parseInt(node.id.replace('folder-', ''))
+                      onCollapseAll(folderId)
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600"
+                  >
+                    Collapse All
+                  </button>
+                )}
+              </>
             )}
             <div className="h-px bg-slate-600 my-1" />
             {node.type === 'file' && fileExistsInMultipleFolders && onRemove && (

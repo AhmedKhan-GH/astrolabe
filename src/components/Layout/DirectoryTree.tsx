@@ -108,6 +108,20 @@ function DirectoryTree() {
     await loadTreeData()
   }
 
+  const handleExpandAll = async (folderId: number) => {
+    logger.info({ folderId }, '[DirectoryTree] Expanding all descendants')
+    await window.electron.expandAllDescendants(folderId)
+    await loadTreeData()
+    setContextMenu(null)
+  }
+
+  const handleCollapseAll = async (folderId: number) => {
+    logger.info({ folderId }, '[DirectoryTree] Collapsing all descendants')
+    await window.electron.collapseAllDescendants(folderId)
+    await loadTreeData()
+    setContextMenu(null)
+  }
+
   const handleMoveTo = async (targetFolderId: number) => {
     if (!contextMenu) return
 
@@ -381,6 +395,20 @@ function DirectoryTree() {
     void handleClearAll()
   }
 
+  const handleRootExpandAll = async () => {
+    setRootContextMenu(null)
+    logger.info('[DirectoryTree] Expanding all folders in tree')
+    await window.electron.expandAllFolders()
+    await loadTreeData()
+  }
+
+  const handleRootCollapseAll = async () => {
+    setRootContextMenu(null)
+    logger.info('[DirectoryTree] Collapsing all folders in tree')
+    await window.electron.collapseAllFolders()
+    await loadTreeData()
+  }
+
   return (
     <>
       <FileFilter files={allFiles} />
@@ -415,6 +443,8 @@ function DirectoryTree() {
           onRemove={contextMenu.node.type === 'file' ? handleRemoveFromFolder : undefined}
           onDelete={handleDeleteNode}
           onDeleteFolder={contextMenu.node.type === 'folder' ? handleDeleteFolder : undefined}
+          onExpandAll={contextMenu.node.type === 'folder' ? handleExpandAll : undefined}
+          onCollapseAll={contextMenu.node.type === 'folder' ? handleCollapseAll : undefined}
           onClose={() => setContextMenu(null)}
         />
       )}
@@ -426,6 +456,8 @@ function DirectoryTree() {
           onImportFile={handleRootImportFile}
           onReferenceFile={handleRootReferenceFile}
           onCreateFolder={handleRootCreateFolder}
+          onExpandAll={handleRootExpandAll}
+          onCollapseAll={handleRootCollapseAll}
           onClearAll={handleRootClearAll}
           onClose={handleRootMenuClose}
         />

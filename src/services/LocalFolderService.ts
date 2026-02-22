@@ -62,6 +62,22 @@ export class LocalFolderService implements IFolderService {
     await this.folderOps.toggleFolderExpanded(folderId);
   }
 
+  async expandAllDescendants(folderId: number): Promise<void> {
+    await this.folderOps.expandAllDescendants(folderId);
+  }
+
+  async collapseAllDescendants(folderId: number): Promise<void> {
+    await this.folderOps.collapseAllDescendants(folderId);
+  }
+
+  async expandAllFolders(): Promise<void> {
+    await this.folderOps.expandAllFolders();
+  }
+
+  async collapseAllFolders(): Promise<void> {
+    await this.folderOps.collapseAllFolders();
+  }
+
   async getAllFolders(): Promise<Folder[]> {
     return this.folderOps.getAllFolders();
   }

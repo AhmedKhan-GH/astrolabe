@@ -73,6 +73,30 @@ export class RemoteFolderService implements IFolderService {
     });
   }
 
+  async expandAllDescendants(folderId: number): Promise<void> {
+    await this.fetchApi(`/folders/${folderId}/expand-all`, {
+      method: 'PATCH',
+    });
+  }
+
+  async collapseAllDescendants(folderId: number): Promise<void> {
+    await this.fetchApi(`/folders/${folderId}/collapse-all`, {
+      method: 'PATCH',
+    });
+  }
+
+  async expandAllFolders(): Promise<void> {
+    await this.fetchApi('/folders/expand-all', {
+      method: 'PATCH',
+    });
+  }
+
+  async collapseAllFolders(): Promise<void> {
+    await this.fetchApi('/folders/collapse-all', {
+      method: 'PATCH',
+    });
+  }
+
   async getAllFolders(): Promise<Folder[]> {
     const response = await this.fetchApi('/folders');
     return response.json() as Promise<Folder[]>;

@@ -18,7 +18,11 @@ export function setupFolderProcessHandlers() {
     'removeFileFromFolder',
     'removeFolder',
     'deleteFolder',
-    'toggleFolderExpanded'
+    'toggleFolderExpanded',
+    'expandAllDescendants',
+    'collapseAllDescendants',
+    'expandAllFolders',
+    'collapseAllFolders'
   ];
 
   handlers.forEach(handler => ipcMain.removeHandler(handler));
@@ -93,5 +97,33 @@ export function setupFolderProcessHandlers() {
   ipcMain.handle('toggleFolderExpanded', async (_, folderId: number) => {
     const { folderService } = getServices();
     await folderService.toggleFolderExpanded(folderId);
+  });
+
+  ipcMain.handle('expandAllDescendants', async (_, folderId: number) => {
+    const { folderService } = getServices();
+    logger.info({ folderId }, '[IPC] expandAllDescendants called');
+    await folderService.expandAllDescendants(folderId);
+    logger.info({ folderId }, '[IPC] Expanded all descendants successfully');
+  });
+
+  ipcMain.handle('collapseAllDescendants', async (_, folderId: number) => {
+    const { folderService } = getServices();
+    logger.info({ folderId }, '[IPC] collapseAllDescendants called');
+    await folderService.collapseAllDescendants(folderId);
+    logger.info({ folderId }, '[IPC] Collapsed all descendants successfully');
+  });
+
+  ipcMain.handle('expandAllFolders', async () => {
+    const { folderService } = getServices();
+    logger.info('[IPC] expandAllFolders called');
+    await folderService.expandAllFolders();
+    logger.info('[IPC] Expanded all folders successfully');
+  });
+
+  ipcMain.handle('collapseAllFolders', async () => {
+    const { folderService } = getServices();
+    logger.info('[IPC] collapseAllFolders called');
+    await folderService.collapseAllFolders();
+    logger.info('[IPC] Collapsed all folders successfully');
   });
 }

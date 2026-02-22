@@ -6,6 +6,8 @@ interface RootDirectoryContextMenuProps {
   onImportFile: () => void
   onReferenceFile: () => void
   onCreateFolder: () => void
+  onExpandAll: () => void
+  onCollapseAll: () => void
   onClearAll: () => void
   onClose: () => void
 }
@@ -16,6 +18,8 @@ export default function RootDirectoryContextMenu({
   onImportFile,
   onReferenceFile,
   onCreateFolder,
+  onExpandAll,
+  onCollapseAll,
   onClearAll,
   onClose
 }: RootDirectoryContextMenuProps) {
@@ -58,6 +62,25 @@ export default function RootDirectoryContextMenu({
         className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600 cursor-pointer"
       >
         New Folder
+      </button>
+      <div className="h-px bg-slate-600 my-1" />
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          onExpandAll()
+        }}
+        className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600 cursor-pointer"
+      >
+        Expand All
+      </button>
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          onCollapseAll()
+        }}
+        className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600 cursor-pointer"
+      >
+        Collapse All
       </button>
       <div className="h-px bg-slate-600 my-1" />
       <button

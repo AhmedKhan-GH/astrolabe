@@ -20,6 +20,10 @@ export interface ElectronAPI {
   resetDataDirectory: () => Promise<string>;
   openFileInDefaultApp: (filePath: string) => Promise<void>;
   toggleFolderExpanded: (folderId: number) => Promise<void>;
+  expandAllDescendants: (folderId: number) => Promise<void>;
+  collapseAllDescendants: (folderId: number) => Promise<void>;
+  expandAllFolders: () => Promise<void>;
+  collapseAllFolders: () => Promise<void>;
   selectDatabaseFile: () => Promise<string | null>;
   createDatabaseFile: () => Promise<string | null>;
   getDatabaseHealth: () => Promise<{

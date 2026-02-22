@@ -135,6 +135,66 @@ export class FolderOperations {
       .where(eq(schema.folders.id, folderId));
   }
 
+  async expandAllDescendants(folderId: number): Promise<void> {
+    const folder = await this.getFolderById(folderId);
+    if (!folder) {
+      throw new Error('Folder not found');
+    }
+
+    // Expand the folder itself
+    await this.db.update(schema.folders)
+      .set({ isExpanded: true })
+      .where(eq(schema.folders.id, folderId));
+
+    // Get all descendants and expand them
+    const descendantIds = await this.getAllDescendantIds(folderId);
+    for (const descendantId of descendantIds) {
+      await this.db.update(schema.folders)
+        .set({ isExpanded: true })
+        .where(eq(schema.folders.id, descendantId));
+    }
+  }
+
+  async collapseAllDescendants(folderId: number): Promise<void> {
+    const folder = await this.getFolderById(folderId);
+    if (!folder) {
+      throw new Error('Folder not found');
+    }
+
+    // Get all descendants and collapse them
+    const descendantIds = await this.getAllDescendantIds(folderId);
+    for (const descendantId of descendantIds) {
+      await this.db.update(schema.folders)
+        .set({ isExpanded: false })
+        .where(eq(schema.folders.id, descendantId));
+    }
+
+    // Collapse the folder itself last
+    await this.db.update(schema.folders)
+      .set({ isExpanded: false })
+      .where(eq(schema.folders.id, folderId));
+  }
+
+  async expandAllFolders(): Promise<void> {
+    // Expand all folders in the database
+    const allFolders = await this.getAllFolders();
+    for (const folder of allFolders) {
+      await this.db.update(schema.folders)
+        .set({ isExpanded: true })
+        .where(eq(schema.folders.id, folder.id));
+    }
+  }
+
+  async collapseAllFolders(): Promise<void> {
+    // Collapse all folders in the database
+    const allFolders = await this.getAllFolders();
+    for (const folder of allFolders) {
+      await this.db.update(schema.folders)
+        .set({ isExpanded: false })
+        .where(eq(schema.folders.id, folder.id));
+    }
+  }
+
   // ============ Validation Methods ============
 
   private validateFolderName(name: string): string {
