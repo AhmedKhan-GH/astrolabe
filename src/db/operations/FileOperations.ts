@@ -118,7 +118,7 @@ export class FileOperations {
   private async validateFileNotInFolder(fileId: number, targetFolderId: number): Promise<void> {
     const isInFolder = await this.isFileInFolder(fileId, targetFolderId);
     if (isInFolder) {
-      throw new Error('The file already exists in this folder');
+      throw new Error('Failed to add file: The file already exists in this folder');
     }
   }
 
@@ -202,19 +202,19 @@ export class FileOperations {
     // Validate folder exists
     const folder = await getFolderById(folderId);
     if (!folder && folderId !== 0) {
-      throw new Error('Target folder not found');
+      throw new Error('Failed to move file: Target folder not found');
     }
 
     const file = await this.getFileById(fileId);
     if (!file) {
-      throw new Error('File not found');
+      throw new Error('Failed to move file: File not found');
     }
 
     // Check if already in this location
     const currentFolderIds = await this.getFolderIdsForFile(fileId);
 
     if (currentFolderIds.length === 1 && currentFolderIds[0] === folderId) {
-      throw new Error('File is already in this location');
+      throw new Error('Failed to move file: File is already in this location');
     }
 
     // Remove all existing folder links and add new one
@@ -239,13 +239,13 @@ export class FileOperations {
     if (folderId !== 0) {
       const folder = await getFolderById(folderId);
       if (!folder) {
-        throw new Error('Folder not found');
+        throw new Error('Failed to add file: Folder not found');
       }
     }
 
     const file = await this.getFileById(fileId);
     if (!file) {
-      throw new Error('File not found');
+      throw new Error('Failed to add file: File not found');
     }
 
     // Validate not duplicate
@@ -264,7 +264,7 @@ export class FileOperations {
   async removeFileFromFolder(fileId: number, folderId: number): Promise<void> {
     const file = await this.getFileById(fileId);
     if (!file) {
-      throw new Error('File not found');
+      throw new Error('Failed to remove file: File not found');
     }
 
     await this.removeFileFolderLink(fileId, folderId);

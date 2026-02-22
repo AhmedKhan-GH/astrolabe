@@ -34,7 +34,7 @@ export class FolderOperations {
     if (folderId !== 0) {
       const folder = await this.getFolderById(folderId);
       if (!folder) {
-        throw new Error('Folder not found');
+        throw new Error('Failed to get descendants: Folder not found');
       }
     }
 
@@ -96,7 +96,7 @@ export class FolderOperations {
       if (!folder) {
         // If this is the starting folder, throw error
         if (currentId === folderId) {
-          throw new Error('Folder not found');
+          throw new Error('Failed to get ancestors: Folder not found');
         }
         // Otherwise, stop traversal (broken chain)
         break;
@@ -127,7 +127,7 @@ export class FolderOperations {
   async toggleFolderExpanded(folderId: number): Promise<void> {
     const folder = await this.getFolderById(folderId);
     if (!folder) {
-      throw new Error('Folder not found');
+      throw new Error('Failed to toggle folder: Folder not found');
     }
 
     await this.db.update(schema.folders)
@@ -138,7 +138,7 @@ export class FolderOperations {
   async expandAllDescendants(folderId: number): Promise<void> {
     const folder = await this.getFolderById(folderId);
     if (!folder) {
-      throw new Error('Folder not found');
+      throw new Error('Failed to expand all: Folder not found');
     }
 
     // Expand the folder itself
@@ -158,7 +158,7 @@ export class FolderOperations {
   async collapseAllDescendants(folderId: number): Promise<void> {
     const folder = await this.getFolderById(folderId);
     if (!folder) {
-      throw new Error('Folder not found');
+      throw new Error('Failed to collapse all: Folder not found');
     }
 
     // Get all descendants and collapse them
@@ -199,7 +199,7 @@ export class FolderOperations {
 
   private validateFolderName(name: string): string {
     if (!name || !name.trim()) {
-      throw new Error('Folder name cannot be empty');
+      throw new Error('Failed to create folder: Folder name cannot be empty');
     }
     return name;
   }
@@ -217,7 +217,7 @@ export class FolderOperations {
     );
 
     if (duplicate) {
-      throw new Error('A folder with this name already exists at this level');
+      throw new Error('Failed to create folder: A folder with this name already exists at this level');
     }
   }
 
@@ -263,21 +263,21 @@ export class FolderOperations {
     }
 
     if (folderId === newParentId) {
-      throw new Error('Cannot move folder to itself');
+      throw new Error('Failed to move folder: Cannot move folder to itself');
     }
 
     const folder = await this.getFolderById(folderId);
     if (!folder) {
-      throw new Error('Folder not found');
+      throw new Error('Failed to move folder: Folder not found');
     }
 
     if (folder.parentId === newParentId) {
-      throw new Error('Folder is already in this location');
+      throw new Error('Failed to move folder: Folder is already in this location');
     }
 
     if (newParentId !== 0) {
       if (await this.isDescendantOf(newParentId, folderId)) {
-        throw new Error('Cannot move folder to its own descendant');
+        throw new Error('Failed to move folder: Cannot move folder to its own descendant');
       }
     }
 
@@ -341,7 +341,7 @@ export class FolderOperations {
 
     const folderToDelete = await this.getFolderById(folderId);
     if (!folderToDelete) {
-      throw new Error('Folder not found');
+      throw new Error('Failed to remove folder: Folder not found');
     }
 
     const parentFolderId = folderToDelete.parentId;
@@ -408,7 +408,7 @@ export class FolderOperations {
 
     const folderToDelete = await this.getFolderById(folderId);
     if (!folderToDelete) {
-      throw new Error('Folder not found');
+      throw new Error('Failed to delete folder: Folder not found');
     }
 
     // Get ALL descendant folder IDs BEFORE any modifications
