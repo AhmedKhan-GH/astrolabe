@@ -32,8 +32,21 @@ export class FileOperations {
     return allFiles.find(file => file.fileStorageType === storageType);
   }
 
-  async getAllFiles(): Promise<File[]> {
-    return this.db.select().from(schema.files);
+  async getAllFiles(): Promise<(File & { folderIds: string })[]> {
+    const files = await this.db.select().from(schema.files);
+
+    // Get folderIds for each file from junction table
+    const filesWithFolders = await Promise.all(
+      files.map(async (file) => {
+        const folderIds = await this.getFolderIdsForFile(file.id);
+        return {
+          ...file,
+          folderIds: JSON.stringify(folderIds)
+        };
+      })
+    );
+
+    return filesWithFolders;
   }
 
   async deleteFile(fileId: number): Promise<File | undefined> {

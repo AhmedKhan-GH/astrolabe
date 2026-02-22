@@ -29,7 +29,7 @@ function DirectoryTree() {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [rootContextMenu, setRootContextMenu] = useState<RootContextMenuState | null>(null)
   const [allFolders, setAllFolders] = useState<Folder[]>([])
-  const [allFiles, setAllFiles] = useState<File[]>([])
+  const [allFiles, setAllFiles] = useState<(File & { folderIds: string })[]>([])
 
   const loadTreeData = useCallback(async () => {
     try {

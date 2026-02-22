@@ -151,7 +151,7 @@ export class LocalFileService implements IFileService {
     }
   }
 
-  async getAllFiles(): Promise<File[]> {
+  async getAllFiles(): Promise<(File & { folderIds: string })[]> {
     return this.fileOps.getAllFiles();
   }
 }

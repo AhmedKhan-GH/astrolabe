@@ -5,7 +5,7 @@ export interface ElectronAPI {
   selectAndImportFilesToFolder: (folderId: number) => Promise<File[]>;
   selectAndReferenceFiles: () => Promise<File[]>;
   selectAndReferenceFilesToFolder: (folderId: number) => Promise<File[]>;
-  getAllFiles: () => Promise<File[]>;
+  getAllFiles: () => Promise<(File & { folderIds: string })[]>;
   getAllFolders: () => Promise<Folder[]>;
   createFolder: (name: string, parentId?: number) => Promise<Folder>;
   moveFile: (fileId: number, folderId: number | null) => Promise<void>;

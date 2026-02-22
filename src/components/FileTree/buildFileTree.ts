@@ -1,7 +1,7 @@
 import { type TreeNode } from './FileTreeView'
 import type { Folder, File } from '../../db/schema'
 
-export function buildFileTree(folders: Folder[], files: File[]): TreeNode[] {
+export function buildFileTree(folders: Folder[], files: (File & { folderIds: string })[]): TreeNode[] {
   // Build folder hierarchy
   const folderMap: Record<number, TreeNode> = {}
   const rootChildren: TreeNode[] = []

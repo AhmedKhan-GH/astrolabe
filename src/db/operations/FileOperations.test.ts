@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { FileOperations } from './FileOperations';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import * as schema from '../schema';
-import type { File, FileFolder } from '../schema';
+import type { File } from '../schema';
 
 // Mock the schema module
 vi.mock('../schema', () => ({

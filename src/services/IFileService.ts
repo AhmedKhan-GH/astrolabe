@@ -62,5 +62,5 @@ export interface IFileService {
    * Get all files
    * @returns Array of all files
    */
-  getAllFiles(): Promise<File[]>;
+  getAllFiles(): Promise<(File & { folderIds: string })[]>;
 }

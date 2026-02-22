@@ -193,8 +193,9 @@ export class FolderOperations {
   async moveFolder(
     folderId: number,
     newParentId: number,
-    parseFolderIds: (json: string | null) => number[],
-    updateFileFolderIds: (fileId: number, folderIds: number[]) => Promise<void>,
+    getFolderIdsForFile: (fileId: number) => Promise<number[]>,
+    removeFileFolderLink: (fileId: number, folderId: number) => Promise<void>,
+    addFileFolderLink: (fileId: number, folderId: number) => Promise<void>,
     getAllFiles: () => Promise<schema.File[]>
   ): Promise<void> {
     if (folderId === 0) {
@@ -225,7 +226,7 @@ export class FolderOperations {
     if (existingFolder) {
       // Auto-merge folders when duplicate name detected
       logger.info({ sourceFolderId: folderId, targetFolderId: existingFolder.id, folderName: folder.name, mergeType: 'move-driven' }, '[FolderOperations] Merging folders due to move operation');
-      await this.mergeFolders(folderId, existingFolder.id, parseFolderIds, updateFileFolderIds, getAllFiles);
+      await this.mergeFolders(folderId, existingFolder.id, getFolderIdsForFile, removeFileFolderLink, addFileFolderLink, getAllFiles);
       await this.db.delete(schema.folders).where(eq(schema.folders.id, folderId));
       logger.info({ sourceFolderId: folderId, targetFolderId: existingFolder.id, mergeType: 'move-driven' }, '[FolderOperations] Move-driven merge completed');
       return;
@@ -239,8 +240,9 @@ export class FolderOperations {
   private async mergeFolders(
     sourceFolderId: number,
     targetFolderId: number,
-    parseFolderIds: (json: string | null) => number[],
-    updateFileFolderIds: (fileId: number, folderIds: number[]) => Promise<void>,
+    getFolderIdsForFile: (fileId: number) => Promise<number[]>,
+    removeFileFolderLink: (fileId: number, folderId: number) => Promise<void>,
+    addFileFolderLink: (fileId: number, folderId: number) => Promise<void>,
     getAllFiles: () => Promise<schema.File[]>
   ): Promise<void> {
     // Move all direct children folders to target
@@ -251,24 +253,26 @@ export class FolderOperations {
         .where(eq(schema.folders.id, childFolder.id));
     }
 
-    // Move all files to target folder
+    // Move all file-folder links from source to target
     const files = await getAllFiles();
     for (const file of files) {
-      if (!file.folderIds) continue;
-
-      const folderIds = parseFolderIds(file.folderIds);
+      const folderIds = await getFolderIdsForFile(file.id);
       if (folderIds.includes(sourceFolderId)) {
-        const newFolderIds = folderIds.map(id => id === sourceFolderId ? targetFolderId : id);
-        const uniqueFolderIds = Array.from(new Set(newFolderIds));
-        await updateFileFolderIds(file.id, uniqueFolderIds);
+        // Remove link to source folder
+        await removeFileFolderLink(file.id, sourceFolderId);
+        // Add link to target folder (if not already there)
+        if (!folderIds.includes(targetFolderId)) {
+          await addFileFolderLink(file.id, targetFolderId);
+        }
       }
     }
   }
 
   async removeFolder(
     folderId: number,
-    parseFolderIds: (json: string | null) => number[],
-    updateFileFolderIds: (fileId: number, folderIds: number[]) => Promise<void>,
+    getFolderIdsForFile: (fileId: number) => Promise<number[]>,
+    removeFileFolderLink: (fileId: number, folderId: number) => Promise<void>,
+    addFileFolderLink: (fileId: number, folderId: number) => Promise<void>,
     getAllFiles: () => Promise<schema.File[]>
   ): Promise<void> {
     if (folderId === 0) {
@@ -292,7 +296,7 @@ export class FolderOperations {
       if (existingFolder) {
         // Merge the child folder into the existing folder with the same name
         logger.info({ sourceFolderId: childFolder.id, targetFolderId: existingFolder.id, folderName: childFolder.name, mergeType: 'remove-driven', removedParentId: folderId }, '[FolderOperations] Merging folders due to parent folder removal');
-        await this.mergeFolders(childFolder.id, existingFolder.id, parseFolderIds, updateFileFolderIds, getAllFiles);
+        await this.mergeFolders(childFolder.id, existingFolder.id, getFolderIdsForFile, removeFileFolderLink, addFileFolderLink, getAllFiles);
         await this.db.delete(schema.folders).where(eq(schema.folders.id, childFolder.id));
         logger.info({ sourceFolderId: childFolder.id, targetFolderId: existingFolder.id, mergeType: 'remove-driven' }, '[FolderOperations] Remove-driven merge completed');
       } else {
@@ -306,19 +310,25 @@ export class FolderOperations {
     const descendantIds = await this.getAllDescendantIds(folderId);
     const folderIdsToDelete = [folderId, ...descendantIds];
 
-    // Clean up file references
+    // Clean up file-folder links
     const files = await getAllFiles();
     for (const file of files) {
-      if (!file.folderIds) continue;
+      const folderIds = await getFolderIdsForFile(file.id);
+      const hasDeletedFolder = folderIds.some(id => folderIdsToDelete.includes(id));
 
-      const folderIds = parseFolderIds(file.folderIds);
-      const newFolderIds = folderIds.filter(id => !folderIdsToDelete.includes(id));
-
-      if (folderIds.length !== newFolderIds.length) {
-        if (newFolderIds.length === 0) {
-          newFolderIds.push(parentFolderId);
+      if (hasDeletedFolder) {
+        // Remove links to deleted folders
+        for (const fId of folderIdsToDelete) {
+          if (folderIds.includes(fId)) {
+            await removeFileFolderLink(file.id, fId);
+          }
         }
-        await updateFileFolderIds(file.id, newFolderIds);
+
+        // If file has no remaining folders, add it to parent
+        const remainingFolderIds = folderIds.filter(id => !folderIdsToDelete.includes(id));
+        if (remainingFolderIds.length === 0) {
+          await addFileFolderLink(file.id, parentFolderId);
+        }
       }
     }
 
@@ -327,9 +337,9 @@ export class FolderOperations {
 
   async deleteFolder(
     folderId: number,
-    parseFolderIds: (json: string | null) => number[],
+    getFolderIdsForFile: (fileId: number) => Promise<number[]>,
     deleteFile: (fileId: number) => Promise<void>,
-    updateFileFolderIds: (fileId: number, folderIds: number[]) => Promise<void>,
+    removeFileFolderLink: (fileId: number, folderId: number) => Promise<void>,
     getAllFiles: () => Promise<schema.File[]>
   ): Promise<void> {
     if (folderId === 0) {
@@ -349,23 +359,25 @@ export class FolderOperations {
     // Handle file cleanup
     const files = await getAllFiles();
     for (const file of files) {
-      if (!file.folderIds) continue;
-
-      const folderIds = parseFolderIds(file.folderIds);
+      const folderIds = await getFolderIdsForFile(file.id);
       const hasDeletedFolder = folderIds.some(id => folderIdsToDelete.includes(id));
 
       if (!hasDeletedFolder) continue;
 
       // Remove deleted folder IDs from file's folder list
-      const newFolderIds = folderIds.filter(id => !folderIdsToDelete.includes(id));
+      const remainingFolderIds = folderIds.filter(id => !folderIdsToDelete.includes(id));
 
-      if (newFolderIds.length === 0) {
+      if (remainingFolderIds.length === 0) {
         // File is ONLY in folders being deleted - delete the file completely
         logger.info({ fileId: file.id, filename: file.filename }, '[FolderOperations] Deleting file (unique to deleted folders)');
         await deleteFile(file.id);
       } else {
-        // File exists in other folders - just update folder list
-        await updateFileFolderIds(file.id, newFolderIds);
+        // File exists in other folders - just remove the links to deleted folders
+        for (const fId of folderIdsToDelete) {
+          if (folderIds.includes(fId)) {
+            await removeFileFolderLink(file.id, fId);
+          }
+        }
       }
     }
 

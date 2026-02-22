@@ -27,7 +27,6 @@ vi.mock('../schema', () => ({
     filename: Symbol('filename'),
     path: Symbol('path'),
     filetype: Symbol('filetype'),
-    folderIds: Symbol('folderIds'),
   },
 }));
 
@@ -45,12 +44,15 @@ describe('FolderOperations', () => {
   let mockDb: BetterSQLite3Database<typeof schema>;
 
   // Mock helper functions used by move/remove/delete operations
-  const mockParseFolderIds = vi.fn((json: string | null) => {
-    if (!json) return [];
-    return JSON.parse(json);
+  const mockGetFolderIdsForFile = vi.fn(async (_fileId: number): Promise<number[]> => {
+    return [];
   });
 
-  const mockUpdateFileFolderIds = vi.fn(async () => {
+  const mockRemoveFileFolderLink = vi.fn(async () => {
+    // Mock implementation
+  });
+
+  const mockAddFileFolderLink = vi.fn(async () => {
     // Mock implementation
   });
 
@@ -63,7 +65,6 @@ describe('FolderOperations', () => {
     filename: string;
     path: string;
     filetype: string | null;
-    folderIds: string | null;
     fileStorageType: string;
     addedAt: Date | null;
   }>> => {
@@ -73,8 +74,9 @@ describe('FolderOperations', () => {
   beforeEach(() => {
     // Reset mocks
     vi.clearAllMocks();
-    mockParseFolderIds.mockClear();
-    mockUpdateFileFolderIds.mockClear();
+    mockGetFolderIdsForFile.mockClear();
+    mockRemoveFileFolderLink.mockClear();
+    mockAddFileFolderLink.mockClear();
     mockDeleteFile.mockClear();
     mockGetAllFiles.mockClear();
 
@@ -101,7 +103,7 @@ describe('FolderOperations', () => {
 
       for (const destId of destinations) {
         await expect(
-          folderOps.moveFolder(0, destId, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles)
+          folderOps.moveFolder(0, destId, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles)
         ).rejects.toThrow(ERROR_MESSAGES.CANNOT_MOVE_DIRECTORY);
       }
 
@@ -113,7 +115,7 @@ describe('FolderOperations', () => {
 
     it('should throw error when removing root folder and validate before database operations', async () => {
       await expect(
-        folderOps.removeFolder(0, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles)
+        folderOps.removeFolder(0, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles)
       ).rejects.toThrow(ERROR_MESSAGES.CANNOT_REMOVE_DIRECTORY);
 
       // Verify no database operations occurred
@@ -124,7 +126,7 @@ describe('FolderOperations', () => {
 
     it('should throw error when deleting root folder and validate before database operations', async () => {
       await expect(
-        folderOps.deleteFolder(0, mockParseFolderIds, mockDeleteFile, mockUpdateFileFolderIds, mockGetAllFiles)
+        folderOps.deleteFolder(0, mockGetFolderIdsForFile, mockDeleteFile, mockRemoveFileFolderLink, mockGetAllFiles)
       ).rejects.toThrow(ERROR_MESSAGES.CANNOT_REMOVE_DIRECTORY);
 
       // Verify no database operations occurred
@@ -136,7 +138,7 @@ describe('FolderOperations', () => {
 
     it('should recognize 0 and only 0 as the root folder ID', async () => {
       await expect(
-        folderOps.moveFolder(0, 1, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles)
+        folderOps.moveFolder(0, 1, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles)
       ).rejects.toThrow(ERROR_MESSAGES.CANNOT_MOVE_DIRECTORY);
 
       mockDb.select = vi.fn().mockReturnValue({
@@ -154,7 +156,7 @@ describe('FolderOperations', () => {
       });
 
       try {
-        await folderOps.moveFolder(1, 2, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles);
+        await folderOps.moveFolder(1, 2, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles);
       } catch (error) {
         if (error instanceof Error) {
           expect(error.message).not.toBe(ERROR_MESSAGES.CANNOT_MOVE_DIRECTORY);
@@ -229,7 +231,7 @@ describe('FolderOperations', () => {
   describe('moveFolder', () => {
     it('should throw error when moving folder to itself and validate before database operations', async () => {
       await expect(
-        folderOps.moveFolder(5, 5, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles)
+        folderOps.moveFolder(5, 5, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles)
       ).rejects.toThrow('Cannot move folder to itself');
 
       // Verify no database operations occurred
@@ -250,7 +252,7 @@ describe('FolderOperations', () => {
       const isDescendantOfSpy = vi.spyOn(folderOps as unknown as { isDescendantOf: (folderId: number, targetId: number) => Promise<boolean> }, 'isDescendantOf').mockResolvedValue(true);
 
       await expect(
-        folderOps.moveFolder(1, 10, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles)
+        folderOps.moveFolder(1, 10, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles)
       ).rejects.toThrow('Cannot move folder to its own descendant');
 
       // Verify no database operations occurred
@@ -265,7 +267,7 @@ describe('FolderOperations', () => {
       const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue(undefined);
 
       await expect(
-        folderOps.moveFolder(999, 1, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles)
+        folderOps.moveFolder(999, 1, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles)
       ).rejects.toThrow('Folder not found');
 
       // Verify no database operations occurred
@@ -289,7 +291,7 @@ describe('FolderOperations', () => {
       });
 
       await expect(
-        folderOps.moveFolder(folderId, currentParentId, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles)
+        folderOps.moveFolder(folderId, currentParentId, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles)
       ).rejects.toThrow('Folder is already in this location');
 
       // Verify no database operations occurred
@@ -308,7 +310,7 @@ describe('FolderOperations', () => {
         .mockResolvedValueOnce(undefined);
 
       await expect(
-        folderOps.moveFolder(folderId, nonExistentParentId, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles)
+        folderOps.moveFolder(folderId, nonExistentParentId, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles)
       ).rejects.toThrow();
 
       // Verify no database operations occurred
@@ -344,7 +346,7 @@ describe('FolderOperations', () => {
         })
       });
 
-      await folderOps.moveFolder(folderId, newParentId, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles);
+      await folderOps.moveFolder(folderId, newParentId, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles);
 
       expect(mockDb.update).toHaveBeenCalled();
       expect(capturedUpdate).toEqual({ parentId: newParentId });
@@ -384,7 +386,7 @@ describe('FolderOperations', () => {
         where: vi.fn().mockResolvedValue(undefined)
       });
 
-      await folderOps.moveFolder(sourceFolderId, newParentId, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles);
+      await folderOps.moveFolder(sourceFolderId, newParentId, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles);
 
       expect(mockDb.delete).toHaveBeenCalled();
 
@@ -400,7 +402,7 @@ describe('FolderOperations', () => {
       const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue(undefined);
 
       await expect(
-        folderOps.removeFolder(999, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles)
+        folderOps.removeFolder(999, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles)
       ).rejects.toThrow('Folder not found');
 
       // Verify no database operations occurred
@@ -445,7 +447,7 @@ describe('FolderOperations', () => {
         where: vi.fn().mockResolvedValue(undefined)
       });
 
-      await folderOps.removeFolder(folderId, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles);
+      await folderOps.removeFolder(folderId, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles);
 
       expect(mockDb.update).toHaveBeenCalled();
       expect(mockDb.delete).toHaveBeenCalled();
@@ -472,7 +474,6 @@ describe('FolderOperations', () => {
         id: 101,
         filename: 'shared.txt',
         path: '/shared.txt',
-        folderIds: JSON.stringify([folderId, 10, 20]),
         filetype: 'text',
         fileStorageType: 'import',
         addedAt: null,
@@ -483,14 +484,18 @@ describe('FolderOperations', () => {
       const getAllDescendantIdsSpy = vi.spyOn(folderOps, 'getAllDescendantIds').mockResolvedValue([]);
 
       mockGetAllFiles.mockResolvedValue([sharedFile]);
+      mockGetFolderIdsForFile.mockImplementation(async (fileId) => {
+        if (fileId === 101) return [folderId, 10, 20];
+        return [];
+      });
 
       mockDb.delete = vi.fn().mockReturnValue({
         where: vi.fn().mockResolvedValue(undefined)
       });
 
-      await folderOps.removeFolder(folderId, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles);
+      await folderOps.removeFolder(folderId, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles);
 
-      expect(mockUpdateFileFolderIds).toHaveBeenCalledWith(101, [10, 20]);
+      expect(mockRemoveFileFolderLink).toHaveBeenCalledWith(101, folderId);
       expect(mockDb.delete).toHaveBeenCalled();
 
       getFolderByIdSpy.mockRestore();
@@ -538,7 +543,7 @@ describe('FolderOperations', () => {
         where: vi.fn().mockResolvedValue(undefined)
       });
 
-      await folderOps.removeFolder(parentFolderId, mockParseFolderIds, mockUpdateFileFolderIds, mockGetAllFiles);
+      await folderOps.removeFolder(parentFolderId, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles);
 
       expect(mergeFoldersSpy).toHaveBeenCalled();
       expect(mockDb.delete).toHaveBeenCalled();
@@ -556,7 +561,7 @@ describe('FolderOperations', () => {
       const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue(undefined);
 
       await expect(
-        folderOps.deleteFolder(999, mockParseFolderIds, mockDeleteFile, mockUpdateFileFolderIds, mockGetAllFiles)
+        folderOps.deleteFolder(999, mockGetFolderIdsForFile, mockDeleteFile, mockRemoveFileFolderLink, mockGetAllFiles)
       ).rejects.toThrow('Folder not found');
 
       // Verify no database operations occurred
@@ -584,7 +589,6 @@ describe('FolderOperations', () => {
         id: 101,
         filename: 'unique.txt',
         path: '/unique.txt',
-        folderIds: JSON.stringify([folderId, childId]),
         filetype: 'text',
         fileStorageType: 'import',
         addedAt: null,
@@ -594,7 +598,6 @@ describe('FolderOperations', () => {
         id: 102,
         filename: 'shared.txt',
         path: '/shared.txt',
-        folderIds: JSON.stringify([folderId, 20, 30]),
         filetype: 'text',
         fileStorageType: 'import',
         addedAt: null,
@@ -604,7 +607,6 @@ describe('FolderOperations', () => {
         id: 103,
         filename: 'other.txt',
         path: '/other.txt',
-        folderIds: JSON.stringify([20, 30]),
         filetype: 'text',
         fileStorageType: 'import',
         addedAt: null,
@@ -614,18 +616,24 @@ describe('FolderOperations', () => {
       const getAllDescendantIdsSpy = vi.spyOn(folderOps, 'getAllDescendantIds').mockResolvedValue([childId]);
 
       mockGetAllFiles.mockResolvedValue([uniqueFile, sharedFile, otherFile]);
+      mockGetFolderIdsForFile.mockImplementation(async (fileId) => {
+        if (fileId === 101) return [folderId, childId];
+        if (fileId === 102) return [folderId, 20, 30];
+        if (fileId === 103) return [20, 30];
+        return [];
+      });
 
       mockDb.delete = vi.fn().mockReturnValue({
         where: vi.fn().mockResolvedValue(undefined)
       });
 
-      await folderOps.deleteFolder(folderId, mockParseFolderIds, mockDeleteFile, mockUpdateFileFolderIds, mockGetAllFiles);
+      await folderOps.deleteFolder(folderId, mockGetFolderIdsForFile, mockDeleteFile, mockRemoveFileFolderLink, mockGetAllFiles);
 
       expect(mockDeleteFile).toHaveBeenCalledWith(101);
       expect(mockDeleteFile).toHaveBeenCalledTimes(1);
-      expect(mockUpdateFileFolderIds).toHaveBeenCalledWith(102, [20, 30]);
+      expect(mockRemoveFileFolderLink).toHaveBeenCalledWith(102, folderId);
       expect(mockDeleteFile).not.toHaveBeenCalledWith(103);
-      expect(mockUpdateFileFolderIds).not.toHaveBeenCalledWith(103, expect.anything());
+      expect(mockRemoveFileFolderLink).not.toHaveBeenCalledWith(103, expect.anything());
       expect(mockDb.delete).toHaveBeenCalled();
 
       getFolderByIdSpy.mockRestore();
@@ -649,7 +657,6 @@ describe('FolderOperations', () => {
         id: 101,
         filename: 'multi.txt',
         path: '/multi.txt',
-        folderIds: JSON.stringify([0, folderId]),
         filetype: 'text',
         fileStorageType: 'import',
         addedAt: null,
@@ -660,7 +667,6 @@ describe('FolderOperations', () => {
         id: 102,
         filename: 'unique.txt',
         path: '/unique.txt',
-        folderIds: JSON.stringify([folderId]),
         filetype: 'text',
         fileStorageType: 'import',
         addedAt: null,
@@ -671,7 +677,6 @@ describe('FolderOperations', () => {
         id: 103,
         filename: 'root.txt',
         path: '/root.txt',
-        folderIds: JSON.stringify([0]),
         filetype: 'text',
         fileStorageType: 'import',
         addedAt: null,
@@ -681,22 +686,28 @@ describe('FolderOperations', () => {
       const getAllDescendantIdsSpy = vi.spyOn(folderOps, 'getAllDescendantIds').mockResolvedValue([]);
 
       mockGetAllFiles.mockResolvedValue([multiplyImportedFile, uniqueFile, rootOnlyFile]);
+      mockGetFolderIdsForFile.mockImplementation(async (fileId) => {
+        if (fileId === 101) return [0, folderId];
+        if (fileId === 102) return [folderId];
+        if (fileId === 103) return [0];
+        return [];
+      });
 
       mockDb.delete = vi.fn().mockReturnValue({
         where: vi.fn().mockResolvedValue(undefined)
       });
 
-      await folderOps.deleteFolder(folderId, mockParseFolderIds, mockDeleteFile, mockUpdateFileFolderIds, mockGetAllFiles);
+      await folderOps.deleteFolder(folderId, mockGetFolderIdsForFile, mockDeleteFile, mockRemoveFileFolderLink, mockGetAllFiles);
 
-      // Multiply-imported file should be updated to only have root (0)
-      expect(mockUpdateFileFolderIds).toHaveBeenCalledWith(101, [0]);
+      // Multiply-imported file should have link to folderId removed
+      expect(mockRemoveFileFolderLink).toHaveBeenCalledWith(101, folderId);
 
       // Unique file should be completely deleted
       expect(mockDeleteFile).toHaveBeenCalledWith(102);
 
       // Root-only file should not be touched at all
       expect(mockDeleteFile).not.toHaveBeenCalledWith(103);
-      expect(mockUpdateFileFolderIds).not.toHaveBeenCalledWith(103, expect.anything());
+      expect(mockRemoveFileFolderLink).not.toHaveBeenCalledWith(103, expect.anything());
 
       // Folder should be deleted
       expect(mockDb.delete).toHaveBeenCalled();

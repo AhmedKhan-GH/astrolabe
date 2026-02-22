@@ -88,8 +88,8 @@ export class RemoteFileService implements IFileService {
     });
   }
 
-  async getAllFiles(): Promise<File[]> {
+  async getAllFiles(): Promise<(File & { folderIds: string })[]> {
     const response = await this.fetchApi('/files');
-    return response.json() as Promise<File[]>;
+    return response.json() as Promise<(File & { folderIds: string })[]>;
   }
 }

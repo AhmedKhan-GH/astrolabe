@@ -30,8 +30,9 @@ export class LocalFolderService implements IFolderService {
     await this.folderOps.moveFolder(
       folderId,
       newParentId,
-      this.fileOps.parseFolderIds.bind(this.fileOps),
-      this.fileOps.updateFileFolderIds.bind(this.fileOps),
+      this.fileOps.getFolderIdsForFile.bind(this.fileOps),
+      this.fileOps.removeFileFolderLink.bind(this.fileOps),
+      this.fileOps.addFileFolderLink.bind(this.fileOps),
       this.fileOps.getAllFiles.bind(this.fileOps)
     );
     return { success: true };
@@ -40,8 +41,9 @@ export class LocalFolderService implements IFolderService {
   async removeFolder(folderId: number): Promise<void> {
     await this.folderOps.removeFolder(
       folderId,
-      this.fileOps.parseFolderIds.bind(this.fileOps),
-      this.fileOps.updateFileFolderIds.bind(this.fileOps),
+      this.fileOps.getFolderIdsForFile.bind(this.fileOps),
+      this.fileOps.removeFileFolderLink.bind(this.fileOps),
+      this.fileOps.addFileFolderLink.bind(this.fileOps),
       this.fileOps.getAllFiles.bind(this.fileOps)
     );
   }
@@ -49,9 +51,9 @@ export class LocalFolderService implements IFolderService {
   async deleteFolder(folderId: number): Promise<void> {
     await this.folderOps.deleteFolder(
       folderId,
-      this.fileOps.parseFolderIds.bind(this.fileOps),
+      this.fileOps.getFolderIdsForFile.bind(this.fileOps),
       async (fileId: number) => { await this.fileOps.deleteFile(fileId); },
-      this.fileOps.updateFileFolderIds.bind(this.fileOps),
+      this.fileOps.removeFileFolderLink.bind(this.fileOps),
       this.fileOps.getAllFiles.bind(this.fileOps)
     );
   }

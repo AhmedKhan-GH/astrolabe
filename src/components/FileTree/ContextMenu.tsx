@@ -8,7 +8,7 @@ interface ContextMenuProps {
   x: number
   y: number
   allFolders: Folder[]
-  allFiles: File[]
+  allFiles: (File & { folderIds: string })[]
   currentFolderId: number
   onMoveTo: (folderId: number) => void
   onAddTo?: (folderId: number) => void
