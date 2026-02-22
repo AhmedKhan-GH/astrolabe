@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import * as schema from '../schema';
 import type { File } from '../schema';
@@ -39,6 +39,7 @@ export class FileOperations {
   async deleteFile(fileId: number): Promise<File | undefined> {
     const file = await this.getFileById(fileId);
     if (file) {
+      // Delete file and cascade will remove file_folders entries
       await this.db.delete(schema.files).where(eq(schema.files.id, fileId));
     }
     return file;
@@ -46,27 +47,64 @@ export class FileOperations {
 
   // ============ Helper Methods ============
 
-  parseFolderIds(folderIdsJson: string | null): number[] {
-    if (!folderIdsJson) return [];
-    try {
-      const parsed = JSON.parse(folderIdsJson);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
+  /**
+   * Get all folder IDs that a file belongs to
+   */
+  async getFolderIdsForFile(fileId: number): Promise<number[]> {
+    const result = await this.db.select({ folderId: schema.fileFolders.folderId })
+      .from(schema.fileFolders)
+      .where(eq(schema.fileFolders.fileId, fileId));
+    return result.map(r => r.folderId);
   }
 
-  async updateFileFolderIds(fileId: number, folderIds: number[]): Promise<void> {
-    const folderIdsJson = folderIds.length > 0 ? JSON.stringify(folderIds) : null;
-    await this.db.update(schema.files)
-      .set({ folderIds: folderIdsJson })
-      .where(eq(schema.files.id, fileId));
+  /**
+   * Check if a file is in a specific folder
+   */
+  async isFileInFolder(fileId: number, folderId: number): Promise<boolean> {
+    const result = await this.db.select()
+      .from(schema.fileFolders)
+      .where(and(
+        eq(schema.fileFolders.fileId, fileId),
+        eq(schema.fileFolders.folderId, folderId)
+      ))
+      .limit(1);
+    return result.length > 0;
+  }
+
+  /**
+   * Add file-folder relationship
+   */
+  async addFileFolderLink(fileId: number, folderId: number): Promise<void> {
+    await this.db.insert(schema.fileFolders).values({
+      fileId,
+      folderId,
+    });
+  }
+
+  /**
+   * Remove file-folder relationship
+   */
+  async removeFileFolderLink(fileId: number, folderId: number): Promise<void> {
+    await this.db.delete(schema.fileFolders)
+      .where(and(
+        eq(schema.fileFolders.fileId, fileId),
+        eq(schema.fileFolders.folderId, folderId)
+      ));
+  }
+
+  /**
+   * Remove all folder links for a file
+   */
+  async removeAllFileFolderLinks(fileId: number): Promise<void> {
+    await this.db.delete(schema.fileFolders)
+      .where(eq(schema.fileFolders.fileId, fileId));
   }
 
   // ============ Validation Methods ============
 
-  private validateFileNotInFolder(folderIds: number[], targetFolderId: number): void {
-    if (folderIds.includes(targetFolderId)) {
+  private async validateFileNotInFolder(fileId: number, targetFolderId: number): Promise<void> {
+    const isInFolder = await this.isFileInFolder(fileId, targetFolderId);
+    if (isInFolder) {
       throw new Error('The file already exists in this folder');
     }
   }
@@ -89,10 +127,8 @@ export class FileOperations {
     const existingFile = await this.getFileByFilenameAndStorageType(filename, storageType);
 
     if (existingFile) {
-      const folderIds = this.parseFolderIds(existingFile.folderIds);
-
       // Validate not duplicate in location
-      this.validateFileNotInFolder(folderIds, folderId);
+      await this.validateFileNotInFolder(existingFile.id, folderId);
 
       // Ask user for confirmation
       const shouldUpdate = await confirmCallback(existingFile);
@@ -106,8 +142,7 @@ export class FileOperations {
         .where(eq(schema.files.id, existingFile.id));
 
       // Add to folder
-      folderIds.push(folderId);
-      await this.updateFileFolderIds(existingFile.id, folderIds);
+      await this.addFileFolderLink(existingFile.id, folderId);
 
       // Expand UI
       if (folderId !== 0) {
@@ -116,7 +151,7 @@ export class FileOperations {
 
       return {
         isUpdate: true,
-        file: { ...existingFile, path, filetype, fileStorageType: storageType, folderIds: JSON.stringify(folderIds) },
+        file: { ...existingFile, path, filetype, fileStorageType: storageType },
         existingFile
       };
     }
@@ -126,9 +161,11 @@ export class FileOperations {
       filename,
       path,
       filetype,
-      folderIds: JSON.stringify([folderId]),
       fileStorageType: storageType,
     }).returning();
+
+    // Add to folder
+    await this.addFileFolderLink(inserted[0].id, folderId);
 
     if (folderId !== 0) {
       await expandAncestors(folderId);
@@ -141,7 +178,7 @@ export class FileOperations {
   }
 
   /**
-   * Move file to different folder
+   * Move file to different folder (replaces all existing folder associations)
    */
   async moveFile(
     fileId: number,
@@ -161,14 +198,15 @@ export class FileOperations {
     }
 
     // Check if already in this location
-    const currentFolderIds = this.parseFolderIds(file.folderIds);
-    const newFolderIds = [folderId];
+    const currentFolderIds = await this.getFolderIdsForFile(fileId);
 
     if (currentFolderIds.length === 1 && currentFolderIds[0] === folderId) {
       throw new Error('File is already in this location');
     }
 
-    await this.updateFileFolderIds(fileId, newFolderIds);
+    // Remove all existing folder links and add new one
+    await this.removeAllFileFolderLinks(fileId);
+    await this.addFileFolderLink(fileId, folderId);
 
     if (folderId !== 0) {
       await expandAncestors(folderId);
@@ -197,13 +235,10 @@ export class FileOperations {
       throw new Error('File not found');
     }
 
-    const folderIds = this.parseFolderIds(file.folderIds);
-
     // Validate not duplicate
-    this.validateFileNotInFolder(folderIds, folderId);
+    await this.validateFileNotInFolder(fileId, folderId);
 
-    folderIds.push(folderId);
-    await this.updateFileFolderIds(fileId, folderIds);
+    await this.addFileFolderLink(fileId, folderId);
 
     if (folderId !== 0) {
       await expandAncestors(folderId);
@@ -219,9 +254,6 @@ export class FileOperations {
       throw new Error('File not found');
     }
 
-    const folderIds = this.parseFolderIds(file.folderIds);
-    const newFolderIds = folderIds.filter(id => id !== folderId);
-
-    await this.updateFileFolderIds(fileId, newFolderIds);
+    await this.removeFileFolderLink(fileId, folderId);
   }
 }

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { FileOperations } from './FileOperations';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import * as schema from '../schema';
-import type { File } from '../schema';
+import type { File, FileFolder } from '../schema';
 
 // Mock the schema module
 vi.mock('../schema', () => ({
@@ -11,7 +11,6 @@ vi.mock('../schema', () => ({
     filename: Symbol('filename'),
     path: Symbol('path'),
     filetype: Symbol('filetype'),
-    folderIds: Symbol('folderIds'),
     fileStorageType: Symbol('fileStorageType'),
     addedAt: Symbol('addedAt'),
   },
@@ -20,6 +19,11 @@ vi.mock('../schema', () => ({
     name: Symbol('name'),
     parentId: Symbol('parentId'),
     isExpanded: Symbol('isExpanded'),
+  },
+  fileFolders: {
+    fileId: Symbol('fileId'),
+    folderId: Symbol('folderId'),
+    addedAt: Symbol('addedAt'),
   },
 }));
 
@@ -62,36 +66,69 @@ describe('FileOperations', () => {
     fileOps = new FileOperations(mockDb);
   });
 
-  describe('parseFolderIds', () => {
-    it('should parse valid JSON array', () => {
-      const result = fileOps.parseFolderIds('[1,2,3]');
+  describe('getFolderIdsForFile', () => {
+    it('should retrieve all folder IDs that a file is linked to via junction table', async () => {
+      mockDb.select = vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([
+            { folderId: 1 },
+            { folderId: 2 },
+            { folderId: 3 }
+          ])
+        })
+      });
+
+      const result = await fileOps.getFolderIdsForFile(1);
       expect(result).toEqual([1, 2, 3]);
     });
 
-    it('should return empty array for null', () => {
-      const result = fileOps.parseFolderIds(null);
-      expect(result).toEqual([]);
-    });
+    it('should return empty array when file is not linked to any folders', async () => {
+      mockDb.select = vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([])
+        })
+      });
 
-    it('should return empty array for invalid JSON', () => {
-      const result = fileOps.parseFolderIds('invalid json');
-      expect(result).toEqual([]);
-    });
-
-    it('should return empty array for non-array JSON', () => {
-      const result = fileOps.parseFolderIds('{"key": "value"}');
+      const result = await fileOps.getFolderIdsForFile(999);
       expect(result).toEqual([]);
     });
   });
 
+  describe('isFileInFolder', () => {
+    it('should return true when file-folder link exists in junction table', async () => {
+      mockDb.select = vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue([{ fileId: 1, folderId: 2 }])
+          })
+        })
+      });
+
+      const result = await fileOps.isFileInFolder(1, 2);
+      expect(result).toBe(true);
+    });
+
+    it('should return false when file-folder link does not exist in junction table', async () => {
+      mockDb.select = vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue([])
+          })
+        })
+      });
+
+      const result = await fileOps.isFileInFolder(1, 2);
+      expect(result).toBe(false);
+    });
+  });
+
   describe('getFileById', () => {
-    it('should return file when found', async () => {
+    it('should retrieve and return file record when querying by valid file ID', async () => {
       const mockFile: File = {
         id: 1,
         filename: 'test.txt',
         path: '/test.txt',
         filetype: 'text',
-        folderIds: '[0]',
         fileStorageType: 'import',
         addedAt: null,
       };
@@ -108,7 +145,7 @@ describe('FileOperations', () => {
       expect(result).toEqual(mockFile);
     });
 
-    it('should return undefined when file not found', async () => {
+    it('should return undefined when querying for non-existent file ID', async () => {
       mockDb.select = vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
@@ -123,17 +160,17 @@ describe('FileOperations', () => {
   });
 
   describe('importFile', () => {
-    it('should create new file when no duplicate exists', async () => {
+    it('should create new file record and expand ancestors when importing unique file to non-root folder', async () => {
       const newFile: File = {
         id: 1,
         filename: 'new.txt',
         path: '/new.txt',
         filetype: 'text',
-        folderIds: '[1]',
         fileStorageType: 'import',
         addedAt: null,
       };
 
+      // No existing file found
       mockDb.select = vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockResolvedValue([])
@@ -159,16 +196,16 @@ describe('FileOperations', () => {
       expect(result.isUpdate).toBe(false);
       expect(result.file).toEqual(newFile);
       expect(mockConfirmCallback).not.toHaveBeenCalled();
+      expect(mockDb.insert).toHaveBeenCalledTimes(2); // Once for file, once for file_folders
       expect(mockExpandAncestors).toHaveBeenCalledWith(1);
     });
 
-    it('should not expand ancestors when adding to root folder', async () => {
+    it('should skip expanding ancestors when importing file to root folder (folderId 0)', async () => {
       const newFile: File = {
         id: 1,
         filename: 'new.txt',
         path: '/new.txt',
         filetype: 'text',
-        folderIds: '[0]',
         fileStorageType: 'import',
         addedAt: null,
       };
@@ -198,20 +235,31 @@ describe('FileOperations', () => {
       expect(mockExpandAncestors).not.toHaveBeenCalled();
     });
 
-    it('should throw error when file already exists in target folder', async () => {
+    it('should reject import and throw error when file with same name already exists in target folder', async () => {
       const existingFile: File = {
         id: 1,
         filename: 'existing.txt',
         path: '/existing.txt',
         filetype: 'text',
-        folderIds: '[1]',
         fileStorageType: 'import',
         addedAt: null,
       };
 
+      // Mock finding existing file
+      let selectCallCount = 0;
       mockDb.select = vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue([existingFile])
+          where: vi.fn().mockImplementation(() => {
+            selectCallCount++;
+            // First call: getFileByFilenameAndStorageType finds the file
+            if (selectCallCount === 1) {
+              return Promise.resolve([existingFile]);
+            }
+            // Second call: isFileInFolder checks if file is already in folder
+            return {
+              limit: vi.fn().mockResolvedValue([{ fileId: 1, folderId: 1 }])
+            };
+          })
         })
       });
 
@@ -230,20 +278,30 @@ describe('FileOperations', () => {
       expect(mockConfirmCallback).not.toHaveBeenCalled();
     });
 
-    it('should update existing file when user confirms', async () => {
+    it('should update existing file with new path and folder when user confirms duplicate file import', async () => {
       const existingFile: File = {
         id: 1,
         filename: 'existing.txt',
         path: '/old/path.txt',
         filetype: 'text',
-        folderIds: '[2]',
         fileStorageType: 'import',
         addedAt: null,
       };
 
+      let selectCallCount = 0;
       mockDb.select = vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue([existingFile])
+          where: vi.fn().mockImplementation(() => {
+            selectCallCount++;
+            // First call: getFileByFilenameAndStorageType finds the file
+            if (selectCallCount === 1) {
+              return Promise.resolve([existingFile]);
+            }
+            // Second call: isFileInFolder checks if NOT already in folder
+            return {
+              limit: vi.fn().mockResolvedValue([]) // Not in folder yet
+            };
+          })
         })
       });
 
@@ -251,6 +309,10 @@ describe('FileOperations', () => {
         set: vi.fn().mockReturnValue({
           where: vi.fn().mockResolvedValue(undefined)
         })
+      });
+
+      mockDb.insert = vi.fn().mockReturnValue({
+        values: vi.fn().mockResolvedValue(undefined)
       });
 
       mockConfirmCallback.mockResolvedValue(true);
@@ -267,24 +329,35 @@ describe('FileOperations', () => {
 
       expect(result.isUpdate).toBe(true);
       expect(mockConfirmCallback).toHaveBeenCalledWith(existingFile);
-      expect(mockDb.update).toHaveBeenCalled();
+      expect(mockDb.update).toHaveBeenCalled(); // Update file metadata
+      expect(mockDb.insert).toHaveBeenCalled(); // Add file-folder link
       expect(mockExpandAncestors).toHaveBeenCalledWith(1);
     });
 
-    it('should return cancelled when user cancels update', async () => {
+    it('should abort import without updating database when user cancels duplicate file confirmation', async () => {
       const existingFile: File = {
         id: 1,
         filename: 'existing.txt',
         path: '/existing.txt',
         filetype: 'text',
-        folderIds: '[2]',
         fileStorageType: 'import',
         addedAt: null,
       };
 
+      let selectCallCount = 0;
       mockDb.select = vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue([existingFile])
+          where: vi.fn().mockImplementation(() => {
+            selectCallCount++;
+            // First call: getFileByFilenameAndStorageType finds the file
+            if (selectCallCount === 1) {
+              return Promise.resolve([existingFile]);
+            }
+            // Second call: isFileInFolder checks if NOT already in folder
+            return {
+              limit: vi.fn().mockResolvedValue([])
+            };
+          })
         })
       });
 
@@ -308,7 +381,7 @@ describe('FileOperations', () => {
   });
 
   describe('moveFile', () => {
-    it('should throw error when file not found', async () => {
+    it('should validate file exists and throw error when attempting to move non-existent file', async () => {
       mockDb.select = vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
@@ -324,13 +397,12 @@ describe('FileOperations', () => {
       ).rejects.toThrow('File not found');
     });
 
-    it('should throw error when target folder not found', async () => {
+    it('should validate target folder exists and throw error when moving to non-existent folder', async () => {
       const mockFile: File = {
         id: 1,
         filename: 'test.txt',
         path: '/test.txt',
         filetype: 'text',
-        folderIds: '[0]',
         fileStorageType: 'import',
         addedAt: null,
       };
@@ -350,21 +422,27 @@ describe('FileOperations', () => {
       ).rejects.toThrow('Target folder not found');
     });
 
-    it('should throw error when file is already in target location', async () => {
+    it('should detect no-op move and throw error when file is already in target folder', async () => {
       const mockFile: File = {
         id: 1,
         filename: 'test.txt',
         path: '/test.txt',
         filetype: 'text',
-        folderIds: '[1]',
         fileStorageType: 'import',
         addedAt: null,
       };
 
+      let selectCallCount = 0;
       mockDb.select = vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([mockFile])
+          where: vi.fn().mockImplementation(() => {
+            selectCallCount++;
+            if (selectCallCount === 1) {
+              // getFileById call
+              return { limit: vi.fn().mockResolvedValue([mockFile]) };
+            }
+            // getFolderIdsForFile call
+            return Promise.resolve([{ folderId: 1 }]);
           })
         })
       });
@@ -376,73 +454,91 @@ describe('FileOperations', () => {
       ).rejects.toThrow('File is already in this location');
     });
 
-    it('should move file to different folder', async () => {
+    it('should remove all existing folder links and create new link when moving file to different folder', async () => {
       const mockFile: File = {
         id: 1,
         filename: 'test.txt',
         path: '/test.txt',
         filetype: 'text',
-        folderIds: '[1]',
         fileStorageType: 'import',
         addedAt: null,
       };
 
+      let selectCallCount = 0;
       mockDb.select = vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([mockFile])
+          where: vi.fn().mockImplementation(() => {
+            selectCallCount++;
+            if (selectCallCount === 1) {
+              // getFileById call
+              return { limit: vi.fn().mockResolvedValue([mockFile]) };
+            }
+            // getFolderIdsForFile call
+            return Promise.resolve([{ folderId: 1 }]);
           })
         })
       });
 
-      mockDb.update = vi.fn().mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(undefined)
-        })
+      mockDb.delete = vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(undefined)
+      });
+
+      mockDb.insert = vi.fn().mockReturnValue({
+        values: vi.fn().mockResolvedValue(undefined)
       });
 
       mockGetFolderById.mockResolvedValue({ id: 2, name: 'Folder', parentId: 0, isExpanded: false, createdAt: null });
 
       await fileOps.moveFile(1, 2, mockGetFolderById, mockExpandAncestors);
 
-      expect(mockDb.update).toHaveBeenCalled();
+      expect(mockDb.delete).toHaveBeenCalled(); // Remove all folder links
+      expect(mockDb.insert).toHaveBeenCalled(); // Add new folder link
       expect(mockExpandAncestors).toHaveBeenCalledWith(2);
     });
 
-    it('should allow moving to root folder', async () => {
+    it('should allow moving file to root folder (folderId 0) without ancestor expansion', async () => {
       const mockFile: File = {
         id: 1,
         filename: 'test.txt',
         path: '/test.txt',
         filetype: 'text',
-        folderIds: '[1]',
         fileStorageType: 'import',
         addedAt: null,
       };
 
+      let selectCallCount = 0;
       mockDb.select = vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([mockFile])
+          where: vi.fn().mockImplementation(() => {
+            selectCallCount++;
+            if (selectCallCount === 1) {
+              // getFileById call
+              return { limit: vi.fn().mockResolvedValue([mockFile]) };
+            }
+            // getFolderIdsForFile call
+            return Promise.resolve([{ folderId: 1 }]);
           })
         })
       });
 
-      mockDb.update = vi.fn().mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(undefined)
-        })
+      mockDb.delete = vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(undefined)
+      });
+
+      mockDb.insert = vi.fn().mockReturnValue({
+        values: vi.fn().mockResolvedValue(undefined)
       });
 
       await fileOps.moveFile(1, 0, mockGetFolderById, mockExpandAncestors);
 
-      expect(mockDb.update).toHaveBeenCalled();
+      expect(mockDb.delete).toHaveBeenCalled();
+      expect(mockDb.insert).toHaveBeenCalled();
       expect(mockExpandAncestors).not.toHaveBeenCalled();
     });
   });
 
   describe('addFileToFolder', () => {
-    it('should throw error when file not found', async () => {
+    it('should validate file exists and throw error when adding non-existent file to folder', async () => {
       mockDb.select = vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
@@ -458,13 +554,12 @@ describe('FileOperations', () => {
       ).rejects.toThrow('File not found');
     });
 
-    it('should throw error when folder not found', async () => {
+    it('should validate target folder exists and throw error when adding to non-existent folder', async () => {
       const mockFile: File = {
         id: 1,
         filename: 'test.txt',
         path: '/test.txt',
         filetype: 'text',
-        folderIds: '[0]',
         fileStorageType: 'import',
         addedAt: null,
       };
@@ -484,21 +579,27 @@ describe('FileOperations', () => {
       ).rejects.toThrow('Folder not found');
     });
 
-    it('should throw error when file already in target folder', async () => {
+    it('should prevent duplicate folder membership and throw error when file already linked to target folder', async () => {
       const mockFile: File = {
         id: 1,
         filename: 'test.txt',
         path: '/test.txt',
         filetype: 'text',
-        folderIds: '[1,2]',
         fileStorageType: 'import',
         addedAt: null,
       };
 
+      let selectCallCount = 0;
       mockDb.select = vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([mockFile])
+          where: vi.fn().mockImplementation(() => {
+            selectCallCount++;
+            if (selectCallCount === 1) {
+              // getFileById call
+              return { limit: vi.fn().mockResolvedValue([mockFile]) };
+            }
+            // isFileInFolder call - file is already in folder
+            return { limit: vi.fn().mockResolvedValue([{ fileId: 1, folderId: 1 }]) };
           })
         })
       });
@@ -510,74 +611,82 @@ describe('FileOperations', () => {
       ).rejects.toThrow('The file already exists in this folder');
     });
 
-    it('should add file to folder', async () => {
+    it('should create file-folder link in junction table and expand ancestors when adding file to additional folder', async () => {
       const mockFile: File = {
         id: 1,
         filename: 'test.txt',
         path: '/test.txt',
         filetype: 'text',
-        folderIds: '[1]',
         fileStorageType: 'import',
         addedAt: null,
       };
 
+      let selectCallCount = 0;
       mockDb.select = vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([mockFile])
+          where: vi.fn().mockImplementation(() => {
+            selectCallCount++;
+            if (selectCallCount === 1) {
+              // getFileById call
+              return { limit: vi.fn().mockResolvedValue([mockFile]) };
+            }
+            // isFileInFolder call - not in folder yet
+            return { limit: vi.fn().mockResolvedValue([]) };
           })
         })
       });
 
-      mockDb.update = vi.fn().mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(undefined)
-        })
+      mockDb.insert = vi.fn().mockReturnValue({
+        values: vi.fn().mockResolvedValue(undefined)
       });
 
       mockGetFolderById.mockResolvedValue({ id: 2, name: 'Folder', parentId: 0, isExpanded: false, createdAt: null });
 
       await fileOps.addFileToFolder(1, 2, mockGetFolderById, mockExpandAncestors);
 
-      expect(mockDb.update).toHaveBeenCalled();
+      expect(mockDb.insert).toHaveBeenCalled();
       expect(mockExpandAncestors).toHaveBeenCalledWith(2);
     });
 
-    it('should allow adding file to root folder', async () => {
+    it('should allow adding file to root folder (folderId 0) without folder validation or ancestor expansion', async () => {
       const mockFile: File = {
         id: 1,
         filename: 'test.txt',
         path: '/test.txt',
         filetype: 'text',
-        folderIds: '[1]',
         fileStorageType: 'import',
         addedAt: null,
       };
 
+      let selectCallCount = 0;
       mockDb.select = vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([mockFile])
+          where: vi.fn().mockImplementation(() => {
+            selectCallCount++;
+            if (selectCallCount === 1) {
+              // getFileById call
+              return { limit: vi.fn().mockResolvedValue([mockFile]) };
+            }
+            // isFileInFolder call
+            return { limit: vi.fn().mockResolvedValue([]) };
           })
         })
       });
 
-      mockDb.update = vi.fn().mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(undefined)
-        })
+      mockDb.insert = vi.fn().mockReturnValue({
+        values: vi.fn().mockResolvedValue(undefined)
       });
 
       await fileOps.addFileToFolder(1, 0, mockGetFolderById, mockExpandAncestors);
 
       expect(mockGetFolderById).not.toHaveBeenCalled();
-      expect(mockDb.update).toHaveBeenCalled();
+      expect(mockDb.insert).toHaveBeenCalled();
       expect(mockExpandAncestors).not.toHaveBeenCalled();
     });
   });
 
   describe('removeFileFromFolder', () => {
-    it('should throw error when file not found', async () => {
+    it('should validate file exists and throw error when removing link from non-existent file', async () => {
       mockDb.select = vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
@@ -591,13 +700,12 @@ describe('FileOperations', () => {
       ).rejects.toThrow('File not found');
     });
 
-    it('should remove file from folder', async () => {
+    it('should delete file-folder link from junction table when removing file from folder', async () => {
       const mockFile: File = {
         id: 1,
         filename: 'test.txt',
         path: '/test.txt',
         filetype: 'text',
-        folderIds: '[1,2,3]',
         fileStorageType: 'import',
         addedAt: null,
       };
@@ -610,24 +718,21 @@ describe('FileOperations', () => {
         })
       });
 
-      mockDb.update = vi.fn().mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(undefined)
-        })
+      mockDb.delete = vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(undefined)
       });
 
       await fileOps.removeFileFromFolder(1, 2);
 
-      expect(mockDb.update).toHaveBeenCalled();
+      expect(mockDb.delete).toHaveBeenCalled();
     });
 
-    it('should handle removing file from folder it is not in', async () => {
+    it('should gracefully handle removing file from folder when file is not linked to that folder (no-op delete)', async () => {
       const mockFile: File = {
         id: 1,
         filename: 'test.txt',
         path: '/test.txt',
         filetype: 'text',
-        folderIds: '[1,3]',
         fileStorageType: 'import',
         addedAt: null,
       };
@@ -640,26 +745,23 @@ describe('FileOperations', () => {
         })
       });
 
-      mockDb.update = vi.fn().mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(undefined)
-        })
+      mockDb.delete = vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(undefined)
       });
 
       await fileOps.removeFileFromFolder(1, 2);
 
-      expect(mockDb.update).toHaveBeenCalled();
+      expect(mockDb.delete).toHaveBeenCalled(); // Still executes delete, just won't match any rows
     });
   });
 
   describe('deleteFile', () => {
-    it('should delete file when it exists', async () => {
+    it('should permanently remove file record from database and cascade delete junction table entries', async () => {
       const mockFile: File = {
         id: 1,
         filename: 'test.txt',
         path: '/test.txt',
         filetype: 'text',
-        folderIds: '[0]',
         fileStorageType: 'import',
         addedAt: null,
       };
@@ -682,7 +784,7 @@ describe('FileOperations', () => {
       expect(mockDb.delete).toHaveBeenCalled();
     });
 
-    it('should return undefined when file does not exist', async () => {
+    it('should skip deletion and return undefined when attempting to delete non-existent file', async () => {
       mockDb.select = vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
