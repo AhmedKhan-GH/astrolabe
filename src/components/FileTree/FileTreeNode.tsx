@@ -110,23 +110,24 @@ export default function FileTreeNode({ node, level, parentFolderId, isLastSiblin
         )
       })}
 
-      {/* Connecting line for files - L-shaped connector */}
+      {/* Connecting line for files - L-shaped connector from parent level */}
       {!node.isSystemRoot && !isFolder && (
         <>
-          {/* Vertical line - stops at middle if last sibling, continues to bottom if not */}
+          {/* Vertical line from parent level - stops at middle if last sibling */}
           <div
             className="absolute top-0 w-px bg-slate-600"
             style={{
-              left: `${level * 20 + (hideActionButtons ? 0 : 44) + 8}px`,
+              left: `${(level - 1) * 20 + (hideActionButtons ? 0 : 44) + 8}px`,
               height: isLastSibling ? '50%' : '100%'
             }}
           />
-          {/* Horizontal part of L */}
+          {/* Horizontal part of L connecting from parent to file icon */}
           <div
-            className="absolute w-3 h-px bg-slate-600"
+            className="absolute h-px bg-slate-600"
             style={{
-              left: `${level * 20 + (hideActionButtons ? 0 : 44) + 8}px`,
-              top: '50%'
+              left: `${(level - 1) * 20 + (hideActionButtons ? 0 : 44) + 8}px`,
+              top: '50%',
+              width: `${20 + 16 + 8}px` // 20px to file level + 16px chevron width + 8px gap to icon
             }}
           />
         </>
