@@ -111,7 +111,8 @@ export default function FileTreeNode({ node, level, parentFolderId, isLastSiblin
       })}
 
       {/* Connecting line for files - L-shaped connector from parent level */}
-      {!node.isSystemRoot && !isFolder && (
+      {/* Only show connectors for files that are not at root level (level > 0) */}
+      {!node.isSystemRoot && !isFolder && level > 0 && (
         <>
           {/* Vertical line from parent level - stops at middle if last sibling */}
           <div
