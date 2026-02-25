@@ -8,6 +8,7 @@ interface FileTreeNodeProps {
   node: TreeNode
   level: number
   parentFolderId: number
+  isLastSibling?: boolean
   onNodeClick?: (node: TreeNode) => void
   onNodeDoubleClick?: (node: TreeNode) => void
   onNodeContextMenu?: (node: TreeNode, parentFolderId: number, e: React.MouseEvent) => void
@@ -25,7 +26,7 @@ interface FileTreeNodeProps {
   allFiles?: (File & { folderIds: string })[]
 }
 
-export default function FileTreeNode({ node, level, parentFolderId, onNodeClick, onNodeDoubleClick, onNodeContextMenu, onToggleExpand, expandedNodes, hideActionButtons = false, highlightedNodeId, onAddFolder, onAddFile, onReferenceFile, onExpandAll, onCollapseAll, onMoveTo, allFolders = [], allFiles = [] }: FileTreeNodeProps) {
+export default function FileTreeNode({ node, level, parentFolderId, isLastSibling = false, onNodeClick, onNodeDoubleClick, onNodeContextMenu, onToggleExpand, expandedNodes, hideActionButtons = false, highlightedNodeId, onAddFolder, onAddFile, onReferenceFile, onExpandAll, onCollapseAll, onMoveTo, allFolders = [], allFiles = [] }: FileTreeNodeProps) {
   const [showPlusMenu, setShowPlusMenu] = useState(false)
   const [showDotMenu, setShowDotMenu] = useState(false)
   const [showMovePickerFromDot, setShowMovePickerFromDot] = useState(false)
@@ -96,13 +97,40 @@ export default function FileTreeNode({ node, level, parentFolderId, onNodeClick,
   return (
     <div className="relative">
       {/* Vertical lines for parent levels - outside opacity container */}
-      {!node.isSystemRoot && Array.from({ length: level }).map((_, i) => (
-        <div
-          key={i}
-          className="absolute top-0 bottom-0 w-px bg-slate-600"
-          style={{ left: `${i * 20 + (hideActionButtons ? 0 : 44) + 8}px` }}
-        />
-      ))}
+      {/* For files, skip drawing the line at their own level (level - 1 in 0-indexed array) */}
+      {!node.isSystemRoot && Array.from({ length: level }).map((_, i) => {
+        // Skip the line at file's own level - it will be drawn by the L-connector
+        if (!isFolder && i === level - 1) return null
+        return (
+          <div
+            key={i}
+            className="absolute top-0 bottom-0 w-px bg-slate-600"
+            style={{ left: `${i * 20 + (hideActionButtons ? 0 : 44) + 8}px` }}
+          />
+        )
+      })}
+
+      {/* Connecting line for files - L-shaped connector */}
+      {!node.isSystemRoot && !isFolder && (
+        <>
+          {/* Vertical line - stops at middle if last sibling, continues to bottom if not */}
+          <div
+            className="absolute top-0 w-px bg-slate-600"
+            style={{
+              left: `${level * 20 + (hideActionButtons ? 0 : 44) + 8}px`,
+              height: isLastSibling ? '50%' : '100%'
+            }}
+          />
+          {/* Horizontal part of L */}
+          <div
+            className="absolute w-3 h-px bg-slate-600"
+            style={{
+              left: `${level * 20 + (hideActionButtons ? 0 : 44) + 8}px`,
+              top: '50%'
+            }}
+          />
+        </>
+      )}
 
 
       <div
@@ -347,8 +375,8 @@ export default function FileTreeNode({ node, level, parentFolderId, onNodeClick,
       </div>
       {isFolder && isExpanded && hasChildren && (
         <div>
-          {node.children!.map((child) => (
-            <FileTreeNode key={child.id} node={child} level={level + 1} parentFolderId={currentFolderId} onNodeClick={onNodeClick} onNodeDoubleClick={onNodeDoubleClick} onNodeContextMenu={onNodeContextMenu} onToggleExpand={onToggleExpand} expandedNodes={expandedNodes} hideActionButtons={hideActionButtons} highlightedNodeId={highlightedNodeId} onAddFolder={onAddFolder} onAddFile={onAddFile} onReferenceFile={onReferenceFile} onExpandAll={onExpandAll} onCollapseAll={onCollapseAll} onMoveTo={onMoveTo} allFolders={allFolders} allFiles={allFiles} />
+          {node.children!.map((child, index) => (
+            <FileTreeNode key={child.id} node={child} level={level + 1} parentFolderId={currentFolderId} isLastSibling={index === node.children!.length - 1} onNodeClick={onNodeClick} onNodeDoubleClick={onNodeDoubleClick} onNodeContextMenu={onNodeContextMenu} onToggleExpand={onToggleExpand} expandedNodes={expandedNodes} hideActionButtons={hideActionButtons} highlightedNodeId={highlightedNodeId} onAddFolder={onAddFolder} onAddFile={onAddFile} onReferenceFile={onReferenceFile} onExpandAll={onExpandAll} onCollapseAll={onCollapseAll} onMoveTo={onMoveTo} allFolders={allFolders} allFiles={allFiles} />
           ))}
         </div>
       )}
