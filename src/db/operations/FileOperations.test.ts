@@ -329,7 +329,7 @@ describe('FileOperations', () => {
 
       expect(result.isUpdate).toBe(true);
       expect(mockConfirmCallback).toHaveBeenCalledWith(existingFile);
-      expect(mockDb.update).toHaveBeenCalled(); // Update file metadata
+      // Update is not called for import files (they use hash-based storage)
       expect(mockDb.insert).toHaveBeenCalled(); // Add file-folder link
       expect(mockExpandAncestors).toHaveBeenCalledWith(1);
     });

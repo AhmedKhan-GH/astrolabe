@@ -10,6 +10,7 @@ interface ContextMenuProps {
   allFolders: Folder[]
   allFiles: (File & { folderIds: string })[]
   currentFolderId: number
+  databaseName?: string
   onMoveTo: (folderId: number) => void
   onAddTo?: (folderId: number) => void
   onAddContentsTo?: (targetFolderId: number) => void
@@ -31,6 +32,7 @@ export default function ContextMenu({
   allFolders,
   allFiles,
   currentFolderId,
+  databaseName,
   onMoveTo,
   onAddTo,
   onAddContentsTo,
@@ -130,7 +132,7 @@ export default function ContextMenu({
               }}
               className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600 cursor-pointer"
             >
-              Move to
+              Move To
             </button>
             {node.type === 'file' && onAddTo && (
               <button
@@ -260,6 +262,7 @@ export default function ContextMenu({
           allFolders={allFolders}
           currentFolderId={currentFolderId}
           greyedOutFolderIds={getGreyedOutFoldersForMove()}
+          databaseName={databaseName}
           onSelect={(folderId) => {
             onMoveTo(folderId)
             setShowMovePicker(false)
@@ -274,6 +277,7 @@ export default function ContextMenu({
           allFolders={allFolders}
           currentFolderId={currentFolderId}
           greyedOutFolderIds={getGreyedOutFoldersForAdd()}
+          databaseName={databaseName}
           onSelect={(folderId) => {
             onAddTo(folderId)
             setShowAddPicker(false)
@@ -288,6 +292,7 @@ export default function ContextMenu({
           allFolders={allFolders}
           currentFolderId={currentFolderId}
           greyedOutFolderIds={getGreyedOutFoldersForAddContents()}
+          databaseName={databaseName}
           onSelect={(folderId) => {
             onAddContentsTo(folderId)
             setShowAddContentsPicker(false)

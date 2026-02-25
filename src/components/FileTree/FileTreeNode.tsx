@@ -107,10 +107,10 @@ export default function FileTreeNode({ node, level, parentFolderId, onNodeClick,
 
       <div
         className={`flex items-center py-1.5 text-sm relative rounded group ${
-          node.isDisabled
+          node.isSystemRoot
+            ? `bg-green-700/20 border border-green-600/30 text-green-300 mx-1 px-2 ${node.isDisabled ? 'opacity-40 cursor-not-allowed' : 'hover:bg-green-700/30 cursor-pointer'}`
+            : node.isDisabled
             ? 'opacity-40 cursor-not-allowed'
-            : node.isSystemRoot
-            ? 'bg-green-700/20 border border-green-600/30 hover:bg-green-700/30 text-green-300 mx-1 px-2 cursor-pointer'
             : 'hover:bg-slate-700/50 cursor-pointer'
         }`}
         style={{ paddingLeft: node.isSystemRoot ? undefined : `${level * 20 + (hideActionButtons ? 0 : 44)}px` }}
@@ -232,7 +232,7 @@ export default function FileTreeNode({ node, level, parentFolderId, onNodeClick,
                         }}
                         className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600"
                       >
-                        Move to
+                        Move To
                       </button>
                     )}
                     {onExpandAll && (

@@ -482,6 +482,7 @@ function DirectoryTree() {
           allFolders={allFolders}
           allFiles={allFiles}
           currentFolderId={contextMenu.folderId}
+          databaseName={getDatabaseName(currentDatabase)}
           onMoveTo={handleMoveTo}
           onAddTo={contextMenu.node.type === 'file' ? handleAddTo : undefined}
           onAddContentsTo={contextMenu.node.type === 'folder' ? handleAddContentsTo : undefined}

@@ -9,9 +9,10 @@ interface FolderPickerModalProps {
   onClose: () => void
   greyedOutFolderIds?: number[]  // Folders to grey out (disabled)
   currentFolderId?: number  // Current folder (for context)
+  databaseName?: string  // Database name to display instead of "Directory"
 }
 
-export default function FolderPickerModal({ allFolders, onSelect, onClose, greyedOutFolderIds = [], currentFolderId }: FolderPickerModalProps) {
+export default function FolderPickerModal({ allFolders, onSelect, onClose, greyedOutFolderIds = [], currentFolderId, databaseName }: FolderPickerModalProps) {
   // Build folder hierarchy and convert to TreeNode format with Directory
   const treeData = useMemo(() => {
     const folderMap: Record<number, TreeNode> = {}
@@ -45,7 +46,7 @@ export default function FolderPickerModal({ allFolders, onSelect, onClose, greye
     // Create Directory node that contains everything
     const systemRootNode: TreeNode = {
       id: 'folder-0',
-      name: UI_LABELS.DIRECTORY,
+      name: databaseName || UI_LABELS.DIRECTORY,
       type: 'folder',
       children: rootFolders,
       isExpanded: true,
@@ -54,7 +55,7 @@ export default function FolderPickerModal({ allFolders, onSelect, onClose, greye
     }
 
     return [systemRootNode]
-  }, [allFolders, greyedOutFolderIds])
+  }, [allFolders, greyedOutFolderIds, databaseName])
 
   // Function to get all ancestor folder IDs
   const getAncestorIds = (folderId: number): number[] => {
