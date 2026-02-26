@@ -44,7 +44,7 @@ describe('FolderOperations', () => {
   let mockDb: BetterSQLite3Database<typeof schema>;
 
   // Mock helper functions used by move/remove/delete operations
-  const mockGetFolderIdsForFile = vi.fn(async (_fileId: number): Promise<number[]> => {
+  const mockGetFolderIdsForFile = vi.fn(async (): Promise<number[]> => {
     return [];
   });
 
