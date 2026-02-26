@@ -3,7 +3,7 @@
  * Uses console methods directly since pino-pretty doesn't work well in Electron
  */
 
-type LogFunction = (dataOrMsg: any, msg?: string) => void;
+type LogFunction = (dataOrMsg: unknown, msg?: string) => void;
 
 const formatTimestamp = () => {
   const now = new Date();
@@ -11,7 +11,7 @@ const formatTimestamp = () => {
 };
 
 const createLogFunction = (level: 'log' | 'info' | 'warn' | 'error'): LogFunction => {
-  return (dataOrMsg: any, msg?: string) => {
+  return (dataOrMsg: unknown, msg?: string) => {
     const timestamp = formatTimestamp();
     const prefix = `${timestamp} [MAIN]`;
 

@@ -119,7 +119,7 @@ export function setupDatabaseProcessHandlers() {
   });
 
   // Health check to verify current database path
-  ipcMain.handle('getDatabaseHealth', () => {
+  ipcMain.handle('getDatabaseHealth', async () => {
     logger.debug('[IPC] getDatabaseHealth - Running health check...');
 
     const dataDir = getDataDirectory();
@@ -128,7 +128,7 @@ export function setupDatabaseProcessHandlers() {
 
     let isConnected = false;
     try {
-      const { getDatabase } = require('../database');
+      const { getDatabase } = await import('../database');
       const db = getDatabase();
       isConnected = db !== null;
     } catch (error) {

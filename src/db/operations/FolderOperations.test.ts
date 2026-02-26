@@ -44,9 +44,7 @@ describe('FolderOperations', () => {
   let mockDb: BetterSQLite3Database<typeof schema>;
 
   // Mock helper functions used by move/remove/delete operations
-  const mockGetFolderIdsForFile = vi.fn(async (): Promise<number[]> => {
-    return [];
-  });
+  const mockGetFolderIdsForFile = vi.fn<(fileId: number) => Promise<number[]>>();
 
   const mockRemoveFileFolderLink = vi.fn(async () => {
     // Mock implementation
@@ -178,7 +176,7 @@ describe('FolderOperations', () => {
       const folderName = 'TestFolder';
 
       await expect(
-        folderOps.createFolder(folderName, null as any)
+        folderOps.createFolder(folderName, null as unknown as number)
       ).rejects.toThrow('Parent ID cannot be null');
 
       // Verify no database operations occurred
@@ -298,7 +296,7 @@ describe('FolderOperations', () => {
 
     it('should throw error when moving null node and validate before database operations', async () => {
       await expect(
-        folderOps.moveFolder(null as any, 1, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles)
+        folderOps.moveFolder(null as unknown as number, 1, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles)
       ).rejects.toThrow();
 
       // Verify no database write operations occurred
@@ -401,7 +399,7 @@ describe('FolderOperations', () => {
       const folderId = 5;
 
       await expect(
-        folderOps.moveFolder(folderId, null as any, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles)
+        folderOps.moveFolder(folderId, null as unknown as number, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles)
       ).rejects.toThrow('Cannot move folder to null parent');
 
       // Verify no database operations occurred
@@ -438,7 +436,7 @@ describe('FolderOperations', () => {
       const isDescendantOfSpy = vi.spyOn(folderOps as unknown as { isDescendantOf: (folderId: number, targetId: number) => Promise<boolean> }, 'isDescendantOf').mockResolvedValue(false);
       const getFolderByNameAndParentSpy = vi.spyOn(folderOps as unknown as { getFolderByNameAndParent: (name: string, parentId: number) => Promise<unknown> }, 'getFolderByNameAndParent').mockResolvedValue(undefined);
 
-      let updateCallOrder: number[] = [];
+      const updateCallOrder: number[] = [];
       let callCount = 0;
 
       mockDb.update = vi.fn().mockReturnValue({
@@ -625,7 +623,7 @@ describe('FolderOperations', () => {
 
       let getChildFoldersCallCount = 0;
       const getChildFoldersSpy = vi.spyOn(
-        folderOps as unknown as { getChildFolders: (parentId: number) => Promise<any[]> },
+        folderOps as unknown as { getChildFolders: (parentId: number) => Promise<unknown[]> },
         'getChildFolders'
       ).mockImplementation(async (parentId: number) => {
         getChildFoldersCallCount++;
@@ -748,7 +746,7 @@ describe('FolderOperations', () => {
         'isDescendantOf'
       ).mockResolvedValue(false);
       const getChildFoldersSpy = vi.spyOn(
-        folderOps as unknown as { getChildFolders: (parentId: number) => Promise<any[]> },
+        folderOps as unknown as { getChildFolders: (parentId: number) => Promise<unknown[]> },
         'getChildFolders'
       ).mockImplementation(async (parentId: number) => {
         if (parentId === sourceFolderId) return [sourceChildFolder];
@@ -901,7 +899,7 @@ describe('FolderOperations', () => {
       const getAllDescendantIdsSpy = vi.spyOn(folderOps, 'getAllDescendantIds').mockResolvedValue([]);
 
       mockGetAllFiles.mockResolvedValue([sharedFile]);
-      mockGetFolderIdsForFile.mockImplementation(async (fileId) => {
+      mockGetFolderIdsForFile.mockImplementation(async (fileId: number) => {
         if (fileId === 101) return [folderId, 10, 20];
         return [];
       });
@@ -1399,10 +1397,8 @@ describe('FolderOperations', () => {
         createdAt: null,
       };
 
-      const deletedFolderIds: number[] = [];
-
       mockDb.delete = vi.fn().mockReturnValue({
-        where: vi.fn((condition: any) => {
+        where: vi.fn(() => {
           // Track which folder IDs are being deleted
           // In real implementation, this would be the eq(schema.folders.id, folderId) call
           return Promise.resolve(undefined);
@@ -1472,8 +1468,6 @@ describe('FolderOperations', () => {
         createdAt: null,
       };
 
-      const deletedFolderIds: number[] = [];
-
       const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue(folder);
       const getAllDescendantIdsSpy = vi.spyOn(folderOps, 'getAllDescendantIds').mockResolvedValue([
         child1Id,
@@ -1486,7 +1480,7 @@ describe('FolderOperations', () => {
 
       // Track which folders are being deleted
       mockDb.delete = vi.fn().mockReturnValue({
-        where: vi.fn((condition: any) => {
+        where: vi.fn(() => {
           // In the real implementation, this is called once per folder in folderIdsToDelete
           return Promise.resolve(undefined);
         })
