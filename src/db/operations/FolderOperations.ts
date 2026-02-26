@@ -234,7 +234,12 @@ export class FolderOperations {
 
   // ============ Business Operations ============
 
-  async createFolder(name: string, parentId: number = 0): Promise<Folder> {
+  async createFolder(name: string, parentId?: number): Promise<Folder> {
+    // Validate parentId is not null or undefined
+    if (parentId === null || parentId === undefined) {
+      throw new Error('Failed to create folder: Parent ID cannot be null');
+    }
+
     const trimmedName = this.validateFolderName(name);
     await this.validateNoDuplicateFolderName(trimmedName, parentId);
 
@@ -258,6 +263,11 @@ export class FolderOperations {
     addFileFolderLink: (fileId: number, folderId: number) => Promise<void>,
     getAllFiles: () => Promise<schema.File[]>
   ): Promise<void> {
+    // Validate parameters before any database operations
+    if (newParentId === null || newParentId === undefined) {
+      throw new Error('Failed to move folder: Cannot move folder to null parent (cannot create multiple roots)');
+    }
+
     if (folderId === 0) {
       throw new Error(ERROR_MESSAGES.CANNOT_MOVE_DIRECTORY);
     }
@@ -275,10 +285,17 @@ export class FolderOperations {
       throw new Error('Failed to move folder: Folder is already in this location');
     }
 
+    // Validate that target parent exists (unless moving to root)
     if (newParentId !== 0) {
-      if (await this.isDescendantOf(newParentId, folderId)) {
-        throw new Error('Failed to move folder: Cannot move folder to its own descendant');
+      const targetParent = await this.getFolderById(newParentId);
+      if (!targetParent) {
+        throw new Error('Failed to move folder: Target parent folder not found');
       }
+    }
+
+    // Check for circular reference (unless moving to root)
+    if (newParentId !== 0 && await this.isDescendantOf(newParentId, folderId)) {
+      throw new Error('Failed to move folder: Cannot move folder to its own descendant');
     }
 
     const existingFolder = await this.getFolderByNameAndParent(folder.name, newParentId, folderId);

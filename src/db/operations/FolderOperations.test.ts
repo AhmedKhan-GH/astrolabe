@@ -98,21 +98,6 @@ describe('FolderOperations', () => {
   });
 
   describe('rootFolderProtection', () => {
-    it('should throw error when moving root folder and validate before database operations', async () => {
-      const destinations = [0, 1, 5, 10, 100, 999, -1, -999];
-
-      for (const destId of destinations) {
-        await expect(
-          folderOps.moveFolder(0, destId, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles)
-        ).rejects.toThrow(ERROR_MESSAGES.CANNOT_MOVE_DIRECTORY);
-      }
-
-      // Verify no database operations occurred
-      expect(mockDb.select).not.toHaveBeenCalled();
-      expect(mockDb.update).not.toHaveBeenCalled();
-      expect(mockDb.delete).not.toHaveBeenCalled();
-    });
-
     it('should throw error when removing root folder and validate before database operations', async () => {
       await expect(
         folderOps.removeFolder(0, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles)
@@ -226,9 +211,115 @@ describe('FolderOperations', () => {
 
       expandAncestorFoldersSpy.mockRestore();
     });
+
+    it('should not create a new folder with a null parent id', async () => {
+      const folderName = 'TestFolder';
+
+      await expect(
+        folderOps.createFolder(folderName, null as any)
+      ).rejects.toThrow('Parent ID cannot be null');
+
+      // Verify no database operations occurred
+      expect(mockDb.select).not.toHaveBeenCalled();
+      expect(mockDb.insert).not.toHaveBeenCalled();
+    });
+
+    it('should not create a new folder with a parent id that does not exist', async () => {
+      const folderName = 'TestFolder';
+      const nonExistentParentId = 999;
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue(undefined);
+
+      mockDb.select = vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([])
+        })
+      });
+
+      mockDb.insert = vi.fn().mockReturnValue({
+        values: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([
+            { id: 100, name: folderName, parentId: nonExistentParentId, isExpanded: false, createdAt: null }
+          ])
+        })
+      });
+
+      await expect(
+        folderOps.createFolder(folderName, nonExistentParentId)
+      ).rejects.toThrow('Folder not found');
+
+      getFolderByIdSpy.mockRestore();
+    });
+
+    it('should not create a new folder with root folder (0) name in root', async () => {
+      const folderName = 'Root';
+      const parentId = 0;
+
+      mockDb.select = vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([
+            { id: 0, name: 'Root', parentId: 0, isExpanded: true, createdAt: null }
+          ])
+        })
+      });
+
+      await expect(
+        folderOps.createFolder(folderName, parentId)
+      ).rejects.toThrow('A folder with this name already exists at this level');
+
+      // Verify insert did not occur
+      expect(mockDb.insert).not.toHaveBeenCalled();
+    });
+
+    it('should not create a new folder with an id that already exists', async () => {
+      const existingId = 5;
+      const folderName = 'DuplicateFolder';
+      const parentId = 1;
+
+      // Mock that a folder with this name already exists at this parent
+      mockDb.select = vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([
+            { id: existingId, name: folderName, parentId: parentId, isExpanded: false, createdAt: null }
+          ])
+        })
+      });
+
+      await expect(
+        folderOps.createFolder(folderName, parentId)
+      ).rejects.toThrow('A folder with this name already exists at this level');
+
+      // Verify insert did not occur (caught by duplicate name check)
+      expect(mockDb.insert).not.toHaveBeenCalled();
+    });
   });
 
   describe('moveFolder', () => {
+    it('should throw error when moving root folder (node 0) and validate before database operations', async () => {
+      const destinations = [0, 1, 5, 10, 100, 999, -1, -999];
+
+      for (const destId of destinations) {
+        await expect(
+          folderOps.moveFolder(0, destId, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles)
+        ).rejects.toThrow(ERROR_MESSAGES.CANNOT_MOVE_DIRECTORY);
+      }
+
+      // Verify no database operations occurred
+      expect(mockDb.select).not.toHaveBeenCalled();
+      expect(mockDb.update).not.toHaveBeenCalled();
+      expect(mockDb.delete).not.toHaveBeenCalled();
+    });
+
+    it('should throw error when moving null node and validate before database operations', async () => {
+      await expect(
+        folderOps.moveFolder(null as any, 1, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles)
+      ).rejects.toThrow();
+
+      // Verify no database write operations occurred
+      expect(mockDb.update).not.toHaveBeenCalled();
+      expect(mockDb.delete).not.toHaveBeenCalled();
+    });
+
     it('should throw error when moving folder to itself and validate before database operations', async () => {
       await expect(
         folderOps.moveFolder(5, 5, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles)
@@ -307,11 +398,11 @@ describe('FolderOperations', () => {
 
       const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
         .mockResolvedValueOnce({ id: folderId, name: 'Folder', parentId: 0, isExpanded: false, createdAt: null })
-        .mockResolvedValueOnce(undefined);
+        .mockResolvedValueOnce(undefined); // Target parent doesn't exist
 
       await expect(
         folderOps.moveFolder(folderId, nonExistentParentId, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles)
-      ).rejects.toThrow();
+      ).rejects.toThrow('Target parent folder not found');
 
       // Verify no database operations occurred
       expect(mockDb.update).not.toHaveBeenCalled();
@@ -320,26 +411,55 @@ describe('FolderOperations', () => {
       getFolderByIdSpy.mockRestore();
     });
 
-    it('should move folder to different parent and update parentId', async () => {
+    it('should throw error when moving node to null and validate before database operations', async () => {
+      const folderId = 5;
+
+      await expect(
+        folderOps.moveFolder(folderId, null as any, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles)
+      ).rejects.toThrow('Cannot move folder to null parent');
+
+      // Verify no database operations occurred
+      expect(mockDb.select).not.toHaveBeenCalled();
+      expect(mockDb.update).not.toHaveBeenCalled();
+      expect(mockDb.delete).not.toHaveBeenCalled();
+    });
+
+    it('should not temporarily orphan node during move operation', async () => {
       const folderId = 5;
       const oldParentId = 1;
       const newParentId = 2;
 
-      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue({
+      const sourceFolder = {
         id: folderId,
         name: 'Folder',
         parentId: oldParentId,
         isExpanded: false,
         createdAt: null,
-      });
+      };
+
+      const targetParent = {
+        id: newParentId,
+        name: 'TargetParent',
+        parentId: 0,
+        isExpanded: false,
+        createdAt: null,
+      };
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
+        .mockResolvedValueOnce(sourceFolder)
+        .mockResolvedValueOnce(targetParent);
 
       const isDescendantOfSpy = vi.spyOn(folderOps as unknown as { isDescendantOf: (folderId: number, targetId: number) => Promise<boolean> }, 'isDescendantOf').mockResolvedValue(false);
       const getFolderByNameAndParentSpy = vi.spyOn(folderOps as unknown as { getFolderByNameAndParent: (name: string, parentId: number) => Promise<unknown> }, 'getFolderByNameAndParent').mockResolvedValue(undefined);
 
-      let capturedUpdate: { parentId: number } | null = null;
+      let updateCallOrder: number[] = [];
+      let callCount = 0;
+
       mockDb.update = vi.fn().mockReturnValue({
         set: vi.fn((values: { parentId: number }) => {
-          capturedUpdate = values;
+          // Track that parentId is always set to a valid value
+          updateCallOrder.push(values.parentId);
+          callCount++;
           return {
             where: vi.fn().mockResolvedValue(undefined)
           };
@@ -348,15 +468,135 @@ describe('FolderOperations', () => {
 
       await folderOps.moveFolder(folderId, newParentId, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles);
 
-      expect(mockDb.update).toHaveBeenCalled();
-      expect(capturedUpdate).toEqual({ parentId: newParentId });
+      // Verify the folder is directly updated to new parent without intermediate null/orphaned state
+      expect(callCount).toBe(1);
+      expect(updateCallOrder[0]).toBe(newParentId);
+      expect(updateCallOrder).not.toContain(null);
+      expect(updateCallOrder).not.toContain(undefined);
 
       getFolderByIdSpy.mockRestore();
       isDescendantOfSpy.mockRestore();
       getFolderByNameAndParentSpy.mockRestore();
     });
 
-    it('should merge folders when moving to parent with same-named child', async () => {
+    it('should not temporarily give node two parents during move operation', async () => {
+      const folderId = 5;
+      const oldParentId = 1;
+      const newParentId = 2;
+
+      const sourceFolder = {
+        id: folderId,
+        name: 'Folder',
+        parentId: oldParentId,
+        isExpanded: false,
+        createdAt: null,
+      };
+
+      const targetParent = {
+        id: newParentId,
+        name: 'TargetParent',
+        parentId: 0,
+        isExpanded: false,
+        createdAt: null,
+      };
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
+        .mockResolvedValueOnce(sourceFolder)
+        .mockResolvedValueOnce(targetParent);
+
+      const isDescendantOfSpy = vi.spyOn(folderOps as unknown as { isDescendantOf: (folderId: number, targetId: number) => Promise<boolean> }, 'isDescendantOf').mockResolvedValue(false);
+      const getFolderByNameAndParentSpy = vi.spyOn(folderOps as unknown as { getFolderByNameAndParent: (name: string, parentId: number) => Promise<unknown> }, 'getFolderByNameAndParent').mockResolvedValue(undefined);
+
+      let updateCount = 0;
+
+      mockDb.update = vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn(() => {
+            updateCount++;
+            return Promise.resolve(undefined);
+          })
+        })
+      });
+
+      await folderOps.moveFolder(folderId, newParentId, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles);
+
+      // Verify only one update operation occurs (atomic parent change)
+      expect(updateCount).toBe(1);
+
+      getFolderByIdSpy.mockRestore();
+      isDescendantOfSpy.mockRestore();
+      getFolderByNameAndParentSpy.mockRestore();
+    });
+
+    it('should successfully move folder with descendants to valid parent', async () => {
+      // Test a valid move operation: moving folder 5 (with children) from parent 1 to parent 2
+      // No name conflicts, no circular dependencies - straightforward successful move
+      const folderId = 5;
+      const oldParentId = 1;
+      const newParentId = 2;
+
+      const sourceFolder = {
+        id: folderId,
+        name: 'UniqueFolder',
+        parentId: oldParentId,
+        isExpanded: false,
+        createdAt: null,
+      };
+
+      const targetParent = {
+        id: newParentId,
+        name: 'TargetParent',
+        parentId: 0,
+        isExpanded: false,
+        createdAt: null,
+      };
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
+        .mockResolvedValueOnce(sourceFolder)
+        .mockResolvedValueOnce(targetParent);
+
+      const isDescendantOfSpy = vi.spyOn(folderOps as unknown as { isDescendantOf: (folderId: number, targetId: number) => Promise<boolean> }, 'isDescendantOf').mockResolvedValue(false);
+      const getFolderByNameAndParentSpy = vi.spyOn(folderOps as unknown as { getFolderByNameAndParent: (name: string, parentId: number) => Promise<unknown> }, 'getFolderByNameAndParent').mockResolvedValue(undefined);
+
+      let updateOccurred = false;
+      let updatedParentId: number | null = null;
+
+      mockDb.update = vi.fn().mockReturnValue({
+        set: vi.fn((values: { parentId: number }) => {
+          updatedParentId = values.parentId;
+          return {
+            where: vi.fn(() => {
+              updateOccurred = true;
+              return Promise.resolve(undefined);
+            })
+          };
+        })
+      });
+
+      await folderOps.moveFolder(folderId, newParentId, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles);
+
+      // Verify the move was successful
+      expect(updateOccurred).toBe(true);
+      expect(updatedParentId).toBe(newParentId);
+      expect(mockDb.delete).not.toHaveBeenCalled(); // No merge, so no deletion
+
+      getFolderByIdSpy.mockRestore();
+      isDescendantOfSpy.mockRestore();
+      getFolderByNameAndParentSpy.mockRestore();
+    });
+
+    it('should handle recursive merge with nested folder name conflicts', async () => {
+      // Setup: Source folder with deeply nested children that conflict with target's structure
+      // Source structure:           Target structure:
+      //   source/                     target/
+      //     ├─ shared/                  ├─ shared/ (conflict!)
+      //     │   ├─ nested/              │   ├─ nested/ (conflict!)
+      //     │   │   └─ deep/            │   │   └─ other/
+      //     │   └─ file1.txt            │   └─ file2.txt
+      //     └─ unique/                  └─ different/
+      //
+      // Expected: Recursive merge at each level, preserving the tree structure
+
       const sourceFolderId = 5;
       const targetFolderId = 10;
       const newParentId = 2;
@@ -377,17 +617,197 @@ describe('FolderOperations', () => {
         createdAt: null,
       };
 
+      // Source folder has nested children with conflicts
+      const sourceChildFolders = [
+        { id: 51, name: 'shared', parentId: sourceFolderId, isExpanded: false, createdAt: null },
+        { id: 52, name: 'unique', parentId: sourceFolderId, isExpanded: false, createdAt: null },
+      ];
+
+      const nestedSourceFolders = [
+        { id: 511, name: 'nested', parentId: 51, isExpanded: false, createdAt: null },
+      ];
+
       const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue(sourceFolder);
-      const getFolderByNameAndParentSpy = vi.spyOn(folderOps as unknown as { getFolderByNameAndParent: (name: string, parentId: number) => Promise<unknown> }, 'getFolderByNameAndParent').mockResolvedValue(existingFolder);
-      const isDescendantOfSpy = vi.spyOn(folderOps as unknown as { isDescendantOf: (folderId: number, targetId: number) => Promise<boolean> }, 'isDescendantOf').mockResolvedValue(false);
-      const getChildFoldersSpy = vi.spyOn(folderOps as unknown as { getChildFolders: (parentId: number) => Promise<unknown[]> }, 'getChildFolders').mockResolvedValue([]);
+      const getFolderByNameAndParentSpy = vi.spyOn(
+        folderOps as unknown as { getFolderByNameAndParent: (name: string, parentId: number) => Promise<unknown> },
+        'getFolderByNameAndParent'
+      ).mockResolvedValue(existingFolder);
+      const isDescendantOfSpy = vi.spyOn(
+        folderOps as unknown as { isDescendantOf: (folderId: number, targetId: number) => Promise<boolean> },
+        'isDescendantOf'
+      ).mockResolvedValue(false);
+
+      let getChildFoldersCallCount = 0;
+      const getChildFoldersSpy = vi.spyOn(
+        folderOps as unknown as { getChildFolders: (parentId: number) => Promise<any[]> },
+        'getChildFolders'
+      ).mockImplementation(async (parentId: number) => {
+        getChildFoldersCallCount++;
+        if (parentId === sourceFolderId) return sourceChildFolders;
+        if (parentId === 51) return nestedSourceFolders;
+        return [];
+      });
+
+      mockDb.update = vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined)
+        })
+      });
 
       mockDb.delete = vi.fn().mockReturnValue({
         where: vi.fn().mockResolvedValue(undefined)
       });
 
-      await folderOps.moveFolder(sourceFolderId, newParentId, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles);
+      mockGetAllFiles.mockResolvedValue([]);
 
+      await folderOps.moveFolder(
+        sourceFolderId,
+        newParentId,
+        mockGetFolderIdsForFile,
+        mockRemoveFileFolderLink,
+        mockAddFileFolderLink,
+        mockGetAllFiles
+      );
+
+      // Verify recursive merge behavior
+      // 1. getChildFolders should be called for processing children
+      expect(getChildFoldersCallCount).toBeGreaterThanOrEqual(1);
+
+      // 2. Child folders should be relocated or merged
+      expect(mockDb.update).toHaveBeenCalled();
+
+      // 3. Source folder should be deleted
+      expect(mockDb.delete).toHaveBeenCalled();
+
+      getFolderByIdSpy.mockRestore();
+      getFolderByNameAndParentSpy.mockRestore();
+      isDescendantOfSpy.mockRestore();
+      getChildFoldersSpy.mockRestore();
+    });
+
+    it('should handle recursive merge with file name conflicts at multiple levels', async () => {
+      // Setup: Source and target both have same files at different nesting levels
+      // Source structure:           Target structure:
+      //   source/                     target/
+      //     ├─ child/                   ├─ child/ (conflict!)
+      //     │   ├─ doc.pdf (id=101)     │   ├─ doc.pdf (id=101, same file!)
+      //     │   └─ unique.txt (id=102)  │   └─ other.txt (id=103)
+      //     └─ root.pdf (id=104)        └─ root.pdf (id=104, same file!)
+      //
+      // Expected: Files are deduplicated, unique files are moved, shared files aren't duplicated
+
+      const sourceFolderId = 5;
+      const targetFolderId = 10;
+      const newParentId = 2;
+
+      const sourceFolder = {
+        id: sourceFolderId,
+        name: 'SharedName',
+        parentId: 1,
+        isExpanded: false,
+        createdAt: null,
+      };
+
+      const existingFolder = {
+        id: targetFolderId,
+        name: 'SharedName',
+        parentId: newParentId,
+        isExpanded: false,
+        createdAt: null,
+      };
+
+      const sourceChildFolder = {
+        id: 51,
+        name: 'child',
+        parentId: sourceFolderId,
+        isExpanded: false,
+        createdAt: null,
+      };
+
+      // Files at different levels
+      const sharedDocInChild = {
+        id: 101,
+        filename: 'doc.pdf',
+        path: '/doc.pdf',
+        filetype: 'pdf',
+        fileStorageType: 'import',
+        addedAt: new Date(),
+      };
+
+      const uniqueDoc = {
+        id: 102,
+        filename: 'unique.txt',
+        path: '/unique.txt',
+        filetype: 'text',
+        fileStorageType: 'import',
+        addedAt: new Date(),
+      };
+
+      const sharedRootDoc = {
+        id: 104,
+        filename: 'root.pdf',
+        path: '/root.pdf',
+        filetype: 'pdf',
+        fileStorageType: 'import',
+        addedAt: new Date(),
+      };
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue(sourceFolder);
+      const getFolderByNameAndParentSpy = vi.spyOn(
+        folderOps as unknown as { getFolderByNameAndParent: (name: string, parentId: number) => Promise<unknown> },
+        'getFolderByNameAndParent'
+      ).mockResolvedValue(existingFolder);
+      const isDescendantOfSpy = vi.spyOn(
+        folderOps as unknown as { isDescendantOf: (folderId: number, targetId: number) => Promise<boolean> },
+        'isDescendantOf'
+      ).mockResolvedValue(false);
+      const getChildFoldersSpy = vi.spyOn(
+        folderOps as unknown as { getChildFolders: (parentId: number) => Promise<any[]> },
+        'getChildFolders'
+      ).mockImplementation(async (parentId: number) => {
+        if (parentId === sourceFolderId) return [sourceChildFolder];
+        return [];
+      });
+
+      // Mock: Multiple files at different levels with some conflicts
+      mockGetAllFiles.mockResolvedValue([sharedDocInChild, uniqueDoc, sharedRootDoc]);
+      mockGetFolderIdsForFile.mockImplementation(async (fileId: number) => {
+        if (fileId === 101) return [sourceFolderId, 51, targetFolderId]; // Shared in both
+        if (fileId === 102) return [51]; // Unique to source child
+        if (fileId === 104) return [sourceFolderId, targetFolderId]; // Shared at root
+        return [];
+      });
+
+      mockDb.delete = vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(undefined)
+      });
+
+      mockDb.update = vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined)
+        })
+      });
+
+      await folderOps.moveFolder(
+        sourceFolderId,
+        newParentId,
+        mockGetFolderIdsForFile,
+        mockRemoveFileFolderLink,
+        mockAddFileFolderLink,
+        mockGetAllFiles
+      );
+
+      // Verify file handling across levels
+      // 1. File links should be handled during merge
+      expect(mockRemoveFileFolderLink).toHaveBeenCalled();
+
+      // 2. Files from child folders should be processed
+      expect(mockGetFolderIdsForFile).toHaveBeenCalled();
+
+      // 3. getChildFolders should be called to process nested structure
+      expect(getChildFoldersSpy).toHaveBeenCalled();
+
+      // 4. Source folder deleted
       expect(mockDb.delete).toHaveBeenCalled();
 
       getFolderByIdSpy.mockRestore();
