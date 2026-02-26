@@ -30,6 +30,7 @@ export class FolderOperations {
   }
 
   async getAllDescendantIds(folderId: number): Promise<number[]> {
+    // Validate before database operations
     // Check if folder exists (root folder 0 always exists)
     if (folderId !== 0) {
       const folder = await this.getFolderById(folderId);
@@ -86,6 +87,7 @@ export class FolderOperations {
   // ============ Helper Methods ============
 
   async getAllAncestorIds(folderId: number): Promise<number[]> {
+    // Validate before database operations
     if (folderId === 0) return [];
 
     const ancestorIds: number[] = [];
@@ -94,7 +96,7 @@ export class FolderOperations {
     while (currentId !== null && currentId !== 0) {
       const folder = await this.getFolderById(currentId);
       if (!folder) {
-        // If this is the starting folder, throw error
+        // If this is the starting folder, throw error (validation)
         if (currentId === folderId) {
           throw new Error('Failed to get ancestors: Folder not found');
         }
@@ -125,6 +127,7 @@ export class FolderOperations {
   }
 
   async toggleFolderExpanded(folderId: number): Promise<void> {
+    // Validate before database operations
     const folder = await this.getFolderById(folderId);
     if (!folder) {
       throw new Error('Failed to toggle folder: Folder not found');
@@ -136,6 +139,7 @@ export class FolderOperations {
   }
 
   async expandAllDescendants(folderId: number): Promise<void> {
+    // Validate before database operations
     const folder = await this.getFolderById(folderId);
     if (!folder) {
       throw new Error('Failed to expand all: Folder not found');
@@ -156,6 +160,7 @@ export class FolderOperations {
   }
 
   async collapseAllDescendants(folderId: number): Promise<void> {
+    // Validate before database operations
     const folder = await this.getFolderById(folderId);
     if (!folder) {
       throw new Error('Failed to collapse all: Folder not found');
@@ -235,18 +240,34 @@ export class FolderOperations {
   // ============ Business Operations ============
 
   async createFolder(name: string, parentId?: number): Promise<Folder> {
+    // Validate before database operations
     // Validate parentId is not null or undefined
     if (parentId === null || parentId === undefined) {
       throw new Error('Failed to create folder: Parent ID cannot be null');
     }
 
+    // Validate folder name first (doesn't require DB access)
     const trimmedName = this.validateFolderName(name);
+
+    // Validate parent folder exists (unless creating under root)
+    if (parentId !== 0) {
+      const parentFolder = await this.getFolderById(parentId);
+      if (!parentFolder) {
+        throw new Error('Failed to create folder: Folder not found');
+      }
+    }
+
     await this.validateNoDuplicateFolderName(trimmedName, parentId);
 
     const inserted = await this.db.insert(schema.folders).values({
       name: trimmedName,
       parentId,
     }).returning();
+
+    // Validate that the database didn't assign ID 0 (reserved for root)
+    if (inserted[0].id === 0) {
+      throw new Error('Failed to create folder: Cannot create folder with ID 0 (reserved for root)');
+    }
 
     if (parentId !== 0) {
       await this.expandAncestorFolders(parentId);
@@ -352,6 +373,7 @@ export class FolderOperations {
     addFileFolderLink: (fileId: number, folderId: number) => Promise<void>,
     getAllFiles: () => Promise<schema.File[]>
   ): Promise<void> {
+    // Validate before database operations
     if (folderId === 0) {
       throw new Error(ERROR_MESSAGES.CANNOT_REMOVE_DIRECTORY);
     }
@@ -413,6 +435,7 @@ export class FolderOperations {
     removeFileFolderLink: (fileId: number, folderId: number) => Promise<void>,
     getAllFiles: () => Promise<schema.File[]>
   ): Promise<void> {
+    // Validate before database operations
     if (folderId === 0) {
       throw new Error(ERROR_MESSAGES.CANNOT_REMOVE_DIRECTORY);
     }
@@ -474,6 +497,7 @@ export class FolderOperations {
     addFileFolderLink: (fileId: number, folderId: number) => Promise<void>,
     getAllFiles: () => Promise<(schema.File & { folderIds: string })[]>
   ): Promise<Folder> {
+    // Validate before database operations
     // Validate source folder exists
     const sourceFolder = await this.getFolderById(sourceFolderId);
     if (!sourceFolder) {
