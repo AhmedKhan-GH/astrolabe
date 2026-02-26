@@ -152,8 +152,8 @@ export default function FileTreeNode({ node, level, parentFolderId, isLastSiblin
         {/* Left-aligned action buttons (plus and 6-dot) */}
         {!node.isSystemRoot && !hideActionButtons && (
           <div className="absolute left-0 flex items-center gap-1 px-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-            {/* Plus button with dropdown for folders */}
-            {isFolder && (
+            {/* Plus button with dropdown */}
+            {(
               <div className="relative">
                 <button
                   ref={plusButtonRef}
@@ -220,8 +220,8 @@ export default function FileTreeNode({ node, level, parentFolderId, isLastSiblin
                 )}
               </div>
             )}
-            {/* 6-dot button with dropdown for folders */}
-            {isFolder && (
+            {/* 6-dot button with dropdown */}
+            {(
               <div className="relative">
                 <button
                   ref={dotButtonRef}
@@ -367,12 +367,12 @@ export default function FileTreeNode({ node, level, parentFolderId, isLastSiblin
 
         {/* Filename with extension - extension always visible on right */}
         {!isFolder && node.name.includes('.') ? (
-          <div className="flex items-center justify-between min-w-0 flex-1">
+          <div className="flex items-center justify-between min-w-0 flex-1 pr-2">
             <span className="text-slate-200 truncate">{node.name.substring(0, node.name.lastIndexOf('.'))}</span>
             <span className="text-slate-400 flex-shrink-0 ml-1">{node.name.substring(node.name.lastIndexOf('.'))}</span>
           </div>
         ) : (
-          <span className="text-slate-200 truncate">{node.name}</span>
+          <span className="text-slate-200 truncate pr-2">{node.name}</span>
         )}
       </div>
       {isFolder && isExpanded && hasChildren && (

@@ -65,7 +65,6 @@ function Workspace({ selectedFilter, treeData }: WorkspaceProps) {
       <FileTreeView
         data={fileNodes}
         onNodeDoubleClick={handleNodeDoubleClick}
-        hideActionButtons={true}
       />
 
       {fileNodes.length === 0 && (
