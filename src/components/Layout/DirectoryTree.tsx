@@ -22,7 +22,13 @@ interface RootContextMenuState {
   y: number
 }
 
-function DirectoryTree() {
+interface DirectoryTreeProps {
+  selectedFilter: string
+  onFilterChange: (filter: string) => void
+  onTreeDataChange?: (treeData: TreeNode[]) => void
+}
+
+function DirectoryTree({ selectedFilter, onFilterChange, onTreeDataChange }: DirectoryTreeProps) {
   const [treeData, setTreeData] = useState<TreeNode[]>([])
   const [showFolderInput, setShowFolderInput] = useState(false)
   const [folderName, setFolderName] = useState('')
@@ -45,7 +51,9 @@ function DirectoryTree() {
 
       setAllFolders(folders)
       setAllFiles(files)
-      setTreeData(buildFileTree(folders, files))
+      const tree = buildFileTree(folders, files)
+      setTreeData(tree)
+      onTreeDataChange?.(tree)
     } catch (error) {
       logger.error({ error }, '[DirectoryTree] Failed to load tree data')
     }
@@ -66,9 +74,11 @@ function DirectoryTree() {
         if (isMounted) {
           setAllFolders(folders)
           setAllFiles(files)
-          setTreeData(buildFileTree(folders, files))
+          const tree = buildFileTree(folders, files)
+          setTreeData(tree)
           setCurrentDatabase(current)
           setDefaultDatabase(defaultPath)
+          onTreeDataChange?.(tree)
         }
       } catch (error) {
         logger.error({ error }, '[DirectoryTree] Failed to load tree data in useEffect')
@@ -452,7 +462,7 @@ function DirectoryTree() {
 
   return (
     <>
-      <FileFilter files={allFiles} />
+      <FileFilter files={allFiles} selectedFilter={selectedFilter} onFilterChange={onFilterChange} />
 
       <DirectoryHeader
         databaseName={getDatabaseName(currentDatabase)}

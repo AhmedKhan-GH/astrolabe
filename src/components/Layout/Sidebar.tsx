@@ -1,12 +1,16 @@
 import DirectoryTree from './DirectoryTree'
 import { useResizable } from '../../hooks/useResizable'
 import { LAYOUT } from '../../config/constants'
+import type { TreeNode } from '../FileTree/FileTreeView'
 
 interface SidebarProps {
   isOpen: boolean
+  selectedFilter: string
+  onFilterChange: (filter: string) => void
+  onTreeDataChange?: (treeData: TreeNode[]) => void
 }
 
-function Sidebar({ isOpen }: SidebarProps) {
+function Sidebar({ isOpen, selectedFilter, onFilterChange, onTreeDataChange }: SidebarProps) {
   const { width, startResizing } = useResizable(
     LAYOUT.SIDEBAR_INITIAL_WIDTH,
     LAYOUT.SIDEBAR_MIN_WIDTH,
@@ -22,7 +26,7 @@ function Sidebar({ isOpen }: SidebarProps) {
       style={{ width: `${width}px` }}
     >
       <div className="overflow-y-auto overflow-x-hidden px-2 py-2">
-        <DirectoryTree />
+        <DirectoryTree selectedFilter={selectedFilter} onFilterChange={onFilterChange} onTreeDataChange={onTreeDataChange} />
       </div>
       <div
         className="absolute top-0 right-0 bottom-0 w-1 opacity-0 cursor-col-resize hover:bg-blue-500 hover:opacity-100 transition-all"
