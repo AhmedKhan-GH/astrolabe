@@ -105,8 +105,13 @@ export default function ContextMenu({
   const getGreyedOutFoldersForAddContents = (): number[] => {
     if (node.type === 'folder') {
       const folderId = parseInt(node.id.replace('folder-', ''))
-      // Grey out the folder itself and all its descendants
-      return getAllDescendantIds(folderId).concat([folderId])
+      const folder = allFolders.find(f => f.id === folderId)
+      // Grey out the folder itself, all its descendants, and its parent (current location)
+      const greyedOut = getAllDescendantIds(folderId).concat([folderId])
+      if (folder?.parentId !== undefined) {
+        greyedOut.push(folder.parentId)
+      }
+      return greyedOut
     }
     return []
   }
