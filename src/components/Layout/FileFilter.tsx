@@ -23,7 +23,7 @@ function FileFilter({ files = [] }: FileFilterProps) {
   ]
 
   return (
-    <div className="border-b border-slate-700 py-1 mb-2">
+    <div className="border-b border-slate-700 pb-2 mb-2">
       {filterItems.map((item) => (
         <FileFilterButton
           key={item.id}

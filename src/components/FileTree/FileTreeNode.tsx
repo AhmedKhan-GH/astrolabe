@@ -136,7 +136,7 @@ export default function FileTreeNode({ node, level, parentFolderId, isLastSiblin
 
 
       <div
-        className={`flex items-center py-1.5 text-sm relative rounded group ${
+        className={`flex items-center py-1 text-sm relative rounded group ${
           node.isSystemRoot
             ? `bg-green-700/20 border border-green-600/30 text-green-300 mx-1 px-2 ${node.isDisabled ? 'opacity-40 cursor-not-allowed' : 'hover:bg-green-700/30 cursor-pointer'}`
             : node.isDisabled
