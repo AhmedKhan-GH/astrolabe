@@ -111,20 +111,6 @@ export class FolderOperations {
     return ancestorIds;
   }
 
-  async expandAncestorFolders(folderId: number): Promise<void> {
-    if (folderId === 0) return;
-
-    const ancestorIds = await this.getAllAncestorIds(folderId);
-
-    for (const ancestorId of ancestorIds) {
-      const folder = await this.getFolderById(ancestorId);
-      if (folder && !folder.isExpanded) {
-        await this.db.update(schema.folders)
-          .set({ isExpanded: true })
-          .where(eq(schema.folders.id, ancestorId));
-      }
-    }
-  }
 
   async toggleFolderExpanded(folderId: number): Promise<void> {
     // Validate before database operations
@@ -136,6 +122,48 @@ export class FolderOperations {
     await this.db.update(schema.folders)
       .set({ isExpanded: !folder.isExpanded })
       .where(eq(schema.folders.id, folderId));
+  }
+
+  async expandAllAncestors(folderId: number): Promise<void> {
+    // Validate before database operations
+    if (folderId === 0) return;
+
+    const folder = await this.getFolderById(folderId);
+    if (!folder) {
+      throw new Error('Failed to expand all ancestors: Folder not found');
+    }
+
+    // Get all ancestors (excluding the folder itself)
+    const ancestorIds = await this.getAllAncestorIds(folderId);
+    // Remove the folder itself, keep only ancestors
+    const ancestorsOnly = ancestorIds.slice(1);
+
+    for (const ancestorId of ancestorsOnly) {
+      await this.db.update(schema.folders)
+        .set({ isExpanded: true })
+        .where(eq(schema.folders.id, ancestorId));
+    }
+  }
+
+  async collapseAllAncestors(folderId: number): Promise<void> {
+    // Validate before database operations
+    if (folderId === 0) return;
+
+    const folder = await this.getFolderById(folderId);
+    if (!folder) {
+      throw new Error('Failed to collapse all ancestors: Folder not found');
+    }
+
+    // Get all ancestors (excluding the folder itself)
+    const ancestorIds = await this.getAllAncestorIds(folderId);
+    // Remove the folder itself, keep only ancestors
+    const ancestorsOnly = ancestorIds.slice(1);
+
+    for (const ancestorId of ancestorsOnly) {
+      await this.db.update(schema.folders)
+        .set({ isExpanded: false })
+        .where(eq(schema.folders.id, ancestorId));
+    }
   }
 
   async expandAllDescendants(folderId: number): Promise<void> {
@@ -267,10 +295,6 @@ export class FolderOperations {
     // Validate that the database didn't assign ID 0 (reserved for root)
     if (inserted[0].id === 0) {
       throw new Error('Failed to create folder: Cannot create folder with ID 0 (reserved for root)');
-    }
-
-    if (parentId !== 0) {
-      await this.expandAncestorFolders(parentId);
     }
 
     return inserted[0];

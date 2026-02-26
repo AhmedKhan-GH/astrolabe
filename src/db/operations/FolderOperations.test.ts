@@ -159,8 +159,6 @@ describe('FolderOperations', () => {
         })
       });
 
-      const expandAncestorFoldersSpy = vi.spyOn(folderOps, 'expandAncestorFolders').mockResolvedValue(undefined);
-
       const result1 = await folderOps.createFolder(folderName, parentId1);
       expect(result1.name).toBe(folderName);
       expect(result1.parentId).toBe(parentId2);
@@ -169,7 +167,6 @@ describe('FolderOperations', () => {
       expect(result2.name).toBe(folderName);
 
       getFolderByIdSpy.mockRestore();
-      expandAncestorFoldersSpy.mockRestore();
     });
 
     it('should not create a new folder with a null parent id and validates before database operations', async () => {
@@ -1546,60 +1543,6 @@ describe('FolderOperations', () => {
     });
   });
 
-  describe('expandAncestorFolders', () => {
-    it('should expand all ancestor folders for a given folder', async () => {
-      const folderId = 10;
-      const parentFolder = { id: 5, name: 'Parent', parentId: 0, isExpanded: false, createdAt: null };
-
-      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
-        .mockResolvedValueOnce({ id: folderId, name: 'Child', parentId: 5, isExpanded: false, createdAt: null })
-        .mockResolvedValueOnce(parentFolder);
-
-      mockDb.update = vi.fn().mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(undefined)
-        })
-      });
-
-      await folderOps.expandAncestorFolders(folderId);
-
-      expect(getFolderByIdSpy).toHaveBeenCalled();
-      getFolderByIdSpy.mockRestore();
-    });
-
-    it('should handle folder with no parent (root level)', async () => {
-      const folderId = 1;
-
-      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
-        .mockResolvedValueOnce({ id: folderId, name: 'Root', parentId: 0, isExpanded: false, createdAt: null });
-
-      await folderOps.expandAncestorFolders(folderId);
-
-      expect(getFolderByIdSpy).toHaveBeenCalledWith(folderId);
-      getFolderByIdSpy.mockRestore();
-    });
-
-    it('should handle already-expanded folder (idempotence)', async () => {
-      const folderId = 10;
-      const parentId = 5;
-
-      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
-        .mockResolvedValueOnce({ id: folderId, name: 'Child', parentId: parentId, isExpanded: true, createdAt: null })
-        .mockResolvedValueOnce({ id: parentId, name: 'Parent', parentId: 0, isExpanded: true, createdAt: null });
-
-      mockDb.update = vi.fn().mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(undefined)
-        })
-      });
-
-      await folderOps.expandAncestorFolders(folderId);
-
-      expect(getFolderByIdSpy).toHaveBeenCalled();
-      getFolderByIdSpy.mockRestore();
-    });
-  });
-
   describe('getAllAncestorIds', () => {
     it('should return all ancestor IDs for a deeply nested folder', async () => {
       const grandchildId = 3;
@@ -1718,8 +1661,6 @@ describe('FolderOperations', () => {
     it('should return all descendant IDs for a deeply nested subtree', async () => {
       const folderId = 1;
       const level1Ids = [2, 3];
-      const level2Ids = [4, 5, 6, 7];
-      const level3Ids = [8, 9, 10, 11, 12, 13, 14, 15];
 
       const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
         .mockResolvedValue({ id: folderId, name: 'Folder', parentId: 0, isExpanded: false, createdAt: null });
@@ -1898,6 +1839,229 @@ describe('FolderOperations', () => {
     });
   });
 
+  describe('expandAllAncestors', () => {
+    it('should atomically expand all ancestor folders', async () => {
+      const folderId = 10;
+      const ancestorIds = [10, 5, 1];
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue({
+        id: folderId,
+        name: 'Folder',
+        parentId: 5,
+        isExpanded: false,
+        createdAt: null,
+      });
+
+      const getAllAncestorIdsSpy = vi.spyOn(folderOps, 'getAllAncestorIds').mockResolvedValue(ancestorIds);
+
+      mockDb.update = vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined)
+        })
+      });
+
+      await folderOps.expandAllAncestors(folderId);
+
+      // Should update only ancestors (not the folder itself), so 2 calls for ids 5 and 1
+      expect(mockDb.update).toHaveBeenCalledTimes(2);
+      getFolderByIdSpy.mockRestore();
+      getAllAncestorIdsSpy.mockRestore();
+    });
+
+    it('should throw error for non-existent folder', async () => {
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue(undefined);
+
+      await expect(
+        folderOps.expandAllAncestors(999)
+      ).rejects.toThrow('Folder not found');
+
+      expect(mockDb.update).not.toHaveBeenCalled();
+      getFolderByIdSpy.mockRestore();
+    });
+
+    it('should handle deeply nested ancestors', async () => {
+      const folderId = 10;
+      const ancestorIds = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue({
+        id: folderId,
+        name: 'Folder',
+        parentId: 9,
+        isExpanded: false,
+        createdAt: null,
+      });
+
+      const getAllAncestorIdsSpy = vi.spyOn(folderOps, 'getAllAncestorIds').mockResolvedValue(ancestorIds);
+
+      mockDb.update = vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined)
+        })
+      });
+
+      await folderOps.expandAllAncestors(folderId);
+
+      // Should update all 9 ancestors (excluding folder itself) = 9 calls
+      expect(mockDb.update).toHaveBeenCalledTimes(9);
+      getFolderByIdSpy.mockRestore();
+      getAllAncestorIdsSpy.mockRestore();
+    });
+
+    it('should handle folder with no ancestors (root level)', async () => {
+      const folderId = 1;
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue({
+        id: folderId,
+        name: 'Root',
+        parentId: 0,
+        isExpanded: false,
+        createdAt: null,
+      });
+
+      const getAllAncestorIdsSpy = vi.spyOn(folderOps, 'getAllAncestorIds').mockResolvedValue([1]);
+
+      mockDb.update = vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined)
+        })
+      });
+
+      await folderOps.expandAllAncestors(folderId);
+
+      // No ancestors to update (only the folder itself in the list)
+      expect(mockDb.update).toHaveBeenCalledTimes(0);
+      getFolderByIdSpy.mockRestore();
+      getAllAncestorIdsSpy.mockRestore();
+    });
+
+    it('should handle broken ancestor chain gracefully', async () => {
+      const folderId = 10;
+      // Broken chain: folder 10 thinks it has ancestors up to folder 5, but chain breaks there
+      const ancestorIds = [10, 5]; // Only includes folder and one ancestor before chain breaks
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue({
+        id: folderId,
+        name: 'Folder',
+        parentId: 5,
+        isExpanded: false,
+        createdAt: null,
+      });
+
+      const getAllAncestorIdsSpy = vi.spyOn(folderOps, 'getAllAncestorIds').mockResolvedValue(ancestorIds);
+
+      mockDb.update = vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined)
+        })
+      });
+
+      await folderOps.expandAllAncestors(folderId);
+
+      // Should update only the one ancestor (folder 5), not the folder itself
+      expect(mockDb.update).toHaveBeenCalledTimes(1);
+      getFolderByIdSpy.mockRestore();
+      getAllAncestorIdsSpy.mockRestore();
+    });
+  });
+
+  describe('collapseAllAncestors', () => {
+    it('should atomically collapse all ancestor folders', async () => {
+      const folderId = 10;
+      const ancestorIds = [10, 5, 1];
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue({
+        id: folderId,
+        name: 'Folder',
+        parentId: 5,
+        isExpanded: true,
+        createdAt: null,
+      });
+
+      const getAllAncestorIdsSpy = vi.spyOn(folderOps, 'getAllAncestorIds').mockResolvedValue(ancestorIds);
+
+      mockDb.update = vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined)
+        })
+      });
+
+      await folderOps.collapseAllAncestors(folderId);
+
+      // Should update only ancestors (not the folder itself), so 2 calls for ids 5 and 1
+      expect(mockDb.update).toHaveBeenCalledTimes(2);
+      getFolderByIdSpy.mockRestore();
+      getAllAncestorIdsSpy.mockRestore();
+    });
+
+    it('should throw error for non-existent folder', async () => {
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue(undefined);
+
+      await expect(
+        folderOps.collapseAllAncestors(999)
+      ).rejects.toThrow('Folder not found');
+
+      expect(mockDb.update).not.toHaveBeenCalled();
+      getFolderByIdSpy.mockRestore();
+    });
+
+    it('should handle deeply nested ancestors', async () => {
+      const folderId = 10;
+      const ancestorIds = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue({
+        id: folderId,
+        name: 'Folder',
+        parentId: 9,
+        isExpanded: true,
+        createdAt: null,
+      });
+
+      const getAllAncestorIdsSpy = vi.spyOn(folderOps, 'getAllAncestorIds').mockResolvedValue(ancestorIds);
+
+      mockDb.update = vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined)
+        })
+      });
+
+      await folderOps.collapseAllAncestors(folderId);
+
+      // Should update all 9 ancestors (excluding folder itself) = 9 calls
+      expect(mockDb.update).toHaveBeenCalledTimes(9);
+      getFolderByIdSpy.mockRestore();
+      getAllAncestorIdsSpy.mockRestore();
+    });
+
+    it('should handle broken ancestor chain gracefully', async () => {
+      const folderId = 10;
+      // Broken chain: folder 10 thinks it has ancestors up to folder 5, but chain breaks there
+      const ancestorIds = [10, 5]; // Only includes folder and one ancestor before chain breaks
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue({
+        id: folderId,
+        name: 'Folder',
+        parentId: 5,
+        isExpanded: true,
+        createdAt: null,
+      });
+
+      const getAllAncestorIdsSpy = vi.spyOn(folderOps, 'getAllAncestorIds').mockResolvedValue(ancestorIds);
+
+      mockDb.update = vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined)
+        })
+      });
+
+      await folderOps.collapseAllAncestors(folderId);
+
+      // Should update only the one ancestor (folder 5), not the folder itself
+      expect(mockDb.update).toHaveBeenCalledTimes(1);
+      getFolderByIdSpy.mockRestore();
+      getAllAncestorIdsSpy.mockRestore();
+    });
+  });
+
   describe('expandAllDescendants', () => {
     it('should atomically expand a folder and all its descendants', async () => {
       const folderId = 5;
@@ -1962,6 +2126,35 @@ describe('FolderOperations', () => {
 
       // Should update folder itself + all 9 descendants = 10 calls
       expect(mockDb.update).toHaveBeenCalledTimes(10);
+      getFolderByIdSpy.mockRestore();
+      getAllDescendantIdsSpy.mockRestore();
+    });
+
+    it('should handle broken descendant chain gracefully', async () => {
+      const folderId = 1;
+      // Broken chain: only partial descendants returned due to broken chain
+      const descendantIds = [2, 3]; // Chain breaks, so only these two descendants found
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue({
+        id: folderId,
+        name: 'Folder',
+        parentId: 0,
+        isExpanded: false,
+        createdAt: null,
+      });
+
+      const getAllDescendantIdsSpy = vi.spyOn(folderOps, 'getAllDescendantIds').mockResolvedValue(descendantIds);
+
+      mockDb.update = vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined)
+        })
+      });
+
+      await folderOps.expandAllDescendants(folderId);
+
+      // Should update folder itself + 2 descendants = 3 calls
+      expect(mockDb.update).toHaveBeenCalledTimes(3);
       getFolderByIdSpy.mockRestore();
       getAllDescendantIdsSpy.mockRestore();
     });
@@ -2031,6 +2224,35 @@ describe('FolderOperations', () => {
 
       // Should update all 9 descendants + folder itself = 10 calls
       expect(mockDb.update).toHaveBeenCalledTimes(10);
+      getFolderByIdSpy.mockRestore();
+      getAllDescendantIdsSpy.mockRestore();
+    });
+
+    it('should handle broken descendant chain gracefully', async () => {
+      const folderId = 1;
+      // Broken chain: only partial descendants returned due to broken chain
+      const descendantIds = [2, 3]; // Chain breaks, so only these two descendants found
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue({
+        id: folderId,
+        name: 'Folder',
+        parentId: 0,
+        isExpanded: true,
+        createdAt: null,
+      });
+
+      const getAllDescendantIdsSpy = vi.spyOn(folderOps, 'getAllDescendantIds').mockResolvedValue(descendantIds);
+
+      mockDb.update = vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined)
+        })
+      });
+
+      await folderOps.collapseAllDescendants(folderId);
+
+      // Should update 2 descendants + folder itself = 3 calls
+      expect(mockDb.update).toHaveBeenCalledTimes(3);
       getFolderByIdSpy.mockRestore();
       getAllDescendantIdsSpy.mockRestore();
     });

@@ -61,7 +61,7 @@ export class LocalFileService implements IFileService {
           folderId !== undefined ? folderId : 0,
           'import',
           confirmCallback || (async () => false),
-          this.folderOps.expandAncestorFolders.bind(this.folderOps)
+          this.folderOps.expandAllAncestors.bind(this.folderOps)
         );
 
         if (!result.cancelled && result.file) {
@@ -98,7 +98,7 @@ export class LocalFileService implements IFileService {
         folderId !== undefined ? folderId : 0,
         'reference',
         confirmCallback || (async () => false),
-        this.folderOps.expandAncestorFolders.bind(this.folderOps)
+        this.folderOps.expandAllAncestors.bind(this.folderOps)
       );
 
       if (!result.cancelled && result.file) {
@@ -114,7 +114,7 @@ export class LocalFileService implements IFileService {
       fileId,
       folderId,
       this.folderOps.getFolderById.bind(this.folderOps),
-      this.folderOps.expandAncestorFolders.bind(this.folderOps)
+      this.folderOps.expandAllAncestors.bind(this.folderOps)
     );
   }
 
@@ -123,7 +123,7 @@ export class LocalFileService implements IFileService {
       fileId,
       folderId,
       this.folderOps.getFolderById.bind(this.folderOps),
-      this.folderOps.expandAncestorFolders.bind(this.folderOps)
+      this.folderOps.expandAllAncestors.bind(this.folderOps)
     );
   }
 
