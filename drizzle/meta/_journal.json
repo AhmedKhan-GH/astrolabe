@@ -64,6 +64,20 @@
       "when": 1771726426655,
       "tag": "0008_exotic_mathemanic",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1772168603706,
+      "tag": "0009_lonely_apocalypse",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1772171323204,
+      "tag": "0010_tired_loa",
+      "breakpoints": true
     }
   ]
 }

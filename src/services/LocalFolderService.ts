@@ -20,7 +20,11 @@ export class LocalFolderService implements IFolderService {
 
   async createFolder(name: string, parentId?: number): Promise<Folder> {
     const normalizedParentId = parentId ?? 0;
-    return this.folderOps.createFolder(name, normalizedParentId);
+    return this.folderOps.createFolder(
+      name,
+      normalizedParentId,
+      this.folderOps.expandAllAncestors.bind(this.folderOps)
+    );
   }
 
   async moveFolder(
@@ -33,7 +37,8 @@ export class LocalFolderService implements IFolderService {
       this.fileOps.getFolderIdsForFile.bind(this.fileOps),
       this.fileOps.removeFileFolderLink.bind(this.fileOps),
       this.fileOps.addFileFolderLink.bind(this.fileOps),
-      this.fileOps.getAllFiles.bind(this.fileOps)
+      this.fileOps.getAllFiles.bind(this.fileOps),
+      this.folderOps.expandAllAncestors.bind(this.folderOps)
     );
     return { success: true };
   }

@@ -273,6 +273,65 @@ describe('FolderOperations', () => {
 
       getFolderByIdSpy.mockRestore();
     });
+
+    it('should expand ancestors when creating folder in non-root parent', async () => {
+      const folderName = 'NewFolder';
+      const parentId = 2;
+      const mockExpandAncestors = vi.fn().mockResolvedValue(undefined);
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue({
+        id: parentId,
+        name: 'Parent',
+        parentId: 0,
+        isExpanded: false,
+        createdAt: null,
+      });
+
+      mockDb.select = vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([])
+        })
+      });
+
+      mockDb.insert = vi.fn().mockReturnValue({
+        values: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([
+            { id: 5, name: folderName, parentId: parentId, isExpanded: false, createdAt: null }
+          ])
+        })
+      });
+
+      await folderOps.createFolder(folderName, parentId, mockExpandAncestors);
+
+      expect(mockExpandAncestors).toHaveBeenCalledWith(parentId);
+      expect(mockExpandAncestors).toHaveBeenCalledTimes(1);
+
+      getFolderByIdSpy.mockRestore();
+    });
+
+    it('should not expand ancestors when creating folder in root (parentId 0)', async () => {
+      const folderName = 'RootFolder';
+      const parentId = 0;
+      const mockExpandAncestors = vi.fn().mockResolvedValue(undefined);
+
+      mockDb.select = vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([])
+        })
+      });
+
+      mockDb.insert = vi.fn().mockReturnValue({
+        values: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([
+            { id: 5, name: folderName, parentId: parentId, isExpanded: false, createdAt: null }
+          ])
+        })
+      });
+
+      await folderOps.createFolder(folderName, parentId, mockExpandAncestors);
+
+      expect(mockExpandAncestors).not.toHaveBeenCalled();
+    });
   });
 
   describe('moveFolder', () => {
@@ -563,6 +622,82 @@ describe('FolderOperations', () => {
 
       getFolderByIdSpy.mockRestore();
       isDescendantOfSpy.mockRestore();
+      getFolderByNameAndParentSpy.mockRestore();
+    });
+
+    it('should expand ancestors when moving folder to non-root parent', async () => {
+      const folderId = 5;
+      const newParentId = 2;
+      const mockExpandAncestors = vi.fn().mockResolvedValue(undefined);
+
+      const sourceFolder = {
+        id: folderId,
+        name: 'MovingFolder',
+        parentId: 1,
+        isExpanded: false,
+        createdAt: null,
+      };
+
+      const targetParent = {
+        id: newParentId,
+        name: 'TargetParent',
+        parentId: 0,
+        isExpanded: false,
+        createdAt: null,
+      };
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
+        .mockResolvedValueOnce(sourceFolder)
+        .mockResolvedValueOnce(targetParent);
+
+      const isDescendantOfSpy = vi.spyOn(folderOps as unknown as { isDescendantOf: (folderId: number, targetId: number) => Promise<boolean> }, 'isDescendantOf').mockResolvedValue(false);
+      const getFolderByNameAndParentSpy = vi.spyOn(folderOps as unknown as { getFolderByNameAndParent: (name: string, parentId: number) => Promise<unknown> }, 'getFolderByNameAndParent').mockResolvedValue(undefined);
+
+      mockDb.update = vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined)
+        })
+      });
+
+      await folderOps.moveFolder(folderId, newParentId, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles, mockExpandAncestors);
+
+      expect(mockExpandAncestors).toHaveBeenCalledWith(newParentId);
+      expect(mockExpandAncestors).toHaveBeenCalledTimes(1);
+
+      getFolderByIdSpy.mockRestore();
+      isDescendantOfSpy.mockRestore();
+      getFolderByNameAndParentSpy.mockRestore();
+    });
+
+    it('should not expand ancestors when moving folder to root (folderId 0)', async () => {
+      const folderId = 5;
+      const newParentId = 0;
+      const mockExpandAncestors = vi.fn().mockResolvedValue(undefined);
+
+      const sourceFolder = {
+        id: folderId,
+        name: 'MovingFolder',
+        parentId: 1,
+        isExpanded: false,
+        createdAt: null,
+      };
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
+        .mockResolvedValueOnce(sourceFolder);
+
+      const getFolderByNameAndParentSpy = vi.spyOn(folderOps as unknown as { getFolderByNameAndParent: (name: string, parentId: number) => Promise<unknown> }, 'getFolderByNameAndParent').mockResolvedValue(undefined);
+
+      mockDb.update = vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined)
+        })
+      });
+
+      await folderOps.moveFolder(folderId, newParentId, mockGetFolderIdsForFile, mockRemoveFileFolderLink, mockAddFileFolderLink, mockGetAllFiles, mockExpandAncestors);
+
+      expect(mockExpandAncestors).not.toHaveBeenCalled();
+
+      getFolderByIdSpy.mockRestore();
       getFolderByNameAndParentSpy.mockRestore();
     });
 
@@ -1862,8 +1997,8 @@ describe('FolderOperations', () => {
 
       await folderOps.expandAllAncestors(folderId);
 
-      // Should update only ancestors (not the folder itself), so 2 calls for ids 5 and 1
-      expect(mockDb.update).toHaveBeenCalledTimes(2);
+      // Should update folder itself and all ancestors, so 3 calls for ids 10, 5 and 1
+      expect(mockDb.update).toHaveBeenCalledTimes(3);
       getFolderByIdSpy.mockRestore();
       getAllAncestorIdsSpy.mockRestore();
     });
@@ -1901,8 +2036,8 @@ describe('FolderOperations', () => {
 
       await folderOps.expandAllAncestors(folderId);
 
-      // Should update all 9 ancestors (excluding folder itself) = 9 calls
-      expect(mockDb.update).toHaveBeenCalledTimes(9);
+      // Should update folder itself and all 9 ancestors = 10 calls
+      expect(mockDb.update).toHaveBeenCalledTimes(10);
       getFolderByIdSpy.mockRestore();
       getAllAncestorIdsSpy.mockRestore();
     });
@@ -1928,8 +2063,8 @@ describe('FolderOperations', () => {
 
       await folderOps.expandAllAncestors(folderId);
 
-      // No ancestors to update (only the folder itself in the list)
-      expect(mockDb.update).toHaveBeenCalledTimes(0);
+      // Should update the folder itself even if it has no ancestors
+      expect(mockDb.update).toHaveBeenCalledTimes(1);
       getFolderByIdSpy.mockRestore();
       getAllAncestorIdsSpy.mockRestore();
     });
@@ -1957,8 +2092,8 @@ describe('FolderOperations', () => {
 
       await folderOps.expandAllAncestors(folderId);
 
-      // Should update only the one ancestor (folder 5), not the folder itself
-      expect(mockDb.update).toHaveBeenCalledTimes(1);
+      // Should update folder itself and the one ancestor (folder 5)
+      expect(mockDb.update).toHaveBeenCalledTimes(2);
       getFolderByIdSpy.mockRestore();
       getAllAncestorIdsSpy.mockRestore();
     });
@@ -1987,8 +2122,8 @@ describe('FolderOperations', () => {
 
       await folderOps.collapseAllAncestors(folderId);
 
-      // Should update only ancestors (not the folder itself), so 2 calls for ids 5 and 1
-      expect(mockDb.update).toHaveBeenCalledTimes(2);
+      // Should update folder itself and all ancestors, so 3 calls for ids 10, 5 and 1
+      expect(mockDb.update).toHaveBeenCalledTimes(3);
       getFolderByIdSpy.mockRestore();
       getAllAncestorIdsSpy.mockRestore();
     });
@@ -2026,8 +2161,8 @@ describe('FolderOperations', () => {
 
       await folderOps.collapseAllAncestors(folderId);
 
-      // Should update all 9 ancestors (excluding folder itself) = 9 calls
-      expect(mockDb.update).toHaveBeenCalledTimes(9);
+      // Should update folder itself and all 9 ancestors = 10 calls
+      expect(mockDb.update).toHaveBeenCalledTimes(10);
       getFolderByIdSpy.mockRestore();
       getAllAncestorIdsSpy.mockRestore();
     });
@@ -2055,8 +2190,8 @@ describe('FolderOperations', () => {
 
       await folderOps.collapseAllAncestors(folderId);
 
-      // Should update only the one ancestor (folder 5), not the folder itself
-      expect(mockDb.update).toHaveBeenCalledTimes(1);
+      // Should update folder itself and the one ancestor (folder 5)
+      expect(mockDb.update).toHaveBeenCalledTimes(2);
       getFolderByIdSpy.mockRestore();
       getAllAncestorIdsSpy.mockRestore();
     });

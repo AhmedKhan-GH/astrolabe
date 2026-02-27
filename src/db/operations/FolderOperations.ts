@@ -133,12 +133,10 @@ export class FolderOperations {
       throw new Error('Failed to expand all ancestors: Folder not found');
     }
 
-    // Get all ancestors (excluding the folder itself)
+    // Get folder and all ancestors (including the folder itself)
     const ancestorIds = await this.getAllAncestorIds(folderId);
-    // Remove the folder itself, keep only ancestors
-    const ancestorsOnly = ancestorIds.slice(1);
 
-    for (const ancestorId of ancestorsOnly) {
+    for (const ancestorId of ancestorIds) {
       await this.db.update(schema.folders)
         .set({ isExpanded: true })
         .where(eq(schema.folders.id, ancestorId));
@@ -154,12 +152,10 @@ export class FolderOperations {
       throw new Error('Failed to collapse all ancestors: Folder not found');
     }
 
-    // Get all ancestors (excluding the folder itself)
+    // Get folder and all ancestors (including the folder itself)
     const ancestorIds = await this.getAllAncestorIds(folderId);
-    // Remove the folder itself, keep only ancestors
-    const ancestorsOnly = ancestorIds.slice(1);
 
-    for (const ancestorId of ancestorsOnly) {
+    for (const ancestorId of ancestorIds) {
       await this.db.update(schema.folders)
         .set({ isExpanded: false })
         .where(eq(schema.folders.id, ancestorId));
@@ -267,7 +263,7 @@ export class FolderOperations {
 
   // ============ Business Operations ============
 
-  async createFolder(name: string, parentId?: number): Promise<Folder> {
+  async createFolder(name: string, parentId?: number, expandAncestors?: (folderId: number) => Promise<void>): Promise<Folder> {
     // Validate before database operations
     // Validate parentId is not null or undefined
     if (parentId === null || parentId === undefined) {
@@ -297,6 +293,11 @@ export class FolderOperations {
       throw new Error('Failed to create folder: Cannot create folder with ID 0 (reserved for root)');
     }
 
+    // Expand ancestors after creating
+    if (expandAncestors && parentId !== 0) {
+      await expandAncestors(parentId);
+    }
+
     return inserted[0];
   }
 
@@ -306,7 +307,8 @@ export class FolderOperations {
     getFolderIdsForFile: (fileId: number) => Promise<number[]>,
     removeFileFolderLink: (fileId: number, folderId: number) => Promise<void>,
     addFileFolderLink: (fileId: number, folderId: number) => Promise<void>,
-    getAllFiles: () => Promise<schema.File[]>
+    getAllFiles: () => Promise<schema.File[]>,
+    expandAncestors?: (folderId: number) => Promise<void>
   ): Promise<void> {
     // Validate parameters before any database operations
     if (newParentId === null || newParentId === undefined) {
@@ -351,12 +353,22 @@ export class FolderOperations {
       await this.mergeFolders(folderId, existingFolder.id, getFolderIdsForFile, removeFileFolderLink, addFileFolderLink, getAllFiles);
       await this.db.delete(schema.folders).where(eq(schema.folders.id, folderId));
       logger.info({ sourceFolderId: folderId, targetFolderId: existingFolder.id, mergeType: 'move-driven' }, '[FolderOperations] Move-driven merge completed');
+
+      // Expand ancestors of the merge target
+      if (expandAncestors && newParentId !== 0) {
+        await expandAncestors(newParentId);
+      }
       return;
     }
 
     await this.db.update(schema.folders)
       .set({ parentId: newParentId })
       .where(eq(schema.folders.id, folderId));
+
+    // Expand ancestors after moving
+    if (expandAncestors && newParentId !== 0) {
+      await expandAncestors(newParentId);
+    }
   }
 
   private async mergeFolders(
