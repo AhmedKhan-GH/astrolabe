@@ -9,7 +9,12 @@ interface FileFilterProps {
 
 function FileFilter({ files = [], selectedFilter = 'all', onFilterChange }: FileFilterProps) {
   const handleFilterClick = (id: string) => {
-    onFilterChange?.(id)
+    // Toggle off if clicking the same filter, otherwise switch to new filter
+    if (selectedFilter === id) {
+      onFilterChange?.('none')
+    } else {
+      onFilterChange?.(id)
+    }
   }
 
   const allCount = files.filter(f => f.fileStorageType !== 'trash').length
@@ -19,9 +24,9 @@ function FileFilter({ files = [], selectedFilter = 'all', onFilterChange }: File
 
   const filterItems = [
     { id: 'all', label: 'All', count: allCount },
-    { id: 'trash', label: 'Trash', count: trashCount },
     { id: 'imports', label: 'Imports', count: importsCount },
-    { id: 'references', label: 'References', count: referencesCount }
+    { id: 'references', label: 'References', count: referencesCount },
+    { id: 'trash', label: 'Trash', count: trashCount }
   ]
 
   return (

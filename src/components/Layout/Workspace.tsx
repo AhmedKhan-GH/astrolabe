@@ -15,6 +15,7 @@ function Workspace({ selectedFilter, treeData }: WorkspaceProps) {
       if (node.type === 'file') {
         // Apply filter
         const shouldInclude =
+          selectedFilter === 'none' ||
           (selectedFilter === 'all' && node.storageType !== 'trash') ||
           (selectedFilter === 'trash' && node.storageType === 'trash') ||
           (selectedFilter === 'imports' && node.storageType === 'import') ||
@@ -32,6 +33,17 @@ function Workspace({ selectedFilter, treeData }: WorkspaceProps) {
 
     nodes.forEach(traverse)
     return Array.from(fileMap.values())
+  }
+
+  // Show blank workspace when no filter is selected
+  if (selectedFilter === 'none') {
+    return (
+      <div className="flex-1 overflow-y-auto bg-slate-900 p-6">
+        <div className="flex items-center justify-center h-full">
+          <p className="text-slate-400">Select a filter to view files</p>
+        </div>
+      </div>
+    )
   }
 
   const fileNodes = flattenTree(treeData)
