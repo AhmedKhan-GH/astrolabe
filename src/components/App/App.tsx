@@ -16,6 +16,8 @@ function App() {
       <Header
         onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         onToggleRightSidebar={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
+        isSidebarOpen={isSidebarOpen}
+        isRightSidebarOpen={isRightSidebarOpen}
       />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar isOpen={isSidebarOpen} selectedFilter={selectedFilter} onFilterChange={setSelectedFilter} onTreeDataChange={setTreeData} />

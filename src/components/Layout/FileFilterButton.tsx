@@ -12,7 +12,7 @@ const FileFilterButton: FC<FileFilterButtonProps> = ({ label, count, onClick, is
   return (
     <div
       className={`flex items-center justify-between py-1 px-3 cursor-pointer text-sm rounded group ${
-        isActive ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-slate-700/50'
+        isActive ? 'bg-slate-700/50 hover:bg-slate-700' : 'hover:bg-slate-700/50'
       }`}
       onClick={onClick}
     >

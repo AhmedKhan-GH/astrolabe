@@ -1,9 +1,11 @@
 interface HeaderProps {
   onToggleSidebar: () => void
   onToggleRightSidebar: () => void
+  isSidebarOpen: boolean
+  isRightSidebarOpen: boolean
 }
 
-function Header({ onToggleSidebar, onToggleRightSidebar }: HeaderProps) {
+function Header({ onToggleSidebar, onToggleRightSidebar, isSidebarOpen, isRightSidebarOpen }: HeaderProps) {
   return (
     <div className="flex items-center justify-between gap-2 p-2 bg-slate-800 border-b border-slate-700">
       <div className="flex gap-2">
@@ -20,7 +22,11 @@ function Header({ onToggleSidebar, onToggleRightSidebar }: HeaderProps) {
             viewBox="0 0 24 24"
           >
             <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-            <line x1="9" x2="9" y1="3" y2="21" />
+            {isSidebarOpen ? (
+              <line x1="9" x2="9" y1="3" y2="21" />
+            ) : (
+              <line x1="9" x2="9" y1="3" y2="21" opacity="0.3" />
+            )}
           </svg>
         </button>
       </div>
@@ -39,7 +45,11 @@ function Header({ onToggleSidebar, onToggleRightSidebar }: HeaderProps) {
             viewBox="0 0 24 24"
           >
             <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-            <line x1="15" x2="15" y1="3" y2="21" />
+            {isRightSidebarOpen ? (
+              <line x1="15" x2="15" y1="3" y2="21" />
+            ) : (
+              <line x1="15" x2="15" y1="3" y2="21" opacity="0.3" />
+            )}
           </svg>
         </button>
       </div>

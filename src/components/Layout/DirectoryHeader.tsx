@@ -77,14 +77,15 @@ export default function DirectoryHeader({
         <SixDotMenuIcon className="w-3 h-3" />
       </button>
 
-      <div className="relative flex-1 mr-2" ref={dropdownRef} style={{ minWidth: `${minWidth}px` }}>
+      <div className="relative mr-2" ref={dropdownRef}>
         <button
           onClick={() => setShowDropdown(!showDropdown)}
-          className={`flex items-center gap-1.5 text-lg font-semibold truncate w-full px-2 py-0.5 rounded transition-colors ${
+          className={`flex items-center gap-1.5 text-lg font-semibold truncate px-2 py-0.5 rounded transition-colors ${
             isSystemDefault
               ? 'text-green-300 hover:bg-green-700/20'
               : 'text-white hover:bg-slate-700/50'
           }`}
+          style={{ minWidth: `${minWidth}px` }}
           title={currentDatabase || databaseName}
         >
           <span className="truncate">{databaseName}</span>
