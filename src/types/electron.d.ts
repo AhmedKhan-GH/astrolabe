@@ -9,7 +9,7 @@ export interface ElectronAPI {
   getAllFolders: () => Promise<Folder[]>;
   createFolder: (name: string, parentId?: number) => Promise<Folder>;
   moveFile: (fileId: number, folderId: number | null) => Promise<void>;
-  includeFileInFolder: (fileId: number, folderId: number) => Promise<void>;
+  addFile: (fileId: number, folderId: number) => Promise<void>;
   moveFolder: (folderId: number, newParentId: number) => Promise<{ success: boolean }>;
   deleteFile: (fileId: number) => Promise<void>;
   removeFolder: (folderId: number) => Promise<void>;
@@ -24,7 +24,7 @@ export interface ElectronAPI {
   collapseAllDescendants: (folderId: number) => Promise<void>;
   expandAllFolders: () => Promise<void>;
   collapseAllFolders: () => Promise<void>;
-  duplicateFolderTo: (sourceFolderId: number, targetParentId: number) => Promise<Folder>;
+  addFolder: (sourceFolderId: number, targetParentId: number) => Promise<Folder>;
   selectDatabaseFile: () => Promise<string | null>;
   createDatabaseFile: () => Promise<string | null>;
   getDatabaseHealth: () => Promise<{

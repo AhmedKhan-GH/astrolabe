@@ -118,8 +118,8 @@ export class LocalFileService implements IFileService {
     );
   }
 
-  async addFileToFolder(fileId: number, folderId: number): Promise<void> {
-    await this.fileOps.addFileToFolder(
+  async addFile(fileId: number, folderId: number): Promise<void> {
+    await this.fileOps.addFile(
       fileId,
       folderId,
       this.folderOps.getFolderById.bind(this.folderOps),

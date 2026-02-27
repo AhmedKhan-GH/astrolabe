@@ -234,7 +234,7 @@ export class FileOperations {
   /**
    * Add file to folder (can exist in multiple folders)
    */
-  async addFileToFolder(
+  async addFile(
     fileId: number,
     folderId: number,
     getFolderById: (id: number) => Promise<schema.Folder | undefined>,

@@ -70,10 +70,10 @@ export interface IFolderService {
   getAllFolders(): Promise<Folder[]>;
 
   /**
-   * Duplicate a folder structure and add it as a child of target folder
-   * @param sourceFolderId - Source folder ID to duplicate
-   * @param targetParentId - Target parent folder ID where duplicate will be added
-   * @returns The newly created folder
+   * Add folder structure to another location (multi-parent reference)
+   * @param sourceFolderId - Source folder ID to add
+   * @param targetParentId - Target parent folder ID where folder will be added
+   * @returns The folder at the target location
    */
-  duplicateFolderTo(sourceFolderId: number, targetParentId: number): Promise<Folder>;
+  addFolder(sourceFolderId: number, targetParentId: number): Promise<Folder>;
 }

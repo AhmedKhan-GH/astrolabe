@@ -69,7 +69,7 @@ export class RemoteFileService implements IFileService {
     });
   }
 
-  async addFileToFolder(fileId: number, folderId: number): Promise<void> {
+  async addFile(fileId: number, folderId: number): Promise<void> {
     await this.fetchApi(`/files/${fileId}/folders`, {
       method: 'POST',
       body: JSON.stringify({ folderId }),

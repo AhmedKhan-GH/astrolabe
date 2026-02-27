@@ -189,7 +189,7 @@ export default function FileTreeNode({ node, level, parentFolderId, isLastSiblin
                         }}
                         className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600"
                       >
-                        New Folder
+                        Create Folder
                       </button>
                     )}
                     {onAddFile && (
@@ -300,7 +300,7 @@ export default function FileTreeNode({ node, level, parentFolderId, isLastSiblin
                           }}
                           className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600"
                         >
-                          New Folder
+                          Create Folder
                         </button>
                       </>
                     )}

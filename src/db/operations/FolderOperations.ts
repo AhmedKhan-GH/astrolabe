@@ -520,14 +520,14 @@ export class FolderOperations {
   }
 
   /**
-   * Duplicate a folder structure and add it as a child of target folder
-   * Recursively copies folder structure and references all files
-   * @param sourceFolderId - Source folder ID to duplicate
-   * @param targetParentId - Target parent folder ID where duplicate will be added
+   * Add a folder structure to another location (multi-parent reference)
+   * Recursively references folder structure and all files in target location
+   * @param sourceFolderId - Source folder ID to add
+   * @param targetParentId - Target parent folder ID where folder will be added
    * @param addFileFolderLink - Function to add file-folder relationship
    * @param getAllFiles - Function to get all files
    */
-  async duplicateFolderTo(
+  async addFolder(
     sourceFolderId: number,
     targetParentId: number,
     addFileFolderLink: (fileId: number, folderId: number) => Promise<void>,
@@ -537,26 +537,26 @@ export class FolderOperations {
     // Validate source folder exists
     const sourceFolder = await this.getFolderById(sourceFolderId);
     if (!sourceFolder) {
-      throw new Error('Failed to duplicate folder: Source folder not found');
+      throw new Error('Failed to add folder: Source folder not found');
     }
 
     // Validate target parent exists
     if (targetParentId !== 0) {
       const targetParent = await this.getFolderById(targetParentId);
       if (!targetParent) {
-        throw new Error('Failed to duplicate folder: Target parent folder not found');
+        throw new Error('Failed to add folder: Target parent folder not found');
       }
     }
 
-    // Can't duplicate folder to itself or its descendants
+    // Can't add folder to itself or its descendants
     if (targetParentId !== 0) {
       const isDescendant = await this.isDescendantOf(targetParentId, sourceFolderId);
       if (sourceFolderId === targetParentId || isDescendant) {
-        throw new Error('Failed to duplicate folder: Cannot add folder to itself or its descendants');
+        throw new Error('Failed to add folder: Cannot add folder to itself or its descendants');
       }
     }
 
-    logger.info({ sourceFolderId, targetParentId }, '[FolderOperations] Duplicating folder structure');
+    logger.info({ sourceFolderId, targetParentId }, '[FolderOperations] Adding folder to location');
 
     // Check if a folder with the same name already exists in the target parent
     const childFolders = await this.getChildFolders(targetParentId);
@@ -577,20 +577,20 @@ export class FolderOperations {
         .where(eq(schema.folders.id, targetFolder.id));
     }
 
-    // Recursively duplicate the folder structure
-    await this.duplicateFolderStructure(sourceFolderId, targetFolder.id, addFileFolderLink, getAllFiles);
+    // Recursively add the folder structure
+    await this.addFolderStructure(sourceFolderId, targetFolder.id, addFileFolderLink, getAllFiles);
 
-    // Expand all ancestors to make the duplicated folder visible
+    // Expand all ancestors to make the added folder visible
     await this.expandAllAncestors(targetFolder.id);
 
-    logger.info({ sourceFolderId, targetFolderId: targetFolder.id }, '[FolderOperations] Folder duplicated successfully');
+    logger.info({ sourceFolderId, targetFolderId: targetFolder.id }, '[FolderOperations] Folder added successfully');
     return { ...targetFolder, isExpanded: true };
   }
 
   /**
-   * Helper to recursively duplicate folder structure
+   * Helper to recursively add folder structure to another location
    */
-  private async duplicateFolderStructure(
+  private async addFolderStructure(
     sourceFolderId: number,
     targetFolderId: number,
     addFileFolderLink: (fileId: number, folderId: number) => Promise<void>,
@@ -615,11 +615,11 @@ export class FolderOperations {
     // Get child folders from source
     const sourceChildFolders = await this.getChildFolders(sourceFolderId);
 
-    // Get existing child folders in target for name checking
-    const targetChildFolders = await this.getChildFolders(targetFolderId);
-
     // Recursively duplicate each child folder
     for (const childFolder of sourceChildFolders) {
+      // Get existing child folders in target for name checking (fetch fresh each iteration)
+      const targetChildFolders = await this.getChildFolders(targetFolderId);
+
       // Check if a folder with the same name already exists in target
       const existingChildFolder = targetChildFolders.find(f => f.name === childFolder.name);
 
@@ -638,7 +638,7 @@ export class FolderOperations {
           .where(eq(schema.folders.id, targetChildFolder.id));
       }
 
-      await this.duplicateFolderStructure(childFolder.id, targetChildFolder.id, addFileFolderLink, getAllFiles);
+      await this.addFolderStructure(childFolder.id, targetChildFolder.id, addFileFolderLink, getAllFiles);
     }
   }
 }

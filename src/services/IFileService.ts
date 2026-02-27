@@ -43,7 +43,7 @@ export interface IFileService {
    * @param fileId - File ID to add
    * @param folderId - Folder ID to add to
    */
-  addFileToFolder(fileId: number, folderId: number): Promise<void>;
+  addFile(fileId: number, folderId: number): Promise<void>;
 
   /**
    * Remove a file from a folder (but don't delete the file)

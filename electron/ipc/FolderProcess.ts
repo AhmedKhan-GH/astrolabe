@@ -13,7 +13,7 @@ export function setupFolderProcessHandlers() {
     'getAllFolders',
     'createFolder',
     'moveFile',
-    'includeFileInFolder',
+    'addFile',
     'moveFolder',
     'removeFileFromFolder',
     'removeFolder',
@@ -23,7 +23,7 @@ export function setupFolderProcessHandlers() {
     'collapseAllDescendants',
     'expandAllFolders',
     'collapseAllFolders',
-    'duplicateFolderTo'
+    'addFolder'
   ];
 
   handlers.forEach(handler => ipcMain.removeHandler(handler));
@@ -59,11 +59,11 @@ export function setupFolderProcessHandlers() {
     logger.info({ fileId, folderId }, '[IPC] File moved successfully');
   });
 
-  ipcMain.handle('includeFileInFolder', async (_, fileId: number, folderId: number) => {
+  ipcMain.handle('addFile', async (_, fileId: number, folderId: number) => {
     const { fileService } = getServices();
-    logger.info({ fileId, folderId }, '[IPC] includeFileInFolder called');
-    await fileService.addFileToFolder(fileId, folderId);
-    logger.info({ fileId, folderId }, '[IPC] File added to folder successfully');
+    logger.info({ fileId, folderId }, '[IPC] addFile called');
+    await fileService.addFile(fileId, folderId);
+    logger.info({ fileId, folderId }, '[IPC] File added successfully');
   });
 
   ipcMain.handle('moveFolder', async (_, folderId: number, newParentId: number) => {
@@ -128,11 +128,11 @@ export function setupFolderProcessHandlers() {
     logger.info('[IPC] Collapsed all folders successfully');
   });
 
-  ipcMain.handle('duplicateFolderTo', async (_, sourceFolderId: number, targetParentId: number) => {
+  ipcMain.handle('addFolder', async (_, sourceFolderId: number, targetParentId: number) => {
     const { folderService } = getServices();
-    logger.info({ sourceFolderId, targetParentId }, '[IPC] duplicateFolderTo called');
-    const newFolder = await folderService.duplicateFolderTo(sourceFolderId, targetParentId);
-    logger.info({ sourceFolderId, targetParentId, newFolderId: newFolder.id }, '[IPC] Folder duplicated successfully');
+    logger.info({ sourceFolderId, targetParentId }, '[IPC] addFolder called');
+    const newFolder = await folderService.addFolder(sourceFolderId, targetParentId);
+    logger.info({ sourceFolderId, targetParentId, newFolderId: newFolder.id }, '[IPC] Folder added successfully');
     return newFolder;
   });
 }

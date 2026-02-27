@@ -101,7 +101,7 @@ export default function ContextMenu({
     return []
   }
 
-  // Calculate which folders to grey out for "Add Contents To" (for folders)
+  // Calculate which folders to grey out for "Add To" (for folders)
   const getGreyedOutFoldersForAddContents = (): number[] => {
     if (node.type === 'folder') {
       const folderId = parseInt(node.id.replace('folder-', ''))
@@ -147,7 +147,7 @@ export default function ContextMenu({
                 }}
                 className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600 cursor-pointer"
               >
-                Add to
+                Add To
               </button>
             )}
             {node.type === 'folder' && onAddContentsTo && (
@@ -171,7 +171,7 @@ export default function ContextMenu({
                 }}
                 className="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600"
               >
-                New Folder
+                Create Folder
               </button>
             )}
             {node.type === 'folder' && onAddFile && (
@@ -291,7 +291,7 @@ export default function ContextMenu({
         />
       )}
 
-      {/* Add Contents To picker modal */}
+      {/* Add To picker modal (for folders) */}
       {showAddContentsPicker && node.type === 'folder' && onAddContentsTo && (
         <FolderPickerModal
           allFolders={allFolders}

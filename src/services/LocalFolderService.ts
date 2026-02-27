@@ -87,8 +87,8 @@ export class LocalFolderService implements IFolderService {
     return this.folderOps.getAllFolders();
   }
 
-  async duplicateFolderTo(sourceFolderId: number, targetParentId: number): Promise<Folder> {
-    return await this.folderOps.duplicateFolderTo(
+  async addFolder(sourceFolderId: number, targetParentId: number): Promise<Folder> {
+    return await this.folderOps.addFolder(
       sourceFolderId,
       targetParentId,
       this.fileOps.addFileFolderLink.bind(this.fileOps),

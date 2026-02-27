@@ -57,7 +57,7 @@ function DirectoryTree({ selectedFilter, onFilterChange, onTreeDataChange }: Dir
     } catch (error) {
       logger.error({ error }, '[DirectoryTree] Failed to load tree data')
     }
-  }, [])
+  }, [onTreeDataChange])
 
   useEffect(() => {
     let isMounted = true
@@ -174,9 +174,9 @@ function DirectoryTree({ selectedFilter, onFilterChange, onTreeDataChange }: Dir
     try {
       const numericFileId = parseInt(contextMenu.node.id.replace('file-', ''))
       logger.info({ fileId: numericFileId, targetFolderId }, '[DirectoryTree] Adding file to folder')
-      await window.electron.includeFileInFolder(numericFileId, targetFolderId)
+      await window.electron.addFile(numericFileId, targetFolderId)
 
-      logger.info('[DirectoryTree] Add successful, reloading tree')
+      logger.info('[DirectoryTree] Add file successful, reloading tree')
       await loadTreeData()
       setContextMenu(null)
     } catch (error) {
@@ -192,15 +192,15 @@ function DirectoryTree({ selectedFilter, onFilterChange, onTreeDataChange }: Dir
 
     try {
       const sourceFolderId = parseInt(contextMenu.node.id.replace('folder-', ''))
-      logger.info({ sourceFolderId, targetParentId }, '[DirectoryTree] Duplicating folder to target parent')
-      await window.electron.duplicateFolderTo(sourceFolderId, targetParentId)
+      logger.info({ sourceFolderId, targetParentId }, '[DirectoryTree] Adding folder to target parent')
+      await window.electron.addFolder(sourceFolderId, targetParentId)
 
-      logger.info('[DirectoryTree] Duplicate successful, reloading tree')
+      logger.info('[DirectoryTree] Add folder successful, reloading tree')
       await loadTreeData()
       setContextMenu(null)
     } catch (error) {
-      logger.error({ error }, '[DirectoryTree] Failed to duplicate folder')
-      alert('Failed to duplicate folder: ' + error)
+      logger.error({ error }, '[DirectoryTree] Failed to add folder')
+      alert('Failed to add folder: ' + error)
     }
   }
 
