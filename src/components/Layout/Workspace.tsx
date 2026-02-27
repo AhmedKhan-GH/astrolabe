@@ -7,21 +7,21 @@ interface WorkspaceProps {
 
 function Workspace({ selectedFilter, treeData }: WorkspaceProps) {
 
-  // Flatten tree and filter by type
+  // Flatten tree and filter by type, ensuring unique files only
   const flattenTree = (nodes: TreeNode[]): TreeNode[] => {
-    const result: TreeNode[] = []
+    const fileMap = new Map<string, TreeNode>()
 
     const traverse = (node: TreeNode) => {
       if (node.type === 'file') {
         // Apply filter
-        if (selectedFilter === 'all') {
-          result.push(node)
-        } else if (selectedFilter === 'imports' && node.storageType === 'import') {
-          result.push(node)
-        } else if (selectedFilter === 'references' && node.storageType === 'reference') {
-          result.push(node)
+        const shouldInclude =
+          selectedFilter === 'all' ||
+          (selectedFilter === 'imports' && node.storageType === 'import') ||
+          (selectedFilter === 'references' && node.storageType === 'reference')
+
+        if (shouldInclude && !fileMap.has(node.id)) {
+          fileMap.set(node.id, node)
         }
-        // trash filter returns empty for now
       }
 
       if (node.children) {
@@ -30,7 +30,7 @@ function Workspace({ selectedFilter, treeData }: WorkspaceProps) {
     }
 
     nodes.forEach(traverse)
-    return result
+    return Array.from(fileMap.values())
   }
 
   const fileNodes = flattenTree(treeData)

@@ -558,19 +558,33 @@ export class FolderOperations {
 
     logger.info({ sourceFolderId, targetParentId }, '[FolderOperations] Duplicating folder structure');
 
-    // Create the new folder with same name and expansion state as source
-    const newFolder = await this.createFolder(sourceFolder.name, targetParentId);
+    // Check if a folder with the same name already exists in the target parent
+    const childFolders = await this.getChildFolders(targetParentId);
+    const existingFolder = childFolders.find(f => f.name === sourceFolder.name);
 
-    // Set the expansion state to match source folder
-    await this.db.update(schema.folders)
-      .set({ isExpanded: sourceFolder.isExpanded })
-      .where(eq(schema.folders.id, newFolder.id));
+    let targetFolder: Folder;
+    if (existingFolder) {
+      // Merge into existing folder
+      logger.info({ existingFolderId: existingFolder.id, sourceFolderId }, '[FolderOperations] Merging into existing folder');
+      targetFolder = existingFolder;
+    } else {
+      // Create the new folder with same name and expansion state as source
+      targetFolder = await this.createFolder(sourceFolder.name, targetParentId);
+
+      // Set the expansion state to match source folder
+      await this.db.update(schema.folders)
+        .set({ isExpanded: sourceFolder.isExpanded })
+        .where(eq(schema.folders.id, targetFolder.id));
+    }
 
     // Recursively duplicate the folder structure
-    await this.duplicateFolderStructure(sourceFolderId, newFolder.id, addFileFolderLink, getAllFiles);
+    await this.duplicateFolderStructure(sourceFolderId, targetFolder.id, addFileFolderLink, getAllFiles);
 
-    logger.info({ sourceFolderId, newFolderId: newFolder.id }, '[FolderOperations] Folder duplicated successfully');
-    return { ...newFolder, isExpanded: sourceFolder.isExpanded };
+    // Expand all ancestors to make the duplicated folder visible
+    await this.expandAllAncestors(targetFolder.id);
+
+    logger.info({ sourceFolderId, targetFolderId: targetFolder.id }, '[FolderOperations] Folder duplicated successfully');
+    return { ...targetFolder, isExpanded: true };
   }
 
   /**
@@ -590,24 +604,41 @@ export class FolderOperations {
 
       const fileFolderIds = JSON.parse(folderIdsStr) as number[];
       if (fileFolderIds.includes(sourceFolderId)) {
-        // Add this file to the target folder
-        await addFileFolderLink(file.id, targetFolderId);
+        // Check if file already exists in target folder to avoid duplicates
+        if (!fileFolderIds.includes(targetFolderId)) {
+          // Add this file to the target folder
+          await addFileFolderLink(file.id, targetFolderId);
+        }
       }
     }
 
-    // Get child folders
-    const childFolders = await this.getChildFolders(sourceFolderId);
+    // Get child folders from source
+    const sourceChildFolders = await this.getChildFolders(sourceFolderId);
+
+    // Get existing child folders in target for name checking
+    const targetChildFolders = await this.getChildFolders(targetFolderId);
 
     // Recursively duplicate each child folder
-    for (const childFolder of childFolders) {
-      const newChildFolder = await this.createFolder(childFolder.name, targetFolderId);
+    for (const childFolder of sourceChildFolders) {
+      // Check if a folder with the same name already exists in target
+      const existingChildFolder = targetChildFolders.find(f => f.name === childFolder.name);
 
-      // Set the expansion state to match source child folder
-      await this.db.update(schema.folders)
-        .set({ isExpanded: childFolder.isExpanded })
-        .where(eq(schema.folders.id, newChildFolder.id));
+      let targetChildFolder: Folder;
+      if (existingChildFolder) {
+        // Merge into existing child folder
+        logger.info({ existingChildFolderId: existingChildFolder.id, sourceChildFolderId: childFolder.id }, '[FolderOperations] Merging into existing child folder');
+        targetChildFolder = existingChildFolder;
+      } else {
+        // Create new child folder
+        targetChildFolder = await this.createFolder(childFolder.name, targetFolderId);
 
-      await this.duplicateFolderStructure(childFolder.id, newChildFolder.id, addFileFolderLink, getAllFiles);
+        // Set the expansion state to match source child folder
+        await this.db.update(schema.folders)
+          .set({ isExpanded: childFolder.isExpanded })
+          .where(eq(schema.folders.id, targetChildFolder.id));
+      }
+
+      await this.duplicateFolderStructure(childFolder.id, targetChildFolder.id, addFileFolderLink, getAllFiles);
     }
   }
 }

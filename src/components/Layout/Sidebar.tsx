@@ -22,10 +22,10 @@ function Sidebar({ isOpen, selectedFilter, onFilterChange, onTreeDataChange }: S
 
   return (
     <div
-      className="bg-slate-800 border-r border-slate-700 relative"
+      className="bg-slate-800 border-r border-slate-700 relative flex flex-col h-full"
       style={{ width: `${width}px` }}
     >
-      <div className="overflow-y-auto overflow-x-hidden px-2 py-2">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-2">
         <DirectoryTree selectedFilter={selectedFilter} onFilterChange={onFilterChange} onTreeDataChange={onTreeDataChange} />
       </div>
       <div
