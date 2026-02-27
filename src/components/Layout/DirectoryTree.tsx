@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import FileTreeView, { type TreeNode } from '../FileTree/FileTreeView'
 import ContextMenu from '../FileTree/ContextMenu'
 import RootDirectoryContextMenu from './RootDirectoryContextMenu'
+import DatabasePickerModal from '../FileTree/DatabasePickerModal'
 import { buildFileTree } from '../FileTree/buildFileTree'
 import DirectoryHeader from './DirectoryHeader'
 import FolderInputForm from './FolderInputForm'
@@ -39,6 +40,8 @@ function DirectoryTree({ selectedFilter, onFilterChange, onTreeDataChange }: Dir
   const [allFiles, setAllFiles] = useState<(File & { folderIds: string })[]>([])
   const [currentDatabase, setCurrentDatabase] = useState<string | null>(null)
   const [defaultDatabase, setDefaultDatabase] = useState<string | null>(null)
+  const [databases, setDatabases] = useState<string[]>([])
+  const [showDatabaseModal, setShowDatabaseModal] = useState(false)
 
   const loadTreeData = useCallback(async () => {
     try {
@@ -70,11 +73,12 @@ function DirectoryTree({ selectedFilter, onFilterChange, onTreeDataChange }: Dir
 
     const fetchData = async () => {
       try {
-        const [folders, files, current, defaultPath] = await Promise.all([
+        const [folders, files, current, defaultPath, dbList] = await Promise.all([
           window.electron.getAllFolders(),
           window.electron.getAllFiles(),
           window.electron.getCurrentDatabase(),
-          window.electron.getDefaultDatabasePath()
+          window.electron.getDefaultDatabasePath(),
+          window.electron.getDatabasesList()
         ])
 
         if (isMounted) {
@@ -91,6 +95,10 @@ function DirectoryTree({ selectedFilter, onFilterChange, onTreeDataChange }: Dir
           setTreeData(sidebarTree)
           setCurrentDatabase(current)
           setDefaultDatabase(defaultPath)
+
+          // Filter out default database from the list
+          const customDatabases = dbList.filter(db => db !== defaultPath)
+          setDatabases(customDatabases)
         }
       } catch (error) {
         logger.error({ error }, '[DirectoryTree] Failed to load tree data in useEffect')
@@ -488,17 +496,48 @@ function DirectoryTree({ selectedFilter, onFilterChange, onTreeDataChange }: Dir
     return name
   }
 
+  const isSystemDefault = () => {
+    if (!defaultDatabase) return false
+    // If no currentDatabase but defaultDatabase exists, we're using Database
+    if (!currentDatabase) return true
+    const currentName = currentDatabase.split(/[\\/]/).pop()
+    return currentName === 'data' || currentDatabase === defaultDatabase
+  }
+
+  const handleDatabaseSelect = async (dbPath: string) => {
+    try {
+      logger.info({ dbPath }, '[DirectoryTree] Switching to database')
+      await window.electron.switchToDatabase(dbPath)
+      // The IPC handler will reload the window
+    } catch (error) {
+      logger.error({ error, dbPath }, '[DirectoryTree] Failed to switch database')
+    }
+  }
+
+  const handleDatabaseModalSelect = async (dbPath: string) => {
+    logger.info({ dbPath }, '[DirectoryTree] Database selected from modal, reloading application')
+    setShowDatabaseModal(false)
+    // Database has been reinitialized on the backend, reload to refresh UI
+    window.location.reload()
+  }
+
   return (
     <>
-      <FileFilter files={allFiles} selectedFilter={selectedFilter} onFilterChange={onFilterChange} />
-
       <DirectoryHeader
         databaseName={getDatabaseName(currentDatabase)}
+        isSystemDefault={isSystemDefault()}
+        databases={databases}
+        currentDatabase={currentDatabase}
+        defaultDatabase={defaultDatabase}
         onMenuClick={handleRootMenuClick}
         onUploadFile={handleImportFile}
         onReferenceFile={handleReferenceFile}
         onCreateFolder={handleCreateFolder}
+        onDatabaseSelect={handleDatabaseSelect}
+        onOpenDatabaseModal={() => setShowDatabaseModal(true)}
       />
+
+      <FileFilter files={allFiles} selectedFilter={selectedFilter} onFilterChange={onFilterChange} />
 
       {showFolderInput && (
         <FolderInputForm
@@ -548,6 +587,13 @@ function DirectoryTree({ selectedFilter, onFilterChange, onTreeDataChange }: Dir
           onCollapseAll={handleRootCollapseAll}
           onClearAll={handleRootClearAll}
           onClose={handleRootMenuClose}
+        />
+      )}
+
+      {showDatabaseModal && (
+        <DatabasePickerModal
+          onSelect={handleDatabaseModalSelect}
+          onClose={() => setShowDatabaseModal(false)}
         />
       )}
 

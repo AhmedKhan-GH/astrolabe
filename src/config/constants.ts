@@ -27,7 +27,7 @@ export const ERROR_MESSAGES = {
  */
 export const LAYOUT = {
   /** Sidebar initial width in pixels */
-  SIDEBAR_INITIAL_WIDTH: 250,
+  SIDEBAR_INITIAL_WIDTH: 290,
   /** Sidebar minimum width in pixels */
   SIDEBAR_MIN_WIDTH: 70,
   /** Sidebar maximum width in pixels */
