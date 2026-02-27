@@ -534,6 +534,11 @@ export class FolderOperations {
     getAllFiles: () => Promise<(schema.File & { folderIds: string })[]>
   ): Promise<Folder> {
     // Validate before database operations
+    // Can't add root folder
+    if (sourceFolderId === 0) {
+      throw new Error('Failed to add folder: Cannot add root folder');
+    }
+
     // Validate source folder exists
     const sourceFolder = await this.getFolderById(sourceFolderId);
     if (!sourceFolder) {

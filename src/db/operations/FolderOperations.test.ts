@@ -2392,4 +2392,488 @@ describe('FolderOperations', () => {
       getAllDescendantIdsSpy.mockRestore();
     });
   });
+
+  describe('addFolder', () => {
+    const mockGetAllFilesWithFolders = vi.fn(async (): Promise<Array<schema.File & { folderIds: string }>> => {
+      return [];
+    });
+
+    beforeEach(() => {
+      mockGetAllFilesWithFolders.mockClear();
+    });
+
+    it('should throw error when trying to add root folder and validate before database operations', async () => {
+      await expect(
+        folderOps.addFolder(0, 1, mockAddFileFolderLink, mockGetAllFilesWithFolders)
+      ).rejects.toThrow('Cannot add root folder');
+
+      // Should not perform any database operations
+      expect(mockDb.select).not.toHaveBeenCalled();
+      expect(mockDb.insert).not.toHaveBeenCalled();
+      expect(mockDb.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw error when source folder does not exist and validate before database operations', async () => {
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValue(undefined);
+
+      await expect(
+        folderOps.addFolder(999, 1, mockAddFileFolderLink, mockGetAllFilesWithFolders)
+      ).rejects.toThrow('Source folder not found');
+
+      expect(mockDb.insert).not.toHaveBeenCalled();
+      expect(mockDb.update).not.toHaveBeenCalled();
+      getFolderByIdSpy.mockRestore();
+    });
+
+    it('should throw error when target parent folder does not exist and validate before database operations', async () => {
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
+        .mockResolvedValueOnce({
+          id: 1,
+          name: 'Source',
+          parentId: 0,
+          isExpanded: false,
+          createdAt: null,
+        })
+        .mockResolvedValueOnce(undefined);
+
+      await expect(
+        folderOps.addFolder(1, 999, mockAddFileFolderLink, mockGetAllFilesWithFolders)
+      ).rejects.toThrow('Target parent folder not found');
+
+      expect(mockDb.insert).not.toHaveBeenCalled();
+      expect(mockDb.update).not.toHaveBeenCalled();
+      getFolderByIdSpy.mockRestore();
+    });
+
+    it('should throw error when trying to add folder to itself and validate before database operations', async () => {
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
+        .mockResolvedValue({
+          id: 1,
+          name: 'Folder',
+          parentId: 0,
+          isExpanded: false,
+          createdAt: null,
+        });
+
+      const isDescendantOfSpy = vi.spyOn(folderOps as any, 'isDescendantOf').mockResolvedValue(false);
+
+      await expect(
+        folderOps.addFolder(1, 1, mockAddFileFolderLink, mockGetAllFilesWithFolders)
+      ).rejects.toThrow('Cannot add folder to itself or its descendants');
+
+      expect(mockDb.insert).not.toHaveBeenCalled();
+      expect(mockDb.update).not.toHaveBeenCalled();
+      getFolderByIdSpy.mockRestore();
+      isDescendantOfSpy.mockRestore();
+    });
+
+    it('should throw error when trying to add folder to its own descendant and validate before database operations', async () => {
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
+        .mockResolvedValueOnce({
+          id: 1,
+          name: 'Parent',
+          parentId: 0,
+          isExpanded: false,
+          createdAt: null,
+        })
+        .mockResolvedValueOnce({
+          id: 5,
+          name: 'Child',
+          parentId: 1,
+          isExpanded: false,
+          createdAt: null,
+        });
+
+      const isDescendantOfSpy = vi.spyOn(folderOps as any, 'isDescendantOf').mockResolvedValue(true);
+
+      await expect(
+        folderOps.addFolder(1, 5, mockAddFileFolderLink, mockGetAllFilesWithFolders)
+      ).rejects.toThrow('Cannot add folder to itself or its descendants');
+
+      expect(mockDb.insert).not.toHaveBeenCalled();
+      expect(mockDb.update).not.toHaveBeenCalled();
+      getFolderByIdSpy.mockRestore();
+      isDescendantOfSpy.mockRestore();
+    });
+
+    it('should create new folder when no duplicate name exists', async () => {
+      const sourceFolder = {
+        id: 1,
+        name: 'Source',
+        parentId: 0,
+        isExpanded: true,
+        createdAt: null,
+      };
+
+      const newFolder = {
+        id: 10,
+        name: 'Source',
+        parentId: 2,
+        isExpanded: false,
+        createdAt: null,
+      };
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
+        .mockResolvedValueOnce(sourceFolder)
+        .mockResolvedValueOnce({ id: 2, name: 'Target', parentId: 0, isExpanded: false, createdAt: null });
+
+      const getChildFoldersSpy = vi.spyOn(folderOps as any, 'getChildFolders').mockResolvedValue([]);
+
+      const createFolderSpy = vi.spyOn(folderOps, 'createFolder').mockResolvedValue(newFolder);
+
+      mockDb.update = vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined)
+        })
+      });
+
+      const addFolderStructureSpy = vi.spyOn(folderOps as any, 'addFolderStructure').mockResolvedValue(undefined);
+      const expandAllAncestorsSpy = vi.spyOn(folderOps, 'expandAllAncestors').mockResolvedValue(undefined);
+
+      const result = await folderOps.addFolder(1, 2, mockAddFileFolderLink, mockGetAllFilesWithFolders);
+
+      expect(createFolderSpy).toHaveBeenCalledWith('Source', 2);
+      expect(mockDb.update).toHaveBeenCalled();
+      expect(addFolderStructureSpy).toHaveBeenCalledWith(1, 10, mockAddFileFolderLink, mockGetAllFilesWithFolders);
+      expect(expandAllAncestorsSpy).toHaveBeenCalledWith(10);
+      expect(result.isExpanded).toBe(true);
+
+      getFolderByIdSpy.mockRestore();
+      getChildFoldersSpy.mockRestore();
+      createFolderSpy.mockRestore();
+      addFolderStructureSpy.mockRestore();
+      expandAllAncestorsSpy.mockRestore();
+    });
+
+    it('should merge into existing folder when duplicate name exists', async () => {
+      const sourceFolder = {
+        id: 1,
+        name: 'Source',
+        parentId: 0,
+        isExpanded: true,
+        createdAt: null,
+      };
+
+      const existingFolder = {
+        id: 10,
+        name: 'Source',
+        parentId: 2,
+        isExpanded: false,
+        createdAt: null,
+      };
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
+        .mockResolvedValueOnce(sourceFolder)
+        .mockResolvedValueOnce({ id: 2, name: 'Target', parentId: 0, isExpanded: false, createdAt: null });
+
+      const getChildFoldersSpy = vi.spyOn(folderOps as any, 'getChildFolders').mockResolvedValue([existingFolder]);
+
+      const createFolderSpy = vi.spyOn(folderOps, 'createFolder');
+
+      const addFolderStructureSpy = vi.spyOn(folderOps as any, 'addFolderStructure').mockResolvedValue(undefined);
+      const expandAllAncestorsSpy = vi.spyOn(folderOps, 'expandAllAncestors').mockResolvedValue(undefined);
+
+      const result = await folderOps.addFolder(1, 2, mockAddFileFolderLink, mockGetAllFilesWithFolders);
+
+      expect(createFolderSpy).not.toHaveBeenCalled();
+      expect(addFolderStructureSpy).toHaveBeenCalledWith(1, 10, mockAddFileFolderLink, mockGetAllFilesWithFolders);
+      expect(expandAllAncestorsSpy).toHaveBeenCalledWith(10);
+      expect(result.id).toBe(10);
+
+      getFolderByIdSpy.mockRestore();
+      getChildFoldersSpy.mockRestore();
+      addFolderStructureSpy.mockRestore();
+      expandAllAncestorsSpy.mockRestore();
+    });
+
+    it('should allow adding folder to root (parentId 0)', async () => {
+      const sourceFolder = {
+        id: 1,
+        name: 'Source',
+        parentId: 5,
+        isExpanded: false,
+        createdAt: null,
+      };
+
+      const newFolder = {
+        id: 10,
+        name: 'Source',
+        parentId: 0,
+        isExpanded: false,
+        createdAt: null,
+      };
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById').mockResolvedValueOnce(sourceFolder);
+
+      const getChildFoldersSpy = vi.spyOn(folderOps as any, 'getChildFolders').mockResolvedValue([]);
+
+      const createFolderSpy = vi.spyOn(folderOps, 'createFolder').mockResolvedValue(newFolder);
+
+      mockDb.update = vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined)
+        })
+      });
+
+      const addFolderStructureSpy = vi.spyOn(folderOps as any, 'addFolderStructure').mockResolvedValue(undefined);
+      const expandAllAncestorsSpy = vi.spyOn(folderOps, 'expandAllAncestors').mockResolvedValue(undefined);
+
+      await folderOps.addFolder(1, 0, mockAddFileFolderLink, mockGetAllFilesWithFolders);
+
+      expect(createFolderSpy).toHaveBeenCalledWith('Source', 0);
+      expect(addFolderStructureSpy).toHaveBeenCalledWith(1, 10, mockAddFileFolderLink, mockGetAllFilesWithFolders);
+      expect(expandAllAncestorsSpy).toHaveBeenCalledWith(10);
+
+      getFolderByIdSpy.mockRestore();
+      getChildFoldersSpy.mockRestore();
+      createFolderSpy.mockRestore();
+      addFolderStructureSpy.mockRestore();
+      expandAllAncestorsSpy.mockRestore();
+    });
+
+    it('should copy folder expansion state from source to new folder', async () => {
+      const sourceFolder = {
+        id: 1,
+        name: 'Source',
+        parentId: 0,
+        isExpanded: true,
+        createdAt: null,
+      };
+
+      const newFolder = {
+        id: 10,
+        name: 'Source',
+        parentId: 2,
+        isExpanded: false,
+        createdAt: null,
+      };
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
+        .mockResolvedValueOnce(sourceFolder)
+        .mockResolvedValueOnce({ id: 2, name: 'Target', parentId: 0, isExpanded: false, createdAt: null });
+
+      const getChildFoldersSpy = vi.spyOn(folderOps as any, 'getChildFolders').mockResolvedValue([]);
+
+      const createFolderSpy = vi.spyOn(folderOps, 'createFolder').mockResolvedValue(newFolder);
+
+      const updateSpy = vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined)
+        })
+      });
+      mockDb.update = updateSpy;
+
+      const addFolderStructureSpy = vi.spyOn(folderOps as any, 'addFolderStructure').mockResolvedValue(undefined);
+      const expandAllAncestorsSpy = vi.spyOn(folderOps, 'expandAllAncestors').mockResolvedValue(undefined);
+
+      await folderOps.addFolder(1, 2, mockAddFileFolderLink, mockGetAllFilesWithFolders);
+
+      // Should update expansion state to match source (true)
+      expect(updateSpy).toHaveBeenCalled();
+
+      getFolderByIdSpy.mockRestore();
+      getChildFoldersSpy.mockRestore();
+      createFolderSpy.mockRestore();
+      addFolderStructureSpy.mockRestore();
+      expandAllAncestorsSpy.mockRestore();
+    });
+
+    it('should handle files in source folder by adding them to target', async () => {
+      const sourceFolder = {
+        id: 1,
+        name: 'Source',
+        parentId: 0,
+        isExpanded: false,
+        createdAt: null,
+      };
+
+      const newFolder = {
+        id: 10,
+        name: 'Source',
+        parentId: 2,
+        isExpanded: false,
+        createdAt: null,
+      };
+
+      const filesWithFolders = [
+        {
+          id: 100,
+          filename: 'file1.txt',
+          path: '/path/file1.txt',
+          filetype: 'txt',
+          fileStorageType: 'local',
+          addedAt: null,
+          folderIds: JSON.stringify([1, 3])
+        },
+        {
+          id: 101,
+          filename: 'file2.txt',
+          path: '/path/file2.txt',
+          filetype: 'txt',
+          fileStorageType: 'local',
+          addedAt: null,
+          folderIds: JSON.stringify([3])
+        }
+      ];
+
+      mockGetAllFilesWithFolders.mockResolvedValue(filesWithFolders);
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
+        .mockResolvedValueOnce(sourceFolder)
+        .mockResolvedValueOnce({ id: 2, name: 'Target', parentId: 0, isExpanded: false, createdAt: null });
+
+      const getChildFoldersSpy = vi.spyOn(folderOps as any, 'getChildFolders').mockResolvedValue([]);
+
+      const createFolderSpy = vi.spyOn(folderOps, 'createFolder').mockResolvedValue(newFolder);
+
+      mockDb.update = vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined)
+        })
+      });
+
+      const expandAllAncestorsSpy = vi.spyOn(folderOps, 'expandAllAncestors').mockResolvedValue(undefined);
+
+      await folderOps.addFolder(1, 2, mockAddFileFolderLink, mockGetAllFilesWithFolders);
+
+      // Should add file 100 (which is in folder 1) to the new folder 10
+      expect(mockAddFileFolderLink).toHaveBeenCalledWith(100, 10);
+      // Should not add file 101 (not in folder 1)
+      expect(mockAddFileFolderLink).not.toHaveBeenCalledWith(101, 10);
+
+      getFolderByIdSpy.mockRestore();
+      getChildFoldersSpy.mockRestore();
+      createFolderSpy.mockRestore();
+      expandAllAncestorsSpy.mockRestore();
+    });
+
+    it('should not add duplicate file-folder links', async () => {
+      const sourceFolder = {
+        id: 1,
+        name: 'Source',
+        parentId: 0,
+        isExpanded: false,
+        createdAt: null,
+      };
+
+      const existingFolder = {
+        id: 10,
+        name: 'Source',
+        parentId: 2,
+        isExpanded: false,
+        createdAt: null,
+      };
+
+      const filesWithFolders = [
+        {
+          id: 100,
+          filename: 'file1.txt',
+          path: '/path/file1.txt',
+          filetype: 'txt',
+          fileStorageType: 'local',
+          addedAt: null,
+          folderIds: JSON.stringify([1, 10]) // Already in both folders
+        }
+      ];
+
+      mockGetAllFilesWithFolders.mockResolvedValue(filesWithFolders);
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
+        .mockResolvedValueOnce(sourceFolder)
+        .mockResolvedValueOnce({ id: 2, name: 'Target', parentId: 0, isExpanded: false, createdAt: null });
+
+      const getChildFoldersSpy = vi.spyOn(folderOps as any, 'getChildFolders').mockResolvedValue([existingFolder]);
+
+      const addFolderStructureSpy = vi.spyOn(folderOps as any, 'addFolderStructure').mockImplementation(async () => {
+        // Call the actual implementation to test duplicate detection
+        const files = await mockGetAllFilesWithFolders();
+        for (const file of files) {
+          const fileFolderIds = JSON.parse(file.folderIds);
+          if (fileFolderIds.includes(1) && !fileFolderIds.includes(10)) {
+            await mockAddFileFolderLink(file.id, 10);
+          }
+        }
+      });
+
+      const expandAllAncestorsSpy = vi.spyOn(folderOps, 'expandAllAncestors').mockResolvedValue(undefined);
+
+      await folderOps.addFolder(1, 2, mockAddFileFolderLink, mockGetAllFilesWithFolders);
+
+      // Should not add duplicate link for file 100
+      expect(mockAddFileFolderLink).not.toHaveBeenCalled();
+
+      getFolderByIdSpy.mockRestore();
+      getChildFoldersSpy.mockRestore();
+      addFolderStructureSpy.mockRestore();
+      expandAllAncestorsSpy.mockRestore();
+    });
+
+    it('should recursively add child folders', async () => {
+      const sourceFolder = {
+        id: 1,
+        name: 'Parent',
+        parentId: 0,
+        isExpanded: false,
+        createdAt: null,
+      };
+
+      const childFolder = {
+        id: 3,
+        name: 'Child',
+        parentId: 1,
+        isExpanded: false,
+        createdAt: null,
+      };
+
+      const newParentFolder = {
+        id: 10,
+        name: 'Parent',
+        parentId: 2,
+        isExpanded: false,
+        createdAt: null,
+      };
+
+      const newChildFolder = {
+        id: 11,
+        name: 'Child',
+        parentId: 10,
+        isExpanded: false,
+        createdAt: null,
+      };
+
+      const getFolderByIdSpy = vi.spyOn(folderOps, 'getFolderById')
+        .mockResolvedValueOnce(sourceFolder)
+        .mockResolvedValueOnce({ id: 2, name: 'Target', parentId: 0, isExpanded: false, createdAt: null });
+
+      const getChildFoldersSpy = vi.spyOn(folderOps as any, 'getChildFolders')
+        .mockResolvedValueOnce([]) // No existing children in target
+        .mockResolvedValueOnce([childFolder]) // Source has one child
+        .mockResolvedValueOnce([]) // Target has no existing child with same name
+        .mockResolvedValueOnce([]); // Child has no children
+
+      const createFolderSpy = vi.spyOn(folderOps, 'createFolder')
+        .mockResolvedValueOnce(newParentFolder)
+        .mockResolvedValueOnce(newChildFolder);
+
+      mockDb.update = vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined)
+        })
+      });
+
+      const expandAllAncestorsSpy = vi.spyOn(folderOps, 'expandAllAncestors').mockResolvedValue(undefined);
+
+      await folderOps.addFolder(1, 2, mockAddFileFolderLink, mockGetAllFilesWithFolders);
+
+      // Should create parent folder
+      expect(createFolderSpy).toHaveBeenCalledWith('Parent', 2);
+      // Should create child folder
+      expect(createFolderSpy).toHaveBeenCalledWith('Child', 10);
+
+      getFolderByIdSpy.mockRestore();
+      getChildFoldersSpy.mockRestore();
+      createFolderSpy.mockRestore();
+      expandAllAncestorsSpy.mockRestore();
+    });
+  });
 });
