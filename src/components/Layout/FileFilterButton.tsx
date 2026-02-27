@@ -1,15 +1,19 @@
+import type { FC } from 'react'
 import { FolderIconLarge } from '../icons/FileIcons'
 
 interface FileFilterButtonProps {
   label: string
   count?: number
   onClick?: () => void
+  isActive?: boolean
 }
 
-export default function FileFilterButton({ label, count, onClick }: FileFilterButtonProps) {
+const FileFilterButton: FC<FileFilterButtonProps> = ({ label, count, onClick, isActive = false }) => {
   return (
     <div
-      className="flex items-center justify-between py-1 px-3 cursor-pointer text-sm hover:bg-slate-700/50 rounded group"
+      className={`flex items-center justify-between py-1 px-3 cursor-pointer text-sm rounded group ${
+        isActive ? 'bg-slate-700' : 'hover:bg-slate-700/50'
+      }`}
       onClick={onClick}
     >
       <div className="flex items-center min-w-0 flex-1">
@@ -24,3 +28,5 @@ export default function FileFilterButton({ label, count, onClick }: FileFilterBu
     </div>
   )
 }
+
+export default FileFilterButton

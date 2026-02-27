@@ -82,7 +82,8 @@ export function setupFileProcessHandlers() {
     'selectAndReferenceFiles',
     'selectAndReferenceFilesToFolder',
     'getAllFiles',
-    'deleteFile'
+    'deleteFile',
+    'updateFileStorageType'
   ];
 
   handlers.forEach(handler => ipcMain.removeHandler(handler));
@@ -245,5 +246,12 @@ export function setupFileProcessHandlers() {
     logger.info({ fileId }, '[IPC] deleteFile called');
     await fileService.deleteFile(fileId);
     logger.info({ fileId }, '[IPC] File deleted successfully');
+  });
+
+  ipcMain.handle('updateFileStorageType', async (_, fileId: number, storageType: string) => {
+    const fileService = getFileService();
+    logger.info({ fileId, storageType }, '[IPC] updateFileStorageType called');
+    await fileService.updateFileStorageType(fileId, storageType);
+    logger.info({ fileId, storageType }, '[IPC] File storage type updated successfully');
   });
 }

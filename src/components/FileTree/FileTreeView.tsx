@@ -5,7 +5,7 @@ export interface TreeNode {
   id: string
   name: string
   type: 'file' | 'folder'
-  storageType?: 'import' | 'reference' // Only for files
+  storageType?: 'import' | 'reference' | 'trash' // Only for files
   children?: TreeNode[]
   isExpanded?: boolean // Only for folders, from database
   isSystemRoot?: boolean // Only for the root folder

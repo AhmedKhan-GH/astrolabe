@@ -33,7 +33,7 @@ export function buildFileTree(folders: Folder[], files: (File & { folderIds: str
       id: `file-${file.id}`,
       name: file.filename,
       type: 'file',
-      storageType: (file.fileStorageType || 'import') as 'import' | 'reference'
+      storageType: (file.fileStorageType || 'import') as 'import' | 'reference' | 'trash'
     }
 
     if (file.folderIds) {

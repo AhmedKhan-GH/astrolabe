@@ -131,6 +131,10 @@ export class LocalFileService implements IFileService {
     await this.fileOps.removeFileFromFolder(fileId, folderId);
   }
 
+  async updateFileStorageType(fileId: number, storageType: string): Promise<void> {
+    await this.fileOps.updateFileStorageType(fileId, storageType);
+  }
+
   async deleteFile(fileId: number): Promise<void> {
     const file = await this.fileOps.deleteFile(fileId);
 

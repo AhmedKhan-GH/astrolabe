@@ -51,9 +51,15 @@ function DirectoryTree({ selectedFilter, onFilterChange, onTreeDataChange }: Dir
 
       setAllFolders(folders)
       setAllFiles(files)
-      const tree = buildFileTree(folders, files)
-      setTreeData(tree)
-      onTreeDataChange?.(tree)
+
+      // Build full tree for workspace (includes trash files)
+      const fullTree = buildFileTree(folders, files)
+      onTreeDataChange?.(fullTree)
+
+      // Filter out trashed files from directory tree sidebar
+      const nonTrashedFiles = files.filter(f => f.fileStorageType !== 'trash')
+      const sidebarTree = buildFileTree(folders, nonTrashedFiles)
+      setTreeData(sidebarTree)
     } catch (error) {
       logger.error({ error }, '[DirectoryTree] Failed to load tree data')
     }
@@ -74,11 +80,17 @@ function DirectoryTree({ selectedFilter, onFilterChange, onTreeDataChange }: Dir
         if (isMounted) {
           setAllFolders(folders)
           setAllFiles(files)
-          const tree = buildFileTree(folders, files)
-          setTreeData(tree)
+
+          // Build full tree for workspace (includes trash files)
+          const fullTree = buildFileTree(folders, files)
+          onTreeDataChange?.(fullTree)
+
+          // Filter out trashed files from directory tree sidebar
+          const nonTrashedFiles = files.filter(f => f.fileStorageType !== 'trash')
+          const sidebarTree = buildFileTree(folders, nonTrashedFiles)
+          setTreeData(sidebarTree)
           setCurrentDatabase(current)
           setDefaultDatabase(defaultPath)
-          onTreeDataChange?.(tree)
         }
       } catch (error) {
         logger.error({ error }, '[DirectoryTree] Failed to load tree data in useEffect')
@@ -90,7 +102,7 @@ function DirectoryTree({ selectedFilter, onFilterChange, onTreeDataChange }: Dir
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [onTreeDataChange])
 
   const handleNodeClick = async (node: TreeNode) => {
     logger.debug({ node }, '[DirectoryTree] Node clicked')
@@ -218,6 +230,22 @@ function DirectoryTree({ selectedFilter, onFilterChange, onTreeDataChange }: Dir
     } catch (error) {
       logger.error({ error, fileId, folderId }, '[DirectoryTree] Failed to remove file from folder')
       alert('Failed to remove file from folder: ' + error)
+    }
+  }
+
+  const handleTrashFile = async () => {
+    if (!contextMenu || contextMenu.node.type !== 'file') return
+
+    const fileId = parseInt(contextMenu.node.id.replace('file-', ''))
+
+    try {
+      logger.info({ fileId }, '[DirectoryTree] Moving file to trash')
+      await window.electron.updateFileStorageType(fileId, 'trash')
+      await loadTreeData()
+      setContextMenu(null)
+    } catch (error) {
+      logger.error({ error, fileId }, '[DirectoryTree] Failed to trash file')
+      alert('Failed to trash file: ' + error)
     }
   }
 
@@ -500,6 +528,7 @@ function DirectoryTree({ selectedFilter, onFilterChange, onTreeDataChange }: Dir
           onAddFile={contextMenu.node.type === 'folder' ? handleAddFileToFolder : undefined}
           onReferenceFile={contextMenu.node.type === 'folder' ? handleReferenceFileToFolder : undefined}
           onRemove={contextMenu.node.type === 'file' ? handleRemoveFromFolder : undefined}
+          onTrash={contextMenu.node.type === 'file' ? handleTrashFile : undefined}
           onDelete={handleDeleteNode}
           onDeleteFolder={contextMenu.node.type === 'folder' ? handleDeleteFolder : undefined}
           onExpandAll={contextMenu.node.type === 'folder' ? handleExpandAll : undefined}

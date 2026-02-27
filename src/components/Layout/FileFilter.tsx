@@ -3,17 +3,19 @@ import type { File } from '../../db/schema'
 
 interface FileFilterProps {
   files?: File[]
+  selectedFilter?: string
+  onFilterChange?: (filter: string) => void
 }
 
-function FileFilter({ files = [] }: FileFilterProps) {
+function FileFilter({ files = [], selectedFilter = 'all', onFilterChange }: FileFilterProps) {
   const handleFilterClick = (id: string) => {
-    console.log('Filter item clicked:', id)
+    onFilterChange?.(id)
   }
 
-  const allCount = files.length
+  const allCount = files.filter(f => f.fileStorageType !== 'trash').length
   const importsCount = files.filter(f => f.fileStorageType === 'import').length
   const referencesCount = files.filter(f => f.fileStorageType === 'reference').length
-  const trashCount = 0 // TODO: Implement trash functionality
+  const trashCount = files.filter(f => f.fileStorageType === 'trash').length
 
   const filterItems = [
     { id: 'all', label: 'All', count: allCount },
@@ -30,6 +32,7 @@ function FileFilter({ files = [] }: FileFilterProps) {
           label={item.label}
           count={item.count}
           onClick={() => handleFilterClick(item.id)}
+          isActive={selectedFilter === item.id}
         />
       ))}
     </div>

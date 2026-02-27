@@ -59,6 +59,13 @@ export interface IFileService {
   deleteFile(fileId: number): Promise<void>;
 
   /**
+   * Update file storage type
+   * @param fileId - File ID to update
+   * @param storageType - New storage type
+   */
+  updateFileStorageType(fileId: number, storageType: string): Promise<void>;
+
+  /**
    * Get all files
    * @returns Array of all files
    */

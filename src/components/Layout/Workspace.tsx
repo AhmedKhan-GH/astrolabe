@@ -15,7 +15,8 @@ function Workspace({ selectedFilter, treeData }: WorkspaceProps) {
       if (node.type === 'file') {
         // Apply filter
         const shouldInclude =
-          selectedFilter === 'all' ||
+          (selectedFilter === 'all' && node.storageType !== 'trash') ||
+          (selectedFilter === 'trash' && node.storageType === 'trash') ||
           (selectedFilter === 'imports' && node.storageType === 'import') ||
           (selectedFilter === 'references' && node.storageType === 'reference')
 

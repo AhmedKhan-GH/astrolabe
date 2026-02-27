@@ -128,7 +128,7 @@ export default function FileTreeNode({ node, level, parentFolderId, isLastSiblin
             style={{
               left: `${(level - 1) * 20 + (hideActionButtons ? 0 : 44) + 8}px`,
               top: '50%',
-              width: `${20 + 16 + 8}px` // 20px to file level + 16px chevron width + 8px gap to icon
+              width: `${20 + 16}px` // 20px to file level + 16px chevron width (stops at icon edge)
             }}
           />
         </>

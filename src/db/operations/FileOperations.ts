@@ -58,6 +58,12 @@ export class FileOperations {
     return file;
   }
 
+  async updateFileStorageType(fileId: number, storageType: string): Promise<void> {
+    await this.db.update(schema.files)
+      .set({ fileStorageType: storageType })
+      .where(eq(schema.files.id, fileId));
+  }
+
   // ============ Helper Methods ============
 
   /**

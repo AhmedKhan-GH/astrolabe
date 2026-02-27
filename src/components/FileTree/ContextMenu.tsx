@@ -18,6 +18,7 @@ interface ContextMenuProps {
   onAddFile?: (folderId: number) => void
   onReferenceFile?: (folderId: number) => void
   onRemove?: () => void
+  onTrash?: () => void
   onDelete: () => void
   onDeleteFolder?: () => void
   onExpandAll?: (folderId: number) => void
@@ -40,6 +41,7 @@ export default function ContextMenu({
   onAddFile,
   onReferenceFile,
   onRemove,
+  onTrash,
   onDelete,
   onDeleteFolder,
   onExpandAll,
@@ -237,6 +239,17 @@ export default function ContextMenu({
                 className="w-full text-left px-3 py-1.5 text-orange-400 text-sm hover:bg-slate-600"
               >
                 Remove
+              </button>
+            )}
+            {node.type === 'file' && onTrash && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onTrash()
+                }}
+                className="w-full text-left px-3 py-1.5 text-orange-400 text-sm hover:bg-slate-600"
+              >
+                Trash
               </button>
             )}
             <button

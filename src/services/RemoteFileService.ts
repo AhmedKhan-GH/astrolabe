@@ -88,6 +88,13 @@ export class RemoteFileService implements IFileService {
     });
   }
 
+  async updateFileStorageType(fileId: number, storageType: string): Promise<void> {
+    await this.fetchApi(`/files/${fileId}/storage-type`, {
+      method: 'PUT',
+      body: JSON.stringify({ storageType }),
+    });
+  }
+
   async getAllFiles(): Promise<(File & { folderIds: string })[]> {
     const response = await this.fetchApi('/files');
     return response.json() as Promise<(File & { folderIds: string })[]>;
