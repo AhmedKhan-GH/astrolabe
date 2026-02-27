@@ -5,9 +5,10 @@ import { UI_LABELS } from '../../config/constants'
 
 interface HeaderProps {
   onToggleSidebar: () => void
+  onToggleRightSidebar: () => void
 }
 
-function Header({ onToggleSidebar }: HeaderProps) {
+function Header({ onToggleSidebar, onToggleRightSidebar }: HeaderProps) {
   const [showDatabasePicker, setShowDatabasePicker] = useState(false)
   const [currentDatabase, setCurrentDatabase] = useState<string | null>(null)
   const [defaultDatabase, setDefaultDatabase] = useState<string | null>(null)
@@ -78,6 +79,7 @@ function Header({ onToggleSidebar }: HeaderProps) {
           </button>
         </div>
 
+        <div className="flex gap-2 items-center">
         <button
           onClick={() => setShowDatabasePicker(true)}
           className={`flex items-center gap-2 px-3 py-1 rounded border max-w-[150px] transition-colors ${
@@ -92,6 +94,28 @@ function Header({ onToggleSidebar }: HeaderProps) {
           </svg>
           <span className="text-sm truncate">{getDatabaseName(currentDatabase)}</span>
         </button>
+
+        <button
+            onClick={onToggleRightSidebar}
+            className="flex items-center gap-1 px-3 py-1 rounded border border-slate-600 text-slate-300 hover:bg-slate-700/50 hover:text-white transition-colors"
+            title="Toggle right sidebar"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 6h16M4 12h16M4 18h16"
+              />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {showDatabasePicker && (
