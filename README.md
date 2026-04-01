@@ -38,6 +38,108 @@ npm run start
 
 This skips the migration generation and build cleanup for faster startup.
 
+## Current Implementation
+
+### File System & Database Architecture
+
+**Multi-Database Support**
+Astrolabe allows users to create and manage multiple SQLite databases. Each database is a separate `.db` file that can be selected via the database dropdown in the UI. Users can switch between databases seamlessly, with each database maintaining its own independent schema and data.
+
+```
+┌─────────────────────────────────────┐
+│   Database Dropdown                 │
+├─────────────────────────────────────┤
+│  📊 project-alpha.db     [selected] │
+│  📊 project-beta.db                 │
+│  📊 research-notes.db               │
+│  ➕ Create New Database...          │
+└─────────────────────────────────────┘
+      ↓ Each database maintains
+      ↓ independent data & schema
+```
+
+**File Management Model**
+The application distinguishes between two types of file relationships:
+- **Imported Files**: Files that are copied into the database and stored as binary data. These files are fully self-contained within the database and remain accessible even if the original file is moved or deleted.
+- **Referenced Files**: Files that maintain a file path reference to external files on the filesystem. These are not stored in the database; only the path is saved, allowing for smaller database sizes but requiring the original file to remain in its location.
+
+```
+IMPORTED FILE                      REFERENCED FILE
+┌──────────────────┐              ┌──────────────────┐
+│   document.pdf   │              │   video.mp4      │
+└────────┬─────────┘              └────────┬─────────┘
+         │                                 │
+         ↓ Binary data copied              ↓ Path stored only
+┌─────────────────────────┐       ┌──────────────────────────┐
+│  SQLite Database        │       │  SQLite Database         │
+│  ┌──────────────────┐   │       │  ┌───────────────────┐   │
+│  │ Files Table      │   │       │  │ Files Table       │   │
+│  ├──────────────────┤   │       │  ├───────────────────┤   │
+│  │ id: 1            │   │       │  │ id: 2             │   │
+│  │ name: document   │   │       │  │ name: video       │   │
+│  │ data: [BLOB]     │   │       │  │ data: NULL        │   │
+│  │ path: NULL       │   │       │  │ path: /Users/...  │   │
+│  └──────────────────┘   │       │  └───────────────────┘   │
+└─────────────────────────┘       └──────────────────────────┘
+ ✓ Portable & self-contained        ✓ Smaller DB size
+ ✓ Works if original deleted         ⚠ Requires original file
+```
+
+**Multi-Folder Organization**
+Files can be organized into multiple nested folders within each database. The folder structure supports:
+- Hierarchical organization with parent-child relationships
+- Drag-and-drop folder management
+- Files can exist in multiple folders simultaneously through junction tables
+- Each database maintains its own independent folder hierarchy
+
+```
+Folder Hierarchy                    File can exist in multiple folders
+┌─────────────────────────┐        ┌──────────────────────────────────┐
+│ 📁 Documents            │        │  photo.jpg                       │
+│   ├─ 📁 Work            │        │    ├─ appears in "Vacation"      │
+│   │   ├─ 📄 report.pdf  │        │    ├─ appears in "Family"        │
+│   │   └─ 📄 notes.txt   │        │    └─ appears in "Favorites"     │
+│   └─ 📁 Personal        │        │                                  │
+│       ├─ 📁 Vacation    │        │  Junction Table Schema:          │
+│       │   └─ 📄 photo   │◄───────┤  ┌────────┬──────────┐           │
+│       └─ 📁 Family      │        │  │file_id │folder_id │           │
+│           └─ 📄 photo   │◄───────┤  ├────────┼──────────┤           │
+│ 📁 Projects             │        │  │   42   │    12    │ Vacation  │
+│   └─ 📁 Favorites       │        │  │   42   │    15    │ Family    │
+│       └─ 📄 photo       │◄───────┤  │   42   │    18    │ Favorites │
+└─────────────────────────┘        │  └────────┴──────────┘           │
+                                   └──────────────────────────────────┘
+```
+
+**Selective Views**
+The UI provides selective views to filter and display content:
+- View files by specific folders or show all files
+- Filter imported vs referenced files
+- Search and filter capabilities across the database
+- Folder-based navigation with expandable/collapsible tree structures
+
+```
+View Options
+┌───────────────────────────────────────────────────────────┐
+│  Filter: [All Files ▼] [All Types ▼] [Search...        ] │
+├───────────────────────────────────────────────────────────┤
+│  📁 All Files (125)                                       │
+│  📁 Documents (45)                                        │
+│    ├─ 📄 report.pdf        [imported]                    │
+│    └─ 📄 notes.txt         [imported]                    │
+│  📁 Media (80)                                            │
+│    ├─ 📄 video.mp4         [referenced] → /Users/...     │
+│    └─ 📄 photo.jpg         [imported]                    │
+│                                                           │
+│  Filter Options:                                          │
+│  ☑ Show Imported Files                                   │
+│  ☑ Show Referenced Files                                 │
+│  ☐ Show Only Unorganized Files                           │
+└───────────────────────────────────────────────────────────┘
+```
+
+This architecture allows users to organize large collections of files and data across multiple databases while maintaining flexibility in how files are stored and referenced.
+
 ## Styling with Tailwind CSS
 
 This project uses **Tailwind CSS** for styling, integrated with Vite for optimal performance.
