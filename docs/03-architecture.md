@@ -1,6 +1,6 @@
 # 03 — Architecture
 
-## The five layers
+## The six layers
 
 ```
 ┌─ ASTROLABE (Electron + React) ──────────────────────────────────┐
@@ -13,6 +13,9 @@
 ├─ THE INDEX (SQLite: graph + FTS5 + sqlite-vec) ─────────────────┤
 │  Nodes, edges, embeddings, extracted text, provenance URIs —    │
 │  derived, rebuildable, never a system of record                 │
+├─ ORION (knowledge engine, main process) ────────────────────────┤
+│  Extraction passes · Embeddings · Entity resolution             │
+│  Graph maintenance — batched · resumable · cost-visible         │
 ├─ CONNECTORS (deterministic, zero-token) ────────────────────────┤
 │  Zotero local API · Obsidian vault (file watcher) ·             │
 │  Eagle localhost API · Ink ingestion (import + OCR)             │
@@ -58,7 +61,21 @@ Each connector implements a common interface (`scan()`, `watch()`, `resolve(uri)
 source, never the app. This replaces the alidate iteration's speculative `ServiceFactory`
 local/remote seam with seams that earn their existence immediately.
 
-## Layer 3 — The index (SQLite)
+## Layer 3 — Orion (the knowledge engine)
+
+The programmatic engine between the connectors and the index: it turns what the connectors deliver
+into the knowledge network — text acquisition, extraction, embedding, entity resolution, and graph
+maintenance. Orion is deterministic orchestration around batched model passes; it has no dialogue
+surface and is never summoned — it runs on ingestion events. Full treatment in
+[09 — Orion Research](09-orion-research.md).
+
+Graph construction is Orion's job and the one token-spending pipeline: at ingestion, new/changed
+content flows through extraction passes (batched, resumable, progress-visible — the two-layer
+pattern proven by the user's graphify/business-mind builds: cheap-model reading passes,
+stronger-model synthesis passes). Costs are incurred once per document, not per query. Model calls
+route through the same provider layer Alioth uses; everything around them is plain code.
+
+## Layer 4 — The index (SQLite)
 
 One `better-sqlite3` database, schema managed by Drizzle, living in the `.astrolabe/` workspace.
 Three cooperating capabilities in one engine:
@@ -75,14 +92,10 @@ always exist and always work. No user data may live only in the index. Provenanc
 anchors using the TOC path-string scheme from iteration 1) are the join keys between the graph and
 reality.
 
-Graph construction is the one token-spending pipeline: at ingestion, new/changed content flows
-through extraction passes (batched, resumable, progress-visible — the two-layer pattern proven by
-the user's graphify/business-mind builds: cheap-model reading passes, stronger-model synthesis
-passes). Costs are incurred once per document, not per query.
+## Layer 5 — Alioth (the agent harness)
 
-## Layer 4 — Alioth (the agent harness)
-
-Lives in the main process; the renderer talks to it over typed IPC.
+Lives in the main process; the renderer talks to it over typed IPC. Full treatment in
+[08 — Alioth Intelligence](08-alioth-intelligence.md).
 
 - **Provider layer**: one abstraction (Vercel AI SDK) over Anthropic / OpenAI / Ollama. BYOK keys in
   the OS keychain (`safeStorage`), never in the DB or config files. Model routing per task class:
@@ -99,7 +112,7 @@ Lives in the main process; the renderer talks to it over typed IPC.
   the nodes/documents they discussed. In v1 they are stored and linkable; becoming first-class graph
   feeders is a later layer (D4).
 
-## Layer 5 — Astrolabe (the interface)
+## Layer 6 — Astrolabe (the interface)
 
 - **Graph navigator**: Sigma.js (WebGL) canvas over the node/edge tables; filter by source, type,
   recency, confidence; click node → provenance panel → deep link into the owning tool
@@ -119,7 +132,7 @@ Lives in the main process; the renderer talks to it over typed IPC.
 |---|---|---|
 | Sync, watching, parsing, thumbnailing | Connectors | Zero — pure code |
 | Keyword/semantic search, graph browsing, deep links | Index + UI | Zero — local queries |
-| Graph construction (extraction, embedding) | Alioth pipelines | Once per document, at ingestion; batched and resumable |
+| Graph construction (extraction, embedding) | Orion pipelines | Once per document, at ingestion; batched and resumable |
 | Dialogue, synthesis, connection-finding | Alioth | Per deliberate invocation; cheap because context is pre-assembled |
 
 This table is the answer to "why not just point Claude Code at MCP servers": a generic harness pays

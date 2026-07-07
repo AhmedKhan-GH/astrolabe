@@ -22,7 +22,8 @@ sellable beta in roughly 5–7 months.
   iteration 2), native-module rebuild configured
 - GitHub Actions: typecheck + lint + test on push
 - `CLAUDE.md` adapted from alidate's `AI_BEST_PRACTICES.md`
-- ADR file recording: Electron final; two repos; no relitigation
+- ADRs recording the irreversible decisions ([`docs/adr/`](adr/) — the founding set 0001–0007 already
+  written: orchestrator, Electron final, two repos, BYOK, derived index, test altitude, phase-ends-usable)
 
 **Usable that week:** `pnpm dev` opens a signed-in-nothing, empty-but-real desktop app; CI is green.
 
@@ -50,7 +51,8 @@ jump-to-source. Already daily-driver material, before any AI.
 **Goal:** the knowledge graph exists, grows on ingestion, and is navigable. The v1 essential (D4).
 
 - PDF text extraction pipeline (pdf.js in a worker/utility process) feeding FTS + extraction
-- **Extraction pipeline** (the graphify two-layer pattern): cheap-model passes propose concepts/
+- **Extraction pipeline — Orion's core** (see [09](09-orion-research.md); the graphify two-layer
+  pattern): cheap-model passes propose concepts/
   claims/entities + candidate edges with provenance anchors; batched, resumable, cost-visible;
   BYOK/Ollama via the provider layer
 - Embeddings → **sqlite-vec**; semantic search joins FTS in the library lens

@@ -48,15 +48,19 @@ alidate iteration; same solution applies.
 
 ## Repository conventions
 
-Derived from the audit's failure catalog — each rule traces to a recorded mistake:
+The full operating principles and their rationale live in
+[10 — Engineering Principles](10-engineering-principles.md); irreversible choices live in the
+[ADRs](adr/). This section is the concrete repo-conventions checklist — each rule traces to a
+recorded mistake in the audit's failure catalog:
 
 1. **No aspirational docs.** README and docs describe what exists. (Iteration 3's README described
    BLOB storage and content hashing that never existed.)
 2. **No committed artifacts.** No compiled `schema.js`, no `coverage/`, no generated `docs/`, no
    `.env` (iteration 3 committed all four). `.gitignore` from day one; verify nothing runtime-needed
    is ignored (iteration 2 gitignored its own migrations while bundling them).
-3. **One name per concept.** Glossary: Astrolabe (app), Alioth (agent harness), alidade (licensing
-   API), connector, index, node/edge, provenance, View (saved lens), Dialogue. UI labels match code
+3. **One name per concept.** Glossary: Astrolabe (app), Alioth (agent harness), Orion (knowledge
+   engine), alidade (licensing API), connector, index, node/edge, provenance, View (saved lens),
+   Dialogue. UI labels match code
    identifiers. (Iteration 1: `Note` in code, "View" in UI, `NoteEditor` rendering Excalidraw.)
 4. **No god components.** The reader/graph/dialogue surfaces are composed; a file approaching ~300
    lines is a design smell to address, not a habit to continue. (Iteration 1: 1,963-line
@@ -64,11 +68,12 @@ Derived from the audit's failure catalog — each rule traces to a recorded mist
 5. **Explicit modeling.** No magic strings for states (iteration 3's `'trash'`); soft-delete via
    schema (`deletedAt`/status enum); stable IDs, content-hash (SHA-256) where identity matters —
    never `crypto.randomBytes` labeled "hash", never filename identity.
-6. **Testing per the TDD rule** (user's global standard): failing test first for anything that
-   branches, transforms, or enforces a rule — connectors' parsing, graph operations, the context
-   assembler, license verification. No tests for design tokens, copy, config, or one-line wrappers;
-   no change-detector tests. No test-config theater (iteration 2 had coverage tooling and zero real
-   tests); no 4k-line test suites on one layer while the UI ships untested (iteration 3).
+6. **Testing per test altitude** ([ADR-0006](adr/0006-test-altitude.md), aligned with the user's
+   global standard): failing test first for anything that branches, transforms, or enforces a rule,
+   and anything security/data/license/token-bearing — connectors' parsing, graph operations, the
+   context assembler, license verification. No tests for design tokens, copy, config, or one-line
+   wrappers; no change-detector tests. No test-config theater (iteration 2 had coverage tooling and
+   zero real tests); no 4k-line test suites on one layer while the UI ships untested (iteration 3).
 7. **Commits small and descriptive**; the Electron graft pattern generalizes — infrastructure
    changes land as their own reviewable commits.
 8. **`CLAUDE.md`** adapted from alidate's `AI_BEST_PRACTICES.md`: no `any`, ESM-only, error-context
