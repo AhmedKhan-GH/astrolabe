@@ -5,9 +5,11 @@
 ## Current repo state (2026-07-07)
 
 The repo was created via WebStorm's New Project dialog (Vite generator → React → TypeScript) at
-`~/WebstormProjects/astrolabe`. The `react-ts` scaffold is in place as the `initial commit`
-(`a1c5f45`): standard Vite layout (`index.html`, `src/`, `vite.config.ts`, three tsconfigs, ESLint
-flat config). These docs are the second commit. Next action: the Electron graft.
+`~/WebstormProjects/astrolabe`. The `react-ts` scaffold landed as the `initial commit` (`a1c5f45`);
+the founding docs, then the engineering-principles + ADR set, followed. The **Electron graft has now
+landed** (see "Scaffold sequence" below): the renderer moved into `src/renderer/`, `src/main/` and
+`src/preload/` were added, and `pnpm dev`/`pnpm build`/`pnpm start` run a real, verified-booting
+desktop app on electron-vite. Next action: the Playwright-for-Electron launch smoke test (Phase 0).
 
 ## Scaffold sequence
 
@@ -28,7 +30,25 @@ git add -A && git commit -m "feat: electron shell (electron-vite three-target st
 
 Secure defaults, non-negotiable (carried from iterations 2/3): `contextIsolation: true`,
 `nodeIntegration: false`, contextBridge-only API surface, boot order DB → IPC → window with
-fail-fast quit.
+fail-fast quit. The main process also denies outbound navigation (`setWindowOpenHandler` → open in
+the OS browser), and the preload throws if `contextIsolated` is false rather than leaking onto the
+global.
+
+**As-built notes (2026-07-07 graft):**
+
+- **Versions:** Electron 43, electron-vite 5, Vite 8, React 19.2, TypeScript 6, Node 24 — all via
+  **pnpm** (enabled through corepack). The renderer is `src/renderer/` (root), entries auto-detected
+  by electron-vite; `out/{main/index.js, preload/index.mjs, renderer/}` is the build output
+  (gitignored).
+- **`sandbox: false` (with `contextIsolation: true`).** A sandboxed preload must be CommonJS; the
+  ESM preload electron-vite emits (`index.mjs`) throws "Cannot use import statement outside a module"
+  under sandbox. `contextIsolation` — not `sandbox` — is the load-bearing renderer control, so the
+  graft runs `sandbox: false` (also the official electron-vite template's posture). Full OS
+  sandboxing is a future hardening step needing a CJS-emitted preload; take it via its own ADR.
+- **`pnpm-workspace.yaml` → `allowBuilds`.** pnpm 11 fails closed on undecided install scripts;
+  `esbuild: true` (needs its platform binary), `electron-winstaller: false` (Windows-only).
+- **CSP warning in dev is expected** — it disappears when packaged; enforce+nonce CSP is a
+  deploy-time task (mirrors the Polaris layer-8 posture).
 
 ### Native module note
 
