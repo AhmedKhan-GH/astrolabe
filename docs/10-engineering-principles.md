@@ -1,5 +1,7 @@
 # 10 — Engineering Principles
 
+**Status:** Living document — the operating rules for this repo; revised by ADR · **Date:** 2026-07-07
+
 The operating principles for anyone — human or agent — writing code in this repo. Structure and
 irreversible choices live in the [ADRs](adr/); this document is the **how we work**, and it cites the
 ADRs rather than restating them. Most of these are carried from the sibling Polaris project's proven

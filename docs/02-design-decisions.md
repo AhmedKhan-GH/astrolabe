@@ -1,5 +1,8 @@
 # 02 — Design Decisions
 
+**Status:** Current — founding design session; irreversible items formalized as [ADRs](adr/) ·
+**Date:** 2026-07-07
+
 Record of every decision made in the founding brainstorming session (2026-07-07), with the question
 asked, the options considered, the answer chosen, and the rationale. These are commitments, not
 suggestions — relitigating them is the failure mode of iterations 1–4.

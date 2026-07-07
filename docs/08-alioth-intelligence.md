@@ -1,5 +1,7 @@
 # 08 — Alioth Intelligence
 
+**Status:** Current — founding design session · **Date:** 2026-07-07
+
 Alioth is the agent harness — Astrolabe's conversational intelligence, purpose-built to orchestrate
 knowledge rather than to be a generic chatbot with tools. Its counterpart is
 [09 — Orion Research](09-orion-research.md), the knowledge engine. The division of labor in one

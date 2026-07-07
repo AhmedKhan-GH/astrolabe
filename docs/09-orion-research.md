@@ -1,5 +1,7 @@
 # 09 — Orion Research
 
+**Status:** Current — founding design session · **Date:** 2026-07-07
+
 Orion is the knowledge engine — the programmatic subsystem that **builds and maintains the
 knowledge network** the agent navigates. Its counterpart is
 [08 — Alioth Intelligence](08-alioth-intelligence.md), the agent harness. The division of labor in

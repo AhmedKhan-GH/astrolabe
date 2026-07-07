@@ -1,5 +1,7 @@
 # 07 — Development Setup
 
+**Status:** Living document — tracks current repo state · **Date:** 2026-07-07
+
 ## Current repo state (2026-07-07)
 
 The repo was created via WebStorm's New Project dialog (Vite generator → React → TypeScript) at
@@ -78,6 +80,13 @@ recorded mistake in the audit's failure catalog:
    changes land as their own reviewable commits.
 8. **`CLAUDE.md`** adapted from alidate's `AI_BEST_PRACTICES.md`: no `any`, ESM-only, error-context
    rules, review checklist — updated for this architecture.
+9. **Documentation dating & naming.** Numbered docs (`NN-*.md`) and ADRs carry a `**Status:** … ·
+   **Date:** YYYY-MM-DD` header and stand alone; "Living document" marks ones that track changing
+   state (this doc, the roadmap, the principles). **ADRs** are sequence-numbered
+   (`adr/NNNN-slug.md`) with the date inside — the number is the identity you cite (`ADR-0006`).
+   **Specs and plans** (when they exist) are date-prefixed (`docs/specs/YYYY-MM-DD-slug.md`),
+   because they are point-in-time working documents, not a monotonic ledger. (Convention mirrored
+   from the sibling Polaris project.)
 
 ## Port-in checklist (from the salvage manifest)
 

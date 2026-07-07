@@ -1,5 +1,7 @@
 # 03 — Architecture
 
+**Status:** Current — founding design session (Alioth/Orion split added) · **Date:** 2026-07-07
+
 ## The six layers
 
 ```

@@ -1,5 +1,7 @@
 # 00 — Vision
 
+**Status:** Current — founding design session · **Date:** 2026-07-07
+
 ## What Astrolabe is
 
 Astrolabe is a local-first knowledge environment built for **intelligence augmentation**: a second

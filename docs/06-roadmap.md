@@ -1,5 +1,7 @@
 # 06 — Roadmap
 
+**Status:** Living document — phase status updated as work lands · **Date:** 2026-07-07 (Phase 0 pending)
+
 Sequencing law, derived from the audit: **every phase ends with something the builder personally
 uses that week.** Infrastructure exists only in service of the phase it ships in. The previous
 iterations inverted this and died; this ordering is load-bearing.

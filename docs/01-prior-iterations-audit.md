@@ -1,5 +1,7 @@
 # 01 — Prior Iterations Audit
 
+**Status:** Current — founding design session · **Date:** 2026-07-07
+
 Four repositories in `~/Desktop/astrolabe/` were audited in depth (2026-07-07, one Opus subagent per
 repository). This document transfers the full findings. Chronological order.
 

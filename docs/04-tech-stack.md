@@ -1,5 +1,7 @@
 # 04 — Tech Stack
 
+**Status:** Current — founding design session · **Date:** 2026-07-07
+
 Optimized for two constraints simultaneously: correct for the product, and maximally recognizable
 industry-standard names (résumé value was an explicit selection criterion). Every choice below is
 final unless a real blocker appears; relitigating the stack was a failure mode of prior iterations.

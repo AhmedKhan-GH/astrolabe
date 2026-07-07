@@ -1,5 +1,7 @@
 # 05 — Licensing & Commercialization
 
+**Status:** Current — founding design session; pricing points deferred to launch · **Date:** 2026-07-07
+
 The commercial model is the **Eagle.cool model**: pay once, get a license key, the software runs
 forever on-device; the server exists only to mint, activate, and count licenses. Optional cloud
 services, if they ever exist, are billed separately. This chapter records the full mechanics as
