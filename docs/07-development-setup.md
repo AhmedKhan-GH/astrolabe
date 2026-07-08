@@ -115,9 +115,11 @@ recorded mistake in the audit's failure catalog:
    **Date:** YYYY-MM-DD` header and stand alone; "Living document" marks ones that track changing
    state (this doc, the roadmap, the principles). **ADRs** are sequence-numbered
    (`adr/NNNN-slug.md`) with the date inside — the number is the identity you cite (`ADR-0006`).
-   **Specs and plans** (when they exist) are date-prefixed (`docs/specs/YYYY-MM-DD-slug.md`),
-   because they are point-in-time working documents, not a monotonic ledger. (Convention mirrored
-   from the sibling Polaris project.)
+   **Dated implementation specs and plans** (point-in-time working documents, not a monotonic
+   ledger) are date-prefixed (`docs/specs/YYYY-MM-DD-slug.md`). **Living project-level specs** — the
+   durable kind that track ongoing infrastructure (e.g. root `INFRASTRUCTURE-SPEC.md`) — sit at the
+   repo root with a `Status: Living` header, alongside the README/ADR canon. (Convention mirrored
+   from the sibling Polaris project, whose root carries topic specs too.)
 
 ## Port-in checklist (from the salvage manifest)
 

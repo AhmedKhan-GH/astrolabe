@@ -39,6 +39,17 @@ founding set:
 New irreversible decisions add an ADR (copy [`adr/template.md`](adr/template.md)); changing a
 boundary updates its ADR in the same commit — law and enforcement never drift apart.
 
+## Specs
+
+Living project-level specs sit at the repo root (like this project's ADRs, they are durable, not
+dated point-in-time working documents):
+
+- [`INFRASTRUCTURE-SPEC.md`](../INFRASTRUCTURE-SPEC.md) — the build plan for the next infrastructure
+  phases: testing, logging, and the local database (the how behind roadmap Phases 0–1).
+
+Dated point-in-time implementation specs, when they exist, live in `docs/specs/YYYY-MM-DD-slug.md`
+(dev-setup convention §9).
+
 ## The one-sentence definition
 
 > Astrolabe is a desktop application in which Alioth, a purpose-built knowledge agent, and the user
