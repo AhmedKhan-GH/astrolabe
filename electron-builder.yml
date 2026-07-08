@@ -1,0 +1,39 @@
+# electron-builder packaging config — one file shared across all platforms; the
+# per-OS scripts (package:mac / package:win / package:linux) select which section
+# runs. Each is built on its own native machine (no cross-compilation). The
+# electron-vite bundles in out/ are produced first, then packaged into dist/.
+appId: cool.astrolabe.app
+productName: Astrolabe
+
+directories:
+  output: dist
+
+# Ship the built bundles + the manifest; electron-builder additionally pulls in
+# production dependencies from node_modules automatically (e.g. better-sqlite3 in
+# Phase 2). Source, docs, and dev config are excluded.
+files:
+  - out/**
+  - package.json
+
+# Native addons must live outside the asar so their .node binaries can be loaded
+# at runtime. Durable prep — a harmless no-op until a native dependency (Phase 2's
+# better-sqlite3) exists. electron-builder rebuilds native modules against the
+# Electron ABI per-device during packaging (npmRebuild default), which is the fix
+# for the classic "works in node, crashes in Electron" mismatch.
+asarUnpack:
+  - '**/*.node'
+
+mac:
+  target:
+    - dmg   # human download / drag-to-Applications
+    - zip   # required by electron-updater's macOS feed (Phase 6)
+  category: public.app-category.productivity
+
+win:
+  target:
+    - nsis
+
+linux:
+  target:
+    - AppImage
+  category: Utility

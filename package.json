@@ -3,6 +3,8 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "description": "Local-first knowledge environment: the Alioth agent and Orion knowledge engine over Zotero, Obsidian, and Eagle.",
+  "author": "Ahmed <emailahmedebadkhan@gmail.com>",
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
@@ -12,7 +14,11 @@
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.app.json",
     "typecheck": "pnpm typecheck:node && pnpm typecheck:web",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "package:dir": "electron-vite build && electron-builder --dir",
+    "package:mac": "electron-vite build && electron-builder --mac",
+    "package:win": "electron-vite build && electron-builder --win",
+    "package:linux": "electron-vite build && electron-builder --linux"
   },
   "dependencies": {
     "react": "^19.2.7",

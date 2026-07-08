@@ -9,7 +9,9 @@ The repo was created via WebStorm's New Project dialog (Vite generator → React
 the founding docs, then the engineering-principles + ADR set, followed. The **Electron graft has now
 landed** (see "Scaffold sequence" below): the renderer moved into `src/renderer/`, `src/main/` and
 `src/preload/` were added, and `pnpm dev`/`pnpm build`/`pnpm start` run a real, verified-booting
-desktop app on electron-vite. Next action: the Playwright-for-Electron launch smoke test (Phase 0).
+desktop app on electron-vite. Cross-platform packaging is also wired: `pnpm package:{mac,win,linux}`
+produce per-device installers (each built on its own native machine, unsigned for now). Next action:
+the Playwright-for-Electron launch smoke test (Phase 0).
 
 ## Scaffold sequence
 
@@ -47,8 +49,17 @@ global.
   sandboxing is a future hardening step needing a CJS-emitted preload; take it via its own ADR.
 - **`pnpm-workspace.yaml` → `allowBuilds`.** pnpm 11 fails closed on undecided install scripts;
   `esbuild: true` (needs its platform binary), `electron-winstaller: false` (Windows-only).
-- **CSP warning in dev is expected** — it disappears when packaged; enforce+nonce CSP is a
-  deploy-time task (mirrors the Polaris layer-8 posture).
+- **CSP warning in dev is expected** — it disappears when packaged (verified: the packaged mac
+  `.app` boots with a clean log, no CSP warning); enforce+nonce CSP is a deploy-time task (mirrors
+  the Polaris layer-8 posture).
+- **Packaging (electron-builder):** one `electron-builder.yml` drives all platforms; each is built
+  on its own native machine — `pnpm package:mac` (dmg + zip), `pnpm package:win` (nsis),
+  `pnpm package:linux` (AppImage), or `pnpm package:dir` for a fast unpacked `.app` while iterating.
+  All **unsigned** for now. `asarUnpack: '**/*.node'` and electron-builder's per-device
+  `@electron/rebuild` are durable prep for Phase 2's better-sqlite3 (the ABI-mismatch fix); the
+  `postinstall: electron-builder install-app-deps` dev-side rebuild hook enters with that native dep.
+  Signing/notarization, the electron-updater feed (+ Cloudflare R2), and a CI build matrix remain
+  Phase 6.
 
 ### Native module note
 

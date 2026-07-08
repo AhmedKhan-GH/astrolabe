@@ -119,7 +119,9 @@ still owns every byte.
 - **Create `alidade`**: Express + Drizzle + managed Postgres; the five endpoints + Paddle webhook
   (see [05](05-licensing-and-commercialization.md))
 - License UI in-app: key entry, activation, offline verification, self-serve deactivation page
-- Signing + notarization; electron-updater + R2; release pipeline in GitHub Actions
+- Signing + notarization; electron-updater + R2; release pipeline in GitHub Actions (the *unsigned*
+  local per-device packaging — `electron-builder.yml` + `package:{mac,win,linux}` — was pulled
+  forward to Phase 0 for dogfooding; this phase adds signing, the updater feed, and the CI matrix)
 - Astro website: landing, docs, checkout, downloads
 - Sentry + PostHog (opt-in); beta cohort from the Zotero/Obsidian/Eagle communities
 
