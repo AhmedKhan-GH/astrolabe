@@ -81,8 +81,11 @@ only** — the sole moment the server is in the loop.
 max_activations, issued_at, status, revoked_at), `activations` (id, license_id, fingerprint,
 activated_at, last_seen_at, deactivated_at). No user content anywhere.
 
-**Stack (doc 05, D10):** Express + TypeScript + Drizzle + managed Postgres (Neon/Supabase), Docker,
-GitHub Actions, deployed Fly.io/Railway-class. Load at 10k customers ≈ a few requests/minute; ~$20/mo.
+**Stack (doc 05, D10):** Express + TypeScript + Drizzle + **Supabase as managed Postgres** (decided
+2026-07-07 over Neon — Polaris platform fluency + GoTrue option value for v2 identity; SDK never
+enters clients), Docker, GitHub Actions, deployed Fly.io/Railway-class. Load at 10k customers ≈ a
+few requests/minute; ~$20/mo. **Repository blueprint** (bootstrap, layers, modules, growth path):
+[`ALIDADE-SPEC.md`](ALIDADE-SPEC.md).
 
 **Shared with the app (ADR-0003):** the token verification (~20 lines) and API types — **deliberate
 duplication**, each side commenting its twin; extract a private package only if it grows. If §6

@@ -48,6 +48,9 @@ dated point-in-time working documents):
   phases: testing, logging, and the local database (the how behind roadmap Phases 0–1).
 - [`COMMERCIALIZATION-SPEC.md`](../COMMERCIALIZATION-SPEC.md) — the build plan behind doc 05:
   Ed25519 licensing, alidade's endpoints, anti-piracy layers, and the build-vs-buy decision (Phase 6).
+- [`ALIDADE-SPEC.md`](../ALIDADE-SPEC.md) — the alidade repository blueprint: bootstrap sequence,
+  modular-monolith architecture, packages, Supabase decision, and growth path (moves to the alidade
+  repo as its founding doc on creation day).
 
 Dated point-in-time implementation specs, when they exist, live in `docs/specs/YYYY-MM-DD-slug.md`
 (dev-setup convention §9).
