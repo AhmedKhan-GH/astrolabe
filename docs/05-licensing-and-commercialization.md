@@ -2,6 +2,10 @@
 
 **Status:** Current — founding design session; pricing points deferred to launch · **Date:** 2026-07-07
 
+> This document owns the commercial **model and policy**. The implementation build plan — crypto,
+> endpoint contracts, the app-side seam, anti-piracy layers, and the build-vs-buy decision — lives in
+> the root [`COMMERCIALIZATION-SPEC.md`](../COMMERCIALIZATION-SPEC.md).
+
 The commercial model is the **Eagle.cool model**: pay once, get a license key, the software runs
 forever on-device; the server exists only to mint, activate, and count licenses. Optional cloud
 services, if they ever exist, are billed separately. This chapter records the full mechanics as
