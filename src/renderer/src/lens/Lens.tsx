@@ -18,6 +18,8 @@ import {
 import { toStoredFilter, resolveStoredFilter, selectionFromFilterSet } from './viewRefs'
 import { CanvasView } from './CanvasView'
 import { NoteView, type NoteNavTarget } from './NoteView'
+import { ExcalidrawView } from './excalidraw/ExcalidrawView'
+import { isExcalidrawNote, parseExcalidrawScene } from './excalidraw/parse'
 import { DocumentHub } from './DocumentHub'
 import { canvasCandidates, type CanvasHostHit } from './canvas'
 import { usePdfDocument } from './pdf/usePdfDocument'
@@ -149,15 +151,46 @@ function NoteHost({
     queryKey: ['links', note.documentId],
     queryFn: () => window.astrolabe.index.links(note.documentId),
   })
+
+  // An Obsidian-Excalidraw note (`*.excalidraw.md`) IS a note (reached by the same title
+  // click), but its body is an embedded drawing, not prose. When the fetched markdown is one,
+  // render it as a read-only drawing instead of the raw NoteView. Parsing can throw on a
+  // corrupt/unsupported payload — in that case we fall back to the source NoteView with a
+  // visible notice, so a broken drawing never blanks the panel (docs/02 D2 keeps editing in
+  // Obsidian; this is a read-only surface).
+  const md_data = md.data ?? ''
+  const drawing = useMemo(() => {
+    if (!md.data || !isExcalidrawNote(md.data)) return null
+    try {
+      return { scene: parseExcalidrawScene(md.data), error: null as string | null }
+    } catch (e) {
+      return { scene: null, error: e instanceof Error ? e.message : String(e) }
+    }
+  }, [md.data])
+
+  if (drawing?.scene) {
+    return (
+      <ExcalidrawView
+        title={note.title}
+        scene={drawing.scene}
+        uri={note.uri}
+        onOpenUri={(uri) => void window.astrolabe.system.openUri(uri)}
+        onOpenDetails={onOpenDetails}
+        onClose={onClose}
+      />
+    )
+  }
+
   return (
     <NoteView
       title={note.title}
-      content={md.data ?? ''}
+      content={md_data}
       tags={note.tags}
       uri={note.uri}
       links={links.data ?? EMPTY_LINKS}
       loading={md.isPending}
       error={md.isError ? String(md.error) : undefined}
+      notice={drawing?.error ? 'drawing could not be parsed — showing source' : undefined}
       onNavigate={onNavigate}
       onOpenUri={(uri) => void window.astrolabe.system.openUri(uri)}
       onOpenDetails={onOpenDetails}

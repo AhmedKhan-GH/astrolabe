@@ -81,6 +81,13 @@ describe('NoteView chrome', () => {
     const dialog = screen.getByRole('dialog', { name: /note view/i })
     expect(within(dialog).getByText(/HTTP 404/)).toBeTruthy()
   })
+
+  it('renders a notice above the body while still showing the source', () => {
+    setup({ notice: 'drawing could not be parsed — showing source' })
+    expect(screen.getByText(/drawing could not be parsed/i)).toBeTruthy()
+    // The source body still renders alongside the notice.
+    expect(screen.getByRole('heading', { name: 'Heading' })).toBeTruthy()
+  })
 })
 
 describe('NoteView wiki links', () => {
