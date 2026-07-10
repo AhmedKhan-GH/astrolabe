@@ -1,0 +1,30 @@
+{
+  "_comment": "Sanitized capture of GET /api/library/info (Eagle 4.0.0). Trimmed to a small nested folder tree; passwords/pinyin/palettes removed. Real library path preserved for layout tests.",
+  "library": {
+    "path": "/Users/ahmed/Library/Mobile Documents/com~apple~CloudDocs/Eagle/Books.library",
+    "name": "Books"
+  },
+  "folders": [
+    {
+      "id": "MACHGP7E724GJ",
+      "name": "Courses with Solutions",
+      "children": [
+        {
+          "id": "MPC7EA9367GXO",
+          "name": "Griffiths Introduction Quantum Mechanics",
+          "children": []
+        },
+        {
+          "id": "MI2XSLJMEUKJJ",
+          "name": "ARM Assembly Language",
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "MD7UT6LA5IP8U",
+      "name": "Finished Reading",
+      "children": []
+    }
+  ]
+}

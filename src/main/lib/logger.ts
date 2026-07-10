@@ -1,7 +1,13 @@
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { app } from 'electron'
+// Default import, not named: outside Electron (tsx/node scripts, vitest) the
+// 'electron' package's export is a path string — a named `app` import is a hard
+// ESM error under strict node, while a guarded default import degrades cleanly.
+import electron from 'electron'
 import pino from 'pino'
+
+const app = (electron as unknown as { app?: { getPath(name: string): string; isPackaged: boolean } })
+  ?.app
 
 /**
  * One Pino instance for the main process (INFRASTRUCTURE-SPEC Pillar 2; conventions
@@ -15,14 +21,14 @@ import pino from 'pino'
  */
 // Outside Electron (vitest node-mode, the step-7 MCP server) `app` is undefined —
 // fall back to a tmp log dir and unpackaged behavior.
-const inElectron = typeof app?.getPath === 'function'
+const inElectron = app != null && typeof app.getPath === 'function'
 const level = process.env['ASTROLABE_LOG_LEVEL'] ?? 'info'
 const logFile = inElectron
-  ? join(app.getPath('userData'), 'logs', 'main.log')
+  ? join(app!.getPath('userData'), 'logs', 'main.log')
   : join(tmpdir(), 'astrolabe-logs', 'main.log')
 
 function createLogger(): pino.Logger {
-  if (!inElectron || !app.isPackaged) {
+  if (!inElectron || !app!.isPackaged) {
     return pino({
       level,
       transport: {

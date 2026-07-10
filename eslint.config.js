@@ -27,6 +27,7 @@ export default defineConfig([
       'src/preload/**/*.ts',
       'src/shared/**/*.ts',
       'e2e/**/*.ts',
+      'scripts/**/*.ts',
       'electron.vite.config.ts',
       'playwright.config.ts',
       'vitest.config.ts',
@@ -48,6 +49,8 @@ export default defineConfig([
         {
           zones: [
             { target: './src/main/lib', from: './src/main/connectors' },
+            { target: './src/main/connectors/zotero', from: './src/main/connectors/eagle' },
+            { target: './src/main/connectors/eagle', from: './src/main/connectors/zotero' },
             { target: './src/main/lib', from: './src/main/db' },
             { target: './src/main/lib', from: './src/main/index' },
             { target: './src/shared', from: './src/main' },

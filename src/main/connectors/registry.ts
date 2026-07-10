@@ -1,8 +1,10 @@
 import type { Connector } from './types'
+import { zoteroConnector } from './zotero'
+import { eagleConnector } from './eagle'
 
 /**
- * Flat connector registry — the only wiring point (doc 10 §5). Zotero registers
- * in runway step 4, Eagle in step 5, Obsidian in step 8. Connectors must never
- * import each other (enforced by eslint-plugin-import-x zones).
+ * Flat connector registry — the only wiring point (doc 10 §5). Obsidian joins in
+ * runway step 8. Connectors must never import each other (enforced by
+ * eslint-plugin-import-x zones).
  */
-export const connectors: Connector[] = []
+export const connectors: Connector[] = [zoteroConnector, eagleConnector]
