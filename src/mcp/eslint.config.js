@@ -15,7 +15,12 @@ export default defineConfig([
   {
     files: ['**/*.ts'],
     extends: [js.configs.recommended, tseslint.configs.recommended],
-    languageOptions: { globals: globals.node },
+    languageOptions: {
+      globals: globals.node,
+      // Two flat configs exist in the repo (root + this one); pin the root dir so
+      // typescript-eslint doesn't fail on "multiple candidate TSConfigRootDirs".
+      parserOptions: { tsconfigRootDir: import.meta.dirname },
+    },
     rules: {
       'no-console': ['error', { allow: ['error', 'warn'] }],
     },

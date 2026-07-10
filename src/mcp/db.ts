@@ -13,11 +13,13 @@ export type Db = BetterSQLite3Database<typeof schema>
 
 export interface ReadonlyDbHandle {
   db: Db
+  /** Raw handle — exposed so tests can prove the read-only guarantee. */
+  sqlite: Database.Database
   close: () => void
 }
 
 export function openReadonlyDb(dbPath: string): ReadonlyDbHandle {
   const sqlite = new Database(dbPath, { readonly: true, fileMustExist: true })
   const db = drizzle(sqlite, { schema })
-  return { db, close: () => sqlite.close() }
+  return { db, sqlite, close: () => sqlite.close() }
 }

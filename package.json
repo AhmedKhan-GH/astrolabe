@@ -14,7 +14,7 @@
     "start": "electron-vite preview",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.app.json",
-    "typecheck": "pnpm typecheck:node && pnpm typecheck:web",
+    "typecheck": "pnpm typecheck:node && pnpm typecheck:web && pnpm typecheck:mcp",
     "lint": "eslint .",
     "db:generate": "drizzle-kit generate",
     "test:unit": "vitest run --project unit --project components",
@@ -26,7 +26,8 @@
     "package:win": "electron-vite build && electron-builder --win",
     "package:linux": "electron-vite build && electron-builder --linux",
     "sync:live": "ELECTRON_RUN_AS_NODE=1 electron node_modules/tsx/dist/cli.mjs scripts/live-sync.ts",
-    "mcp:serve": "tsx src/mcp/server.ts"
+    "mcp:serve": "tsx src/mcp/server.ts",
+    "typecheck:mcp": "tsc --noEmit -p src/mcp/tsconfig.json"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
