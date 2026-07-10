@@ -24,6 +24,7 @@ export default defineConfig([
     files: [
       'src/main/**/*.ts',
       'src/preload/**/*.ts',
+      'src/shared/**/*.ts',
       'e2e/**/*.ts',
       'electron.vite.config.ts',
       'playwright.config.ts',

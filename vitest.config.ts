@@ -1,14 +1,33 @@
 import { defineConfig } from 'vitest/config'
 
-// Unit tier (ADR-0006 Tier A/B): pure logic — connector parsers, index operations,
-// the context assembler. No unit tests exist yet, deliberately: the first
-// Tier-A logic (the DB table-client dispatch, then Zotero connector parsing)
-// brings the first real specs. passWithNoTests keeps the gate honest until then —
-// no placeholder example specs (the iteration-2 test-theater scar, docs/01).
+/**
+ * Two projects (ADR-0006 tiers):
+ *  - unit: pure logic, no native modules — plain node.
+ *  - integration: real better-sqlite3 + real migrations — run via
+ *    `pnpm test:integration`, which executes vitest inside Electron-as-node
+ *    (ELECTRON_RUN_AS_NODE) so the electron-ABI native binary loads.
+ * jsdom/component project enters with the first component test (runway step 6).
+ * passWithNoTests keeps gates honest without placeholder specs (iteration-2 scar).
+ */
 export default defineConfig({
   test: {
-    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
-    environment: 'node',
     passWithNoTests: true,
+    projects: [
+      {
+        test: {
+          name: 'unit',
+          environment: 'node',
+          include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+        },
+      },
+      {
+        test: {
+          name: 'integration',
+          environment: 'node',
+          pool: 'threads',
+          include: ['src/**/*.itest.ts'],
+        },
+      },
+    ],
   },
 })

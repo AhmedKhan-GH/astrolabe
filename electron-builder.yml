@@ -15,6 +15,12 @@ files:
   - out/**
   - package.json
 
+# Drizzle migrations are runtime-needed (run at boot) — ship them beside the asar.
+# (Committed in-repo too: the iteration-2 gitignored-but-bundled scar, docs/01.)
+extraResources:
+  - from: drizzle
+    to: drizzle
+
 # Native addons must live outside the asar so their .node binaries can be loaded
 # at runtime. Durable prep — a harmless no-op until a native dependency (Phase 2's
 # better-sqlite3) exists. electron-builder rebuilds native modules against the

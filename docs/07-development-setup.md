@@ -16,7 +16,10 @@ tests arrive with the first Tier-A logic) and a four-assertion Playwright-for-El
 (`pnpm test:e2e`), which caught and fixed its first real bug on first run (root-absolute
 public-asset paths 404ing under `file://` in the built app). **Pino logging is in** (Pillar 2 —
 `moduleLogger('…')` children; JSON file sink at `userData/logs/main.log`; pretty stdout dev-only).
-Next action: SQLite/Drizzle + typed IPC (Pillar 3), per the
+**The database foundation is in** (Pillar 3 — `~/Astrolabe/.astrolabe/index.db`, WAL, fail-fast
+DB→IPC→window boot, typed table-client over `db:query`, migrations committed + shipped via
+extraResources; integration tests run vitest under Electron-as-node for ABI parity). Next action:
+runway step 3 — index schema v1 + connector contract, per the
 [runway spec](specs/2026-07-09-runway-to-library-lens.md).
 
 ## Scaffold sequence

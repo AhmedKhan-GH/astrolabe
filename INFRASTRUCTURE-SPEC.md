@@ -139,7 +139,13 @@ Phase 0 wires the DB with **one trivial round-trip proven by a test** — never 
 extension needing its own `asarUnpack` + `loadExtension` and shipping the extension binary — real
 complexity, correctly deferred.
 
-*Commit:* `feat: better-sqlite3 + drizzle with typed IPC table-client`.
+*Commit:* `feat: better-sqlite3 + drizzle with typed IPC table-client`. **Status: landed
+(2026-07-09)** — workspace (`~/Astrolabe/`, `ASTROLABE_WORKSPACE` override), WAL boot with fail-fast,
+committed migrations (repo `/drizzle` + extraResources), typed table-client with whitelist/id-column
+guards, zod at the boundary. **ABI story proven end-to-end:** postinstall `install-app-deps`;
+integration tests run vitest under Electron-as-node (`ELECTRON_RUN_AS_NODE`) so the electron-ABI
+binary loads in tests; packaged `.app` verified booting with db. Domain schema is step 3 — only the
+`meta` table ships here (no demo tables; iteration-2 scar).
 
 ---
 

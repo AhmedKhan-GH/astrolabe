@@ -1,5 +1,8 @@
 import { test, expect, _electron as electron } from '@playwright/test'
 import type { ElectronApplication, Page } from '@playwright/test'
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 /**
  * Launch smoke test (INFRASTRUCTURE-SPEC Pillar 1): the app boots, renders, and
@@ -15,8 +18,13 @@ const consoleErrors: string[] = []
 
 test.beforeAll(async () => {
   // Launches the built app (out/main/index.js via package.json "main").
-  // `pnpm test:e2e` runs electron-vite build first.
-  app = await electron.launch({ args: ['.'] })
+  // `pnpm test:e2e` runs electron-vite build first. A temp workspace keeps the
+  // test from touching the real ~/Astrolabe (ASTROLABE_WORKSPACE override).
+  const workspace = mkdtempSync(join(tmpdir(), 'astrolabe-e2e-'))
+  app = await electron.launch({
+    args: ['.'],
+    env: { ...process.env, ASTROLABE_WORKSPACE: workspace },
+  })
   window = await app.firstWindow()
   window.on('pageerror', (err) => pageErrors.push(err))
   window.on('console', (msg) => {
@@ -41,11 +49,30 @@ test('preload bridge exposes exactly its allowlist', async () => {
   const api = await window.evaluate(() => (window as never as Record<string, unknown>)['astrolabe'])
   // The bridge surface is a security contract: exactly these keys, nothing more.
   expect(api).toBeTruthy()
-  expect(Object.keys(api as object)).toEqual(['versions'])
+  expect(Object.keys(api as object).sort()).toEqual(['db', 'versions'])
   const versions = (api as { versions: Record<string, unknown> }).versions
   expect(typeof versions.electron).toBe('string')
   expect(typeof versions.chrome).toBe('string')
   expect(typeof versions.node).toBe('string')
+})
+
+test('db round-trip over typed IPC (renderer → main → sqlite)', async () => {
+  const result = await window.evaluate(async () => {
+    type MetaClient = {
+      create: (v: { key: string; value: string }) => Promise<{ id: number; key: string; value: string }>
+      getById: (id: number) => Promise<{ value: string } | null>
+      remove: (id: number) => Promise<number>
+      getAll: () => Promise<unknown[]>
+    }
+    const meta = (window as never as { astrolabe: { db: { meta: MetaClient } } }).astrolabe.db.meta
+    const created = await meta.create({ key: `smoke-${Date.now()}`, value: 'ok' })
+    const fetched = await meta.getById(created.id)
+    const removed = await meta.remove(created.id)
+    return { createdId: created.id, fetchedValue: fetched?.value, removed }
+  })
+  expect(result.createdId).toBeGreaterThan(0)
+  expect(result.fetchedValue).toBe('ok')
+  expect(result.removed).toBe(1)
 })
 
 test('renderer has no Node reach (context isolation holds)', async () => {

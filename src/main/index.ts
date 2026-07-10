@@ -1,7 +1,11 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { moduleLogger } from './lib/logger'
+import { ensureWorkspace } from './lib/workspace'
+import { openDb } from './db'
+import { createDbDispatcher } from './db/dispatcher'
+import { DB_CHANNEL } from '../shared/db-ipc'
 
 // ESM main process — derive the directory the built file lives in (out/main/).
 const currentDir = dirname(fileURLToPath(import.meta.url))
@@ -52,13 +56,25 @@ function createWindow(): void {
   }
 }
 
-// Boot order: app-ready → window. (The DB → IPC steps join this chain in Phase 0/1,
-// ahead of window creation, per docs/07.)
+// Boot order: workspace → DB → IPC → window, fail-fast quit on any init error
+// (docs/07 secure defaults; doc 10 §4 fail closed — a half-configured app must
+// not limp into a window).
 app.whenReady().then(() => {
-  log.info(
-    { electron: process.versions.electron, packaged: app.isPackaged },
-    'app ready — creating window',
-  )
+  try {
+    const ws = ensureWorkspace()
+    const handle = openDb(ws.dbPath)
+    const dispatch = createDbDispatcher(handle.db)
+    ipcMain.handle(DB_CHANNEL, (_event, req: unknown) => dispatch(req))
+    log.info(
+      { workspace: ws.root, workspaceId: ws.manifest.workspaceId, packaged: app.isPackaged },
+      'workspace + db + ipc ready — creating window',
+    )
+  } catch (err) {
+    log.fatal({ err }, 'boot failed at workspace/db init')
+    dialog.showErrorBox('Astrolabe failed to start', String(err))
+    app.quit()
+    return
+  }
   createWindow()
 
   // macOS: re-create a window when the dock icon is clicked and none are open.

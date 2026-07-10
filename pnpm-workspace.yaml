@@ -6,3 +6,5 @@
 allowBuilds:
   esbuild: true
   electron-winstaller: false
+  # native DB — prebuild fetch at install; electron-ABI rebuild via postinstall install-app-deps
+  better-sqlite3: true
