@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import clsx from 'clsx'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import type { BrowseHit, BrowsePage, LensSelection } from './types'
+import type { BrowseHit, BrowsePage, FilterSet } from './types'
 import { shouldFetchNextPage } from './pagination'
 
 const PAGE = 100
@@ -15,13 +15,13 @@ const SOURCE_BADGE: Record<string, string> = {
 
 /** Recency river: browse the whole (filtered) index, newest-modified first. */
 export function DocumentRiver({
-  selection,
+  filters,
   onOpenUri = (uri) => void window.astrolabe.system.openUri(uri),
   onOpenFile = (p) => void window.astrolabe.system.openPath(p),
   onReveal = (p) => void window.astrolabe.system.reveal(p),
   onSync,
 }: {
-  selection: LensSelection
+  filters: FilterSet
   onOpenUri?: (uri: string) => void
   onOpenFile?: (path: string) => void
   onReveal?: (path: string) => void
@@ -30,10 +30,10 @@ export function DocumentRiver({
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const query = useInfiniteQuery({
-    queryKey: ['browse', selection],
+    queryKey: ['browse', filters],
     initialPageParam: 0,
     queryFn: ({ pageParam }) =>
-      window.astrolabe.index.browse({ ...selection, offset: pageParam, limit: PAGE }),
+      window.astrolabe.index.browse({ ...filters, offset: pageParam, limit: PAGE }),
     getNextPageParam: (lastPage: BrowsePage, allPages) => {
       const loaded = allPages.reduce((n, p) => n + p.hits.length, 0)
       return lastPage.hits.length > 0 && loaded < lastPage.total ? loaded : undefined

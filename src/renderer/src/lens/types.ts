@@ -4,13 +4,36 @@
  * component tests never reach for the preload seam.
  */
 
-/** One active value per dimension; all compose with AND. */
+export type SourceKey = 'zotero' | 'eagle' | 'obsidian'
+export type DocumentKind = 'pdf' | 'image' | 'note' | 'other'
+
+/**
+ * Renderer mirror of the `queries.ts` filterSetSchema wire contract — same field
+ * names, all arrays optional (omitted entirely when empty, keeping the payload
+ * minimal). Dimensions AND together; within a scope dimension values OR.
+ */
+export interface FilterSet {
+  sourceKeys?: SourceKey[]
+  collectionIds?: number[]
+  folderPrefixes?: string[] // obsidian externalKey LIKE '<prefix>%'
+  kinds?: DocumentKind[]
+  tagsAll?: string[] // document has every one
+  tagsAny?: string[] // at least one
+  tagsNone?: string[] // none of them
+}
+
+/**
+ * Multi-select facets + boolean tag search. Scope arrays (sources/collections/
+ * folders) OR within and AND across dimensions; tags carry per-name mode, and
+ * `tagMatch` decides whether required tags map to tagsAll vs tagsAny on the wire.
+ */
 export interface LensSelection {
-  sourceKey?: 'zotero' | 'eagle' | 'obsidian'
-  collectionId?: number // zotero/eagle tree node; implies its source
-  folderPrefix?: string // obsidian folder path ('Projects/'); implies obsidian
-  tag?: string
-  kind?: 'pdf' | 'image' | 'note' | 'other'
+  sourceKeys: SourceKey[]
+  collectionIds: number[]
+  folderPrefixes: string[]
+  kinds: DocumentKind[]
+  tags: { name: string; mode: 'require' | 'exclude' }[]
+  tagMatch: 'all' | 'any'
 }
 
 /** id = collections.id (zotero/eagle) | folder path string (obsidian). */

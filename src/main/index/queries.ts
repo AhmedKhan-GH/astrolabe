@@ -10,26 +10,31 @@ import { buildCollectionTree, buildFolderTree, type NavNode } from './nav-tree'
  * Named-channel territory: FTS + joins deliberately bypass the generic table-client.
  */
 
-/** The Library Navigator selection dimensions (docs/2026-07-10 §Selection model); shared
- *  verbatim by browse and search so a typed query narrows exactly like the browsed river. */
-const filterFields = {
-  sourceKey: z.enum(['zotero', 'eagle', 'obsidian']).optional(),
-  collectionId: z.number().int().positive().optional(),
-  folderPrefix: z.string().max(500).optional(), // matched as externalKey LIKE '<prefix>%'
-  tag: z.string().max(200).optional(),
-  kind: z.enum(['pdf', 'image', 'note', 'other']).optional(),
-}
+/** The Library Navigator selection dimensions (docs/2026-07-10-lens-boolean-filtering-spec).
+ *  Dimensions AND together; within a dimension selection is a union (OR), with tags carrying
+ *  the ALL/ANY/NONE boolean structure. All fields optional — the empty set is no constraint,
+ *  and the MCP server's `{q, limit}` calls stay valid. Shared verbatim by browse and search. */
+export const filterSetSchema = z.object({
+  sourceKeys: z.array(z.enum(['zotero', 'eagle', 'obsidian'])).max(3).optional(),
+  collectionIds: z.array(z.number().int().positive()).max(100).optional(),
+  folderPrefixes: z.array(z.string().max(500)).max(50).optional(), // externalKey LIKE '<p>%', obsidian-scoped
+  kinds: z.array(z.enum(['pdf', 'image', 'note', 'other'])).max(4).optional(),
+  tagsAll: z.array(z.string().max(200)).max(50).optional(),
+  tagsAny: z.array(z.string().max(200)).max(50).optional(),
+  tagsNone: z.array(z.string().max(200)).max(50).optional(),
+})
+export type FilterSet = z.infer<typeof filterSetSchema>
 
 export const searchRequestSchema = z.object({
   q: z.string().min(1).max(500),
   limit: z.number().int().positive().max(200).default(50),
-  ...filterFields,
+  ...filterSetSchema.shape,
 })
 export type SearchRequest = z.infer<typeof searchRequestSchema>
 
 /** Browse (the recency river) — same filters as search minus `q`, plus offset paging. */
 export const browseRequestSchema = z.object({
-  ...filterFields,
+  ...filterSetSchema.shape,
   offset: z.number().int().min(0).default(0),
   limit: z.number().int().positive().max(200).default(100),
 })
@@ -69,38 +74,72 @@ export interface SearchHit {
   instances: { sourceKey: string; uri: string; filePath: string | null }[]
 }
 
+/** A drizzle IN-list body: `?, ?, …` bound one placeholder per value (goes inside `IN (...)`). */
+const inList = (values: (string | number)[]): SQL =>
+  sql.join(
+    values.map((v) => sql`${v}`),
+    sql`, `,
+  )
+
 export function createIndexQueries(db: Db) {
   /**
-   * The selection filters as SQL predicates over an aliased `documents d`. Each dimension
-   * is an EXISTS subquery (or a scalar compare) so the row stays one-per-document — no
-   * DISTINCT needed — and any subset composes with AND. Shared by browse and search so
-   * both narrow identically (docs/2026-07-10 §Wire contracts). folderPrefix is scoped to
-   * obsidian instances by design (the vault relpath is that source's externalKey).
+   * The FilterSet as SQL predicates over an aliased `documents d`, one-row-per-document via
+   * EXISTS (never JOIN+DISTINCT). Dimensions AND together; the returned array is AND-joined by
+   * the caller (docs/2026-07-10-lens-boolean-filtering-spec §SQL). folderPrefixes are scoped to
+   * obsidian instances (the vault relpath is that source's externalKey).
    */
-  function filterConditions(f: z.infer<z.ZodObject<typeof filterFields>>): SQL[] {
+  function filterConditions(f: FilterSet): SQL[] {
     const conds: SQL[] = []
-    if (f.kind) conds.push(sql`d.kind = ${f.kind}`)
-    if (f.sourceKey)
-      conds.push(
+
+    // Scope is the union of its non-empty sub-predicates: a document matches if it lives in any
+    // selected source, any selected collection, or under any selected obsidian folder prefix.
+    const scope: SQL[] = []
+    if (f.sourceKeys?.length)
+      scope.push(
         sql`EXISTS (SELECT 1 FROM document_instances di JOIN sources src ON di.source_id = src.id
-                    WHERE di.document_id = d.id AND src.key = ${f.sourceKey})`,
+                    WHERE di.document_id = d.id AND src.key IN (${inList(f.sourceKeys)}))`,
       )
-    if (f.collectionId)
-      conds.push(
+    if (f.collectionIds?.length)
+      scope.push(
         sql`EXISTS (SELECT 1 FROM document_collections dc
-                    WHERE dc.document_id = d.id AND dc.collection_id = ${f.collectionId})`,
+                    WHERE dc.document_id = d.id AND dc.collection_id IN (${inList(f.collectionIds)}))`,
       )
-    if (f.folderPrefix)
-      conds.push(
+    if (f.folderPrefixes?.length) {
+      const anyPrefix = sql.join(
+        f.folderPrefixes.map((p) => sql`di.external_key LIKE ${p + '%'}`),
+        sql` OR `,
+      )
+      scope.push(
         sql`EXISTS (SELECT 1 FROM document_instances di JOIN sources src ON di.source_id = src.id
-                    WHERE di.document_id = d.id AND src.key = 'obsidian'
-                      AND di.external_key LIKE ${f.folderPrefix + '%'})`,
+                    WHERE di.document_id = d.id AND src.key = 'obsidian' AND (${anyPrefix}))`,
       )
-    if (f.tag)
+    }
+    if (scope.length) conds.push(sql`(${sql.join(scope, sql` OR `)})`)
+
+    // Kind is one of the selected kinds.
+    if (f.kinds?.length) conds.push(sql`d.kind IN (${inList(f.kinds)})`)
+
+    // tagsAll: the document carries every named tag — one EXISTS per tag, AND-joined.
+    for (const tag of f.tagsAll ?? [])
       conds.push(
         sql`EXISTS (SELECT 1 FROM document_tags dt JOIN tags t ON dt.tag_id = t.id
-                    WHERE dt.document_id = d.id AND t.name = ${f.tag})`,
+                    WHERE dt.document_id = d.id AND t.name = ${tag})`,
       )
+
+    // tagsAny: the document carries at least one named tag.
+    if (f.tagsAny?.length)
+      conds.push(
+        sql`EXISTS (SELECT 1 FROM document_tags dt JOIN tags t ON dt.tag_id = t.id
+                    WHERE dt.document_id = d.id AND t.name IN (${inList(f.tagsAny)}))`,
+      )
+
+    // tagsNone: the document carries none of the named tags.
+    if (f.tagsNone?.length)
+      conds.push(
+        sql`NOT EXISTS (SELECT 1 FROM document_tags dt JOIN tags t ON dt.tag_id = t.id
+                        WHERE dt.document_id = d.id AND t.name IN (${inList(f.tagsNone)}))`,
+      )
+
     return conds
   }
 

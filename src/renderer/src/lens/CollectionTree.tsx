@@ -6,16 +6,16 @@ import type { NavNode } from './types'
  * Recursive structural tree (zotero/eagle collections or obsidian folders).
  * Expansion is local UI state: roots open, deeper levels collapsed until clicked.
  * Selection lives in the parent (NavRail owns the LensSelection); this fires
- * `onSelectNode` and reflects the currently-selected id via `selectedId`.
+ * `onSelectNode` and reflects the selected ids via `selectedIds` (multi-select).
  */
 export function CollectionTree({
   nodes,
-  selectedId,
+  selectedIds,
   onSelectNode,
   depth = 0,
 }: {
   nodes: NavNode[]
-  selectedId?: number | string
+  selectedIds: (number | string)[]
   onSelectNode: (node: NavNode) => void
   depth?: number
 }) {
@@ -25,7 +25,7 @@ export function CollectionTree({
         <TreeRow
           key={String(node.id)}
           node={node}
-          selectedId={selectedId}
+          selectedIds={selectedIds}
           onSelectNode={onSelectNode}
           depth={depth}
         />
@@ -36,19 +36,19 @@ export function CollectionTree({
 
 function TreeRow({
   node,
-  selectedId,
+  selectedIds,
   onSelectNode,
   depth,
 }: {
   node: NavNode
-  selectedId?: number | string
+  selectedIds: (number | string)[]
   onSelectNode: (node: NavNode) => void
   depth: number
 }) {
   // Roots (depth 0) expanded; deeper levels collapsed until opened.
   const [open, setOpen] = useState(depth === 0)
   const hasChildren = node.children.length > 0
-  const selected = selectedId != null && node.id === selectedId
+  const selected = selectedIds.includes(node.id)
 
   return (
     <li>
@@ -79,7 +79,7 @@ function TreeRow({
       {hasChildren && open && (
         <CollectionTree
           nodes={node.children}
-          selectedId={selectedId}
+          selectedIds={selectedIds}
           onSelectNode={onSelectNode}
           depth={depth + 1}
         />

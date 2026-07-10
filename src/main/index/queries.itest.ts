@@ -56,14 +56,14 @@ const collId = (sourceKey: string, externalKey: string): number => {
 const titles = (page: { hits: { title: string }[] }) => page.hits.map((h) => h.title)
 
 describe('browse', () => {
-  it('no filter: all docs, modifiedAt DESC then id DESC, with total', () => {
+  it('empty FilterSet: all docs, modifiedAt DESC then id DESC, with total', () => {
     const page = queries.browse({})
     expect(page.total).toBe(5)
     expect(titles(page)).toEqual(['Delta Note', 'Gamma Note', 'Beta Image', 'Alpha Paper', 'Root Note'])
   })
 
   it('BrowseHit shape: tags + per-instance provenance, no snippet', () => {
-    const hit = queries.browse({ kind: 'pdf' }).hits[0]!
+    const hit = queries.browse({ kinds: ['pdf'] }).hits[0]!
     expect(hit).toEqual({
       documentId: expect.any(Number),
       title: 'Alpha Paper',
@@ -75,34 +75,77 @@ describe('browse', () => {
     expect(hit).not.toHaveProperty('snippet')
   })
 
-  it('filters by kind', () => {
-    expect(titles(queries.browse({ kind: 'note' }))).toEqual(['Delta Note', 'Gamma Note', 'Root Note'])
-    expect(queries.browse({ kind: 'note' }).total).toBe(3)
+  it('kinds: d.kind IN (…) — single and multi', () => {
+    expect(titles(queries.browse({ kinds: ['note'] }))).toEqual(['Delta Note', 'Gamma Note', 'Root Note'])
+    expect(queries.browse({ kinds: ['note'] }).total).toBe(3)
+    expect(titles(queries.browse({ kinds: ['pdf', 'image'] }))).toEqual(['Beta Image', 'Alpha Paper'])
   })
 
-  it('filters by sourceKey', () => {
-    expect(titles(queries.browse({ sourceKey: 'obsidian' }))).toEqual(['Delta Note', 'Gamma Note', 'Root Note'])
-    expect(titles(queries.browse({ sourceKey: 'zotero' }))).toEqual(['Alpha Paper'])
+  describe('scope (sources ∪ collections ∪ folders)', () => {
+    it('sourceKeys alone: union across the selected sources', () => {
+      expect(titles(queries.browse({ sourceKeys: ['obsidian'] }))).toEqual(['Delta Note', 'Gamma Note', 'Root Note'])
+      expect(titles(queries.browse({ sourceKeys: ['zotero', 'eagle'] }))).toEqual(['Beta Image', 'Alpha Paper'])
+    })
+
+    it('collectionIds alone: direct membership, union across collections', () => {
+      expect(titles(queries.browse({ collectionIds: [collId('zotero', 'papers')] }))).toEqual(['Alpha Paper'])
+      expect(queries.browse({ collectionIds: [collId('zotero', 'lib')] }).total).toBe(0) // nothing lives directly in Library
+      expect(
+        titles(queries.browse({ collectionIds: [collId('zotero', 'papers'), collId('eagle', 'fa')] })),
+      ).toEqual(['Beta Image', 'Alpha Paper'])
+    })
+
+    it('folderPrefixes alone: obsidian externalKey LIKE prefix%, union', () => {
+      expect(titles(queries.browse({ folderPrefixes: ['Projects/'] }))).toEqual(['Delta Note', 'Gamma Note'])
+      expect(titles(queries.browse({ folderPrefixes: ['Projects/Foo/'] }))).toEqual(['Gamma Note'])
+      expect(titles(queries.browse({ folderPrefixes: ['Projects/Foo/', 'root.md'] }))).toEqual([
+        'Gamma Note',
+        'Root Note',
+      ])
+    })
+
+    it('unions the three sub-dimensions with OR (not AND)', () => {
+      // zotero source (Alpha) ∪ eagle FolderA collection (Beta) ∪ obsidian Projects/Foo/ (Gamma)
+      expect(
+        titles(
+          queries.browse({
+            sourceKeys: ['zotero'],
+            collectionIds: [collId('eagle', 'fa')],
+            folderPrefixes: ['Projects/Foo/'],
+          }),
+        ),
+      ).toEqual(['Gamma Note', 'Beta Image', 'Alpha Paper'])
+    })
   })
 
-  it('filters by collectionId (direct membership)', () => {
-    expect(titles(queries.browse({ collectionId: collId('zotero', 'papers') }))).toEqual(['Alpha Paper'])
-    expect(queries.browse({ collectionId: collId('zotero', 'lib') }).total).toBe(0)
+  describe('tags: ALL / ANY / NONE produce distinct results', () => {
+    it('tagsAll: document carries every named tag', () => {
+      expect(titles(queries.browse({ tagsAll: ['ml', 'idea'] }))).toEqual(['Gamma Note'])
+      expect(titles(queries.browse({ tagsAll: ['idea'] }))).toEqual(['Delta Note', 'Gamma Note'])
+    })
+
+    it('tagsAny: at least one named tag', () => {
+      expect(titles(queries.browse({ tagsAny: ['ml', 'idea'] }))).toEqual(['Delta Note', 'Gamma Note', 'Alpha Paper'])
+    })
+
+    it('tagsNone: none of the named tags', () => {
+      expect(titles(queries.browse({ tagsNone: ['ml', 'idea'] }))).toEqual(['Beta Image', 'Root Note'])
+    })
+
+    it('the three modes compose (AND) on one fixture', () => {
+      // require idea (Gamma, Delta) ∧ any of ml (Gamma) ∧ none of design (Gamma) → Gamma
+      expect(
+        titles(queries.browse({ tagsAll: ['idea'], tagsAny: ['ml'], tagsNone: ['design'] })),
+      ).toEqual(['Gamma Note'])
+    })
   })
 
-  it('filters by folderPrefix (obsidian externalKey LIKE prefix%)', () => {
-    expect(titles(queries.browse({ folderPrefix: 'Projects/' }))).toEqual(['Delta Note', 'Gamma Note'])
-    expect(titles(queries.browse({ folderPrefix: 'Projects/Foo/' }))).toEqual(['Gamma Note'])
-  })
-
-  it('filters by tag', () => {
-    expect(titles(queries.browse({ tag: 'idea' }))).toEqual(['Delta Note', 'Gamma Note'])
-    expect(titles(queries.browse({ tag: 'ml' }))).toEqual(['Gamma Note', 'Alpha Paper'])
-  })
-
-  it('composes filters with AND', () => {
-    expect(titles(queries.browse({ sourceKey: 'obsidian', tag: 'ml' }))).toEqual(['Gamma Note'])
-    expect(titles(queries.browse({ kind: 'note', folderPrefix: 'Projects/' }))).toEqual(['Delta Note', 'Gamma Note'])
+  it('composes scope + kinds + tags with AND', () => {
+    expect(titles(queries.browse({ sourceKeys: ['obsidian'], tagsAll: ['ml'] }))).toEqual(['Gamma Note'])
+    expect(titles(queries.browse({ kinds: ['note'], folderPrefixes: ['Projects/'] }))).toEqual([
+      'Delta Note',
+      'Gamma Note',
+    ])
   })
 
   it('paginates with offset/limit while total stays the full filtered count', () => {
@@ -163,10 +206,23 @@ describe('search with filters', () => {
     expect(queries.search({ q: 'Note' }).map((h) => h.title).sort()).toEqual(['Delta Note', 'Gamma Note', 'Root Note'])
   })
 
-  it('narrows FTS hits by the browse filters', () => {
+  it('narrows FTS hits by the FilterSet (MATCH ∧ filters)', () => {
     expect(queries.search({ q: 'idea' }).map((h) => h.title).sort()).toEqual(['Delta Note', 'Gamma Note'])
-    expect(queries.search({ q: 'idea', folderPrefix: 'Projects/Foo/' }).map((h) => h.title)).toEqual(['Gamma Note'])
-    expect(queries.search({ q: 'idea', kind: 'pdf' })).toHaveLength(0)
-    expect(queries.search({ q: 'idea', sourceKey: 'obsidian' })).toHaveLength(2)
+    expect(queries.search({ q: 'idea', folderPrefixes: ['Projects/Foo/'] }).map((h) => h.title)).toEqual(['Gamma Note'])
+    expect(queries.search({ q: 'idea', kinds: ['pdf'] })).toHaveLength(0)
+    expect(queries.search({ q: 'idea', sourceKeys: ['obsidian'] })).toHaveLength(2)
+    expect(queries.search({ q: 'Note', tagsNone: ['idea'] }).map((h) => h.title)).toEqual(['Root Note'])
+  })
+})
+
+describe('FilterSet schema', () => {
+  it('empty FilterSet is unfiltered (browse-all)', () => {
+    expect(queries.browse({}).total).toBe(5)
+  })
+
+  it('Zod rejects over-cap arrays', () => {
+    expect(() => queries.browse({ sourceKeys: ['zotero', 'eagle', 'obsidian', 'zotero'] })).toThrow()
+    expect(() => queries.browse({ tagsAll: Array.from({ length: 51 }, (_, i) => `t${i}`) })).toThrow()
+    expect(() => queries.search({ q: 'x', kinds: ['pdf', 'image', 'note', 'other', 'pdf'] })).toThrow()
   })
 })

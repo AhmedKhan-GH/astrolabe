@@ -1,11 +1,20 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SearchResult, type ResultData } from './SearchResult'
 import { SourceBadge } from './SourceBadge'
 import { NavRail } from './NavRail'
+import { FilterBar } from './FilterBar'
 import { DocumentRiver } from './DocumentRiver'
-import { applySelection } from './selection'
-import type { LensSelection, NavData } from './types'
+import {
+  emptySelection,
+  toggleScope,
+  toggleKind,
+  cycleTag,
+  setTagMatch,
+  removeTag,
+  toFilterSet,
+} from './selection'
+import type { LensSelection, NavData, NavNode } from './types'
 
 /**
  * Library Navigator (Lens v1): a left nav rail (structure + tags + kinds) over a
@@ -23,15 +32,26 @@ function useDebounced<T>(value: T, ms: number): T {
 
 export function Lens() {
   const [q, setQ] = useState('')
-  const [selection, setSelection] = useState<LensSelection>({})
+  const [selection, setSelection] = useState<LensSelection>(emptySelection())
   const debouncedQ = useDebounced(q, 200)
   const queryClient = useQueryClient()
-  const handleSelect = (partial: Partial<LensSelection>) =>
-    setSelection((s) => applySelection(s, partial))
+
+  // The serialized FilterSet is the wire payload and the query-key fragment: when it
+  // changes, browse/search refetch. TanStack hashes object keys deterministically.
+  const filterSet = useMemo(() => toFilterSet(selection), [selection])
+
+  const onToggleScope: Parameters<typeof NavRail>[0]['onToggleScope'] = (dim, value) =>
+    setSelection((s) => toggleScope(s, dim, value))
+  const onToggleKind: Parameters<typeof NavRail>[0]['onToggleKind'] = (kind) =>
+    setSelection((s) => toggleKind(s, kind))
+  const onCycleTag = (name: string) => setSelection((s) => cycleTag(s, name))
+  const onSetTagMatch = (mode: 'all' | 'any') => setSelection((s) => setTagMatch(s, mode))
+  const onRemoveTag = (name: string) => setSelection((s) => removeTag(s, name))
+  const onClearAll = () => setSelection(emptySelection())
 
   const search = useQuery<ResultData[]>({
-    queryKey: ['search', debouncedQ, selection],
-    queryFn: () => window.astrolabe.index.search(debouncedQ, undefined, selection),
+    queryKey: ['search', debouncedQ, filterSet],
+    queryFn: () => window.astrolabe.index.search(debouncedQ, undefined, filterSet),
     enabled: debouncedQ.trim().length > 0,
     placeholderData: (prev) => prev,
   })
@@ -40,6 +60,20 @@ export function Lens() {
     queryKey: ['nav'],
     queryFn: () => window.astrolabe.index.nav(),
   })
+
+  // Collection id → display name, harvested from the nav trees (the renderer's only
+  // source of collection names) so FilterBar chips can label numeric collection ids.
+  const collectionNames = useMemo(() => {
+    const map = new Map<number, string>()
+    const walk = (nodes: NavNode[]): void => {
+      for (const n of nodes) {
+        if (typeof n.id === 'number') map.set(n.id, n.name)
+        walk(n.children)
+      }
+    }
+    nav.data?.sources.forEach((s) => walk(s.tree))
+    return map
+  }, [nav.data])
 
   const sync = useMutation({
     mutationFn: () => window.astrolabe.index.sync(),
@@ -147,7 +181,14 @@ export function Lens() {
           className={`w-60 shrink-0 ${nav.isFetching || nav.isError ? 'opacity-60' : ''}`}
         >
           {nav.data ? (
-            <NavRail nav={nav.data} selection={selection} onSelect={handleSelect} />
+            <NavRail
+              nav={nav.data}
+              selection={selection}
+              onToggleKind={onToggleKind}
+              onToggleScope={onToggleScope}
+              onCycleTag={onCycleTag}
+              onSetTagMatch={onSetTagMatch}
+            />
           ) : (
             <aside className="h-full border-r border-zinc-800 pr-3 text-xs text-zinc-600">
               {nav.isError ? 'navigation unavailable' : 'loading navigation…'}
@@ -159,6 +200,14 @@ export function Lens() {
           {nav.isError && (
             <p className="text-sm text-red-400">navigation failed: {String(nav.error)}</p>
           )}
+          <FilterBar
+            selection={selection}
+            collectionNames={collectionNames}
+            onToggleScope={onToggleScope}
+            onToggleKind={onToggleKind}
+            onRemoveTag={onRemoveTag}
+            onClearAll={onClearAll}
+          />
           <input
             autoFocus
             value={q}
@@ -188,7 +237,7 @@ export function Lens() {
               </ul>
             </main>
           ) : (
-            <DocumentRiver selection={selection} onSync={() => sync.mutate()} />
+            <DocumentRiver filters={filterSet} onSync={() => sync.mutate()} />
           )}
         </div>
       </div>

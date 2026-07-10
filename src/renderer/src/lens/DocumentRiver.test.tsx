@@ -50,7 +50,7 @@ function wrap(page: BrowsePage) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
-      <DocumentRiver selection={{}} />
+      <DocumentRiver filters={{}} />
     </QueryClientProvider>,
   )
   return browse
