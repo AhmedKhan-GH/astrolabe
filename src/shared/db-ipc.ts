@@ -14,6 +14,17 @@ export const INDEX_REBUILD_CHANNEL = 'index:rebuild'
 const row = z.record(z.string(), z.unknown())
 const id = z.number().int().positive()
 
+export const SYSTEM_OPEN_CHANNEL = 'system:open'
+
+/** Deep links may only target the known tools (plus http for future sources). */
+const ALLOWED_URI = /^(zotero|eagle|obsidian|https?):/
+export const systemOpenSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('uri'), value: z.string().regex(ALLOWED_URI) }),
+  z.object({ kind: z.literal('path'), value: z.string().min(1) }),
+  z.object({ kind: z.literal('reveal'), value: z.string().min(1) }),
+])
+export type SystemOpenRequest = z.infer<typeof systemOpenSchema>
+
 export const dbRequestSchema = z.discriminatedUnion('op', [
   z.object({ table: z.string(), op: z.literal('getAll') }),
   z.object({ table: z.string(), op: z.literal('getById'), id }),

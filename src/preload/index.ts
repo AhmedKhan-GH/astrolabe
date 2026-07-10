@@ -4,6 +4,7 @@ import {
   INDEX_REBUILD_CHANNEL,
   INDEX_SEARCH_CHANNEL,
   INDEX_SYNC_CHANNEL,
+  SYSTEM_OPEN_CHANNEL,
 } from '../shared/db-ipc'
 import type { Meta, NewMeta } from '../main/db/schema'
 import type { SearchHit } from '../main/index/queries'
@@ -44,6 +45,14 @@ const api = {
       ipcRenderer.invoke(INDEX_SEARCH_CHANNEL, { q, ...(limit ? { limit } : {}) }),
     sync: (): Promise<SyncReport[]> => ipcRenderer.invoke(INDEX_SYNC_CHANNEL),
     rebuild: (): Promise<SyncReport[]> => ipcRenderer.invoke(INDEX_REBUILD_CHANNEL),
+  },
+  system: {
+    openUri: (value: string): Promise<boolean> =>
+      ipcRenderer.invoke(SYSTEM_OPEN_CHANNEL, { kind: 'uri', value }),
+    openPath: (value: string): Promise<boolean> =>
+      ipcRenderer.invoke(SYSTEM_OPEN_CHANNEL, { kind: 'path', value }),
+    reveal: (value: string): Promise<boolean> =>
+      ipcRenderer.invoke(SYSTEM_OPEN_CHANNEL, { kind: 'reveal', value }),
   },
 } as const
 

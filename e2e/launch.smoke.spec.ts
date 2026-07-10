@@ -37,19 +37,22 @@ test.afterAll(async () => {
   await app?.close()
 })
 
-test('window opens and React renders real DOM', async () => {
-  // The template renders into #root; an empty #root means the renderer bundle
-  // failed silently (the class of failure a phantom shell produces).
+test('window opens and the lens renders', async () => {
+  // An empty #root means the renderer bundle failed silently (the phantom-shell
+  // failure class). The lens's search box is the app's primary affordance.
   const root = window.locator('#root')
   await expect(root).toBeVisible()
   expect(await root.locator(':scope > *').count()).toBeGreaterThan(0)
+  await expect(window.getByPlaceholder(/search your library/i)).toBeVisible()
+  await expect(window.getByText('Sync now')).toBeVisible()
+  await expect(window.getByText('Rebuild index')).toBeVisible()
 })
 
 test('preload bridge exposes exactly its allowlist', async () => {
   const api = await window.evaluate(() => (window as never as Record<string, unknown>)['astrolabe'])
   // The bridge surface is a security contract: exactly these keys, nothing more.
   expect(api).toBeTruthy()
-  expect(Object.keys(api as object).sort()).toEqual(['db', 'index', 'versions'])
+  expect(Object.keys(api as object).sort()).toEqual(['db', 'index', 'system', 'versions'])
   const versions = (api as { versions: Record<string, unknown> }).versions
   expect(typeof versions.electron).toBe('string')
   expect(typeof versions.chrome).toBe('string')

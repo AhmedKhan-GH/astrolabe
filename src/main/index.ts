@@ -14,6 +14,8 @@ import {
   INDEX_REBUILD_CHANNEL,
   INDEX_SEARCH_CHANNEL,
   INDEX_SYNC_CHANNEL,
+  SYSTEM_OPEN_CHANNEL,
+  systemOpenSchema,
 } from '../shared/db-ipc'
 
 // ESM main process — derive the directory the built file lives in (out/main/).
@@ -80,6 +82,13 @@ app.whenReady().then(() => {
     ipcMain.handle(INDEX_SEARCH_CHANNEL, (_event, req: unknown) => queries.search(req))
     ipcMain.handle(INDEX_SYNC_CHANNEL, () => syncApi.syncAll())
     ipcMain.handle(INDEX_REBUILD_CHANNEL, () => syncApi.rebuild())
+    ipcMain.handle(SYSTEM_OPEN_CHANNEL, async (_event, raw: unknown) => {
+      const req = systemOpenSchema.parse(raw) // scheme allowlist enforced in the schema
+      if (req.kind === 'uri') await shell.openExternal(req.value)
+      else if (req.kind === 'path') await shell.openPath(req.value)
+      else shell.showItemInFolder(req.value)
+      return true
+    })
     log.info(
       { workspace: ws.root, workspaceId: ws.manifest.workspaceId, packaged: app.isPackaged },
       'workspace + db + ipc ready — creating window',

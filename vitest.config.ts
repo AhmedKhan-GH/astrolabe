@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config'
+import react from '@vitejs/plugin-react'
 
 /**
  * Two projects (ADR-0006 tiers):
@@ -17,7 +18,16 @@ export default defineConfig({
         test: {
           name: 'unit',
           environment: 'node',
-          include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+          include: ['src/main/**/*.test.ts', 'src/shared/**/*.test.ts', 'src/preload/**/*.test.ts'],
+        },
+      },
+      {
+        // Component tier — enters with the first component test (runway step 6).
+        plugins: [react()],
+        test: {
+          name: 'components',
+          environment: 'jsdom',
+          include: ['src/renderer/**/*.test.tsx'],
         },
       },
       {

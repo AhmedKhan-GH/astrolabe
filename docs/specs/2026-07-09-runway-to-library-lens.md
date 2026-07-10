@@ -222,6 +222,14 @@ allowlist assertion updated.
 with boolean tag/collection filtering, annotation snippets, and jump-to-source. Daily-driver usable.
 Doc 03/06 updated from code.
 
+**Status: landed 2026-07-09 (v0 slice — deviations recorded):** search box + FTS results with
+snippet highlights, per-instance source badges (deep link), open-file/reveal, Sync now, Rebuild,
+source reports. Verified against the real index (1052 docs) with a screenshot; e2e asserts the lens
+renders in the built app; component tier (jsdom) entered with SearchResult tests. **Deferred to the
+design pass:** shadcn adoption, boolean tag/collection filter rail, Views v0 persistence,
+react-virtual (hits capped at 50 for now), fuzzysort typeahead. `system:open` channel added
+(zod scheme-allowlisted) for deep links/open/reveal.
+
 ## Step 7 — Phase 1.5: interim agentic access (MCP server over the index)
 
 **Commit:** `feat: mcp server over the index (interim agentic access)`

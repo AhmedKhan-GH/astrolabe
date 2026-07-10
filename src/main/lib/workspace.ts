@@ -14,6 +14,13 @@ const manifestSchema = z.object({
   schemaVersion: z.literal(1),
   workspaceId: z.uuid(),
   createdAt: z.iso.datetime(),
+  /** Per-connector user config (no secrets — docs/03). Absent = connector defaults. */
+  connectors: z
+    .object({
+      obsidian: z.object({ vaultPath: z.string() }).partial().optional(),
+    })
+    .partial()
+    .optional(),
 })
 export type WorkspaceManifest = z.infer<typeof manifestSchema>
 
