@@ -133,8 +133,10 @@ interface Connector {
 }
 ```
 
-Connectors are registered in one flat registry; **no connector imports another** (doc 10 §5 —
-add the import-graph lint/test here, it now has something to guard).
+Connectors are registered in one flat registry; **no connector imports another** (doc 10 §5).
+The mechanical teeth land here: **`eslint-plugin-import-x`** (Polaris-proven) with
+`no-restricted-paths` zones — connectors can't import each other, `lib/` can't import feature
+modules. This converts doc 10's "(to build)" enforcement note into lint-time law.
 
 **`index:rebuild`** named channel: wipe derived tables, reset cursors, full resync — exists and
 works **before any connector lands** (ADR-0005 made operational).
@@ -192,7 +194,10 @@ provenance URIs.
 **Commits:** `feat: library lens` (+ `feat: lens filters/views` if it splits naturally)
 
 **Enters here (build-on-consumption):** TanStack Query (over IPC — caching/invalidation, kills any
-reload-the-window instinct), Zustand (lens UI state), Tailwind 4 + shadcn/ui (first real UI).
+reload-the-window instinct), Zustand (lens UI state), Tailwind 4 + shadcn/ui (first real UI, bringing
+clsx/tailwind-merge/cva/lucide-react), **@tanstack/react-virtual** (the results list is
+thousands of rows on a real library — virtualized from day one), and **fuzzysort**
+(Polaris-proven) for instant client-side title/tag typeahead alongside FTS5 content search.
 Replace the template App with the lens shell; delete template assets.
 
 - **`index:search` named channel:** input `{q?, tags?, collections?, sourceIds?, kinds?}` →
