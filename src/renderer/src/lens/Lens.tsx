@@ -30,21 +30,19 @@ export function Lens() {
 
   const sync = useMutation({
     mutationFn: () => window.astrolabe.index.sync(),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['search'] })
-      void queryClient.invalidateQueries({ queryKey: ['sources'] })
-    },
+    onSuccess: invalidateIndexViews,
   })
   const rebuild = useMutation({
     mutationFn: () => window.astrolabe.index.rebuild(),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['search'] })
-      void queryClient.invalidateQueries({ queryKey: ['sources'] })
-    },
+    onSuccess: invalidateIndexViews,
   })
 
   // Always-on totals (index-wide) — a no-change incremental sync must never read
   // as an empty index (the "0 docs" confusion this replaces).
+  const stats = useQuery({
+    queryKey: ['stats'],
+    queryFn: () => window.astrolabe.index.stats(),
+  })
   const sources = useQuery({
     queryKey: ['sources'],
     queryFn: () => window.astrolabe.index.sources(),
@@ -52,6 +50,12 @@ export function Lens() {
   const lastRun = sync.data ?? rebuild.data
   const upsertedBy = (key: string) =>
     lastRun?.find((r) => r.sourceKey === key)?.documentsUpserted ?? null
+
+  function invalidateIndexViews() {
+    void queryClient.invalidateQueries({ queryKey: ['search'] })
+    void queryClient.invalidateQueries({ queryKey: ['sources'] })
+    void queryClient.invalidateQueries({ queryKey: ['stats'] })
+  }
 
   return (
     <div className="mx-auto flex h-screen max-w-3xl flex-col gap-3 p-4">
@@ -77,22 +81,26 @@ export function Lens() {
         </div>
       </header>
 
-      {sources.data && (
-        <div className="flex flex-wrap gap-3 text-[11px] text-zinc-500">
-          {sources.data.map((src) => {
-            const fresh = upsertedBy(src.key)
-            const ok = src.status === 'ok'
-            return (
-              <span key={src.key} className={ok ? 'text-emerald-400/80' : 'text-amber-400/80'}>
-                {src.key}: {ok ? `${src.documentCount} docs in index` : 'unavailable'}
-                {fresh != null && ok && (
-                  <span className="text-zinc-500"> (+{fresh} new)</span>
-                )}
-              </span>
-            )
-          })}
-        </div>
-      )}
+      {/* Always-on stats strip: index-wide totals + per-source breakdown. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-zinc-500">
+        <span className="font-medium text-zinc-300">
+          {stats.data
+            ? `${stats.data.documents.toLocaleString()} documents · ${stats.data.annotations.toLocaleString()} annotations`
+            : stats.isError
+              ? 'index unavailable'
+              : 'counting…'}
+        </span>
+        {(sources.data ?? []).map((src) => {
+          const fresh = upsertedBy(src.key)
+          const ok = src.status === 'ok'
+          return (
+            <span key={src.key} className={ok ? 'text-emerald-400/80' : 'text-amber-400/80'}>
+              {src.key}: {ok ? `${src.documentCount.toLocaleString()} in index` : 'unavailable'}
+              {fresh != null && ok && <span className="text-zinc-500"> (+{fresh} new)</span>}
+            </span>
+          )
+        })}
+      </div>
 
       <input
         autoFocus

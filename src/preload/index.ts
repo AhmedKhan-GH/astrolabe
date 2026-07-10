@@ -3,12 +3,13 @@ import {
   DB_CHANNEL,
   INDEX_REBUILD_CHANNEL,
   INDEX_SOURCES_CHANNEL,
+  INDEX_STATS_CHANNEL,
   INDEX_SEARCH_CHANNEL,
   INDEX_SYNC_CHANNEL,
   SYSTEM_OPEN_CHANNEL,
 } from '../shared/db-ipc'
 import type { Meta, NewMeta } from '../main/db/schema'
-import type { SearchHit, SourceSummary } from '../main/index/queries'
+import type { IndexStats, SearchHit, SourceSummary } from '../main/index/queries'
 import type { SyncReport } from '../main/index/sync'
 
 /**
@@ -47,6 +48,7 @@ const api = {
     sync: (): Promise<SyncReport[]> => ipcRenderer.invoke(INDEX_SYNC_CHANNEL),
     rebuild: (): Promise<SyncReport[]> => ipcRenderer.invoke(INDEX_REBUILD_CHANNEL),
     sources: (): Promise<SourceSummary[]> => ipcRenderer.invoke(INDEX_SOURCES_CHANNEL),
+    stats: (): Promise<IndexStats> => ipcRenderer.invoke(INDEX_STATS_CHANNEL),
   },
   system: {
     openUri: (value: string): Promise<boolean> =>

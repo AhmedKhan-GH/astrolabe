@@ -84,7 +84,22 @@ export function createIndexQueries(db: Db) {
     })
   }
 
-  return { search, sourceSummaries }
+  /** Index-wide totals for the always-on stats strip. `documents` is the DISTINCT
+   *  document count (the `documents` table already merges cross-source duplicates
+   *  into one row), so it stays correct once Eagle↔Zotero joins land — unlike
+   *  summing per-source counts, which would double-count a joined document. */
+  function indexStats(): IndexStats {
+    const documents = db.select({ c: sql<number>`count(*)` }).from(s.documents).get()
+    const annotations = db.select({ c: sql<number>`count(*)` }).from(s.annotations).get()
+    return { documents: documents?.c ?? 0, annotations: annotations?.c ?? 0 }
+  }
+
+  return { search, sourceSummaries, indexStats }
+}
+
+export interface IndexStats {
+  documents: number
+  annotations: number
 }
 
 export interface SourceSummary {
