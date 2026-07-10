@@ -2,7 +2,8 @@ import { useState } from 'react'
 import clsx from 'clsx'
 import { isEmpty } from './selection'
 import type { ScopeDim } from './selection'
-import type { LensSelection, SourceKey, DocumentKind } from './types'
+import type { LensSelection, SourceKey, DocumentKind, PresenceValue } from './types'
+import { PRESENCE_LABELS } from './types'
 
 /**
  * Active-filter summary above the search input: one removable chip per active facet
@@ -18,6 +19,7 @@ export function FilterBar({
   canSave,
   onToggleScope,
   onToggleKind,
+  onTogglePresence,
   onRemoveTag,
   onClearAll,
   onSaveView,
@@ -30,6 +32,7 @@ export function FilterBar({
   canSave?: boolean
   onToggleScope: (dim: ScopeDim, value: SourceKey | number | string) => void
   onToggleKind: (kind: DocumentKind) => void
+  onTogglePresence: (value: PresenceValue) => void
   onRemoveTag: (name: string) => void
   onClearAll: () => void
   onSaveView?: (name: string) => void
@@ -61,6 +64,14 @@ export function FilterBar({
               label={vcollectionNames?.get(slug) ?? slug}
               removeName={slug}
               onRemove={() => onToggleScope('virtualCollections', slug)}
+            />
+          ))}
+          {selection.presence.map((p) => (
+            <Chip
+              key={`presence-${p}`}
+              label={PRESENCE_LABELS[p]}
+              removeName={PRESENCE_LABELS[p]}
+              onRemove={() => onTogglePresence(p)}
             />
           ))}
           {selection.kinds.map((k) => (

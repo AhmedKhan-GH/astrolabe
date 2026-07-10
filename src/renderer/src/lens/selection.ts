@@ -1,4 +1,4 @@
-import type { LensSelection, FilterSet, SourceKey, DocumentKind } from './types'
+import type { LensSelection, FilterSet, SourceKey, DocumentKind, PresenceValue } from './types'
 
 /**
  * Pure selection algebra for the boolean-filtering lens. Dimensions compose with
@@ -18,6 +18,7 @@ export function emptySelection(): LensSelection {
     kinds: [],
     tags: [],
     tagMatch: 'all',
+    presence: [],
   }
 }
 
@@ -31,6 +32,15 @@ export function toggleScope(sel: LensSelection, dim: ScopeDim, value: ScopeValue
 export function toggleKind(sel: LensSelection, kind: DocumentKind): LensSelection {
   const next = sel.kinds.includes(kind) ? sel.kinds.filter((k) => k !== kind) : [...sel.kinds, kind]
   return { ...sel, kinds: next }
+}
+
+/** Toggle a presence bucket. Its own AND-dimension (mirrors toggleKind) — deliberately NOT
+ *  toggleScope, so presence can never leak into the scope OR-set. */
+export function togglePresence(sel: LensSelection, value: PresenceValue): LensSelection {
+  const next = sel.presence.includes(value)
+    ? sel.presence.filter((p) => p !== value)
+    : [...sel.presence, value]
+  return { ...sel, presence: next }
 }
 
 /** neutral → require → exclude → neutral. */
@@ -62,7 +72,8 @@ export function isEmpty(sel: LensSelection): boolean {
     sel.folderPrefixes.length === 0 &&
     sel.virtualCollections.length === 0 &&
     sel.kinds.length === 0 &&
-    sel.tags.length === 0
+    sel.tags.length === 0 &&
+    sel.presence.length === 0
   )
 }
 
@@ -75,6 +86,7 @@ export function toFilterSet(sel: LensSelection): FilterSet {
   if (sel.collectionIds.length) fs.collectionIds = sel.collectionIds
   if (sel.folderPrefixes.length) fs.folderPrefixes = sel.folderPrefixes
   if (sel.virtualCollections.length) fs.virtualCollections = sel.virtualCollections
+  if (sel.presence.length) fs.presence = sel.presence
   if (sel.kinds.length) fs.kinds = sel.kinds
   if (required.length) {
     if (sel.tagMatch === 'all') fs.tagsAll = required

@@ -273,6 +273,65 @@ describe('virtual collections (mirror scope + nav + hydration)', () => {
   })
 })
 
+describe('presence (zotero/eagle instance existence — its own AND dimension)', () => {
+  // A doc "in both" is one document with a zotero AND an eagle instance — created by the
+  // hash join (same contentSha256 across the two sources). Alpha (zotero, h1) is zotero-only,
+  // Beta (eagle, h2) is eagle-only, the obsidian notes match no presence value.
+  beforeEach(() => {
+    upsert.upsertDocument({ sourceKey: 'zotero', externalKey: 'ZB', uri: 'zotero://ZB', title: 'Both Doc', kind: 'pdf', contentSha256: 'hboth', modifiedAt: 500 })
+    upsert.upsertDocument({ sourceKey: 'eagle', externalKey: 'EB', uri: 'eagle://EB', title: 'Both Doc', kind: 'pdf', contentSha256: 'hboth', modifiedAt: 500 })
+  })
+
+  it('each value alone selects the right documents', () => {
+    expect(titles(queries.browse({ presence: ['both'] }))).toEqual(['Both Doc'])
+    expect(titles(queries.browse({ presence: ['zotero-only'] }))).toEqual(['Alpha Paper'])
+    expect(titles(queries.browse({ presence: ['eagle-only'] }))).toEqual(['Beta Image'])
+  })
+
+  it('an array of values is an internal OR', () => {
+    expect(titles(queries.browse({ presence: ['zotero-only', 'eagle-only'] }))).toEqual([
+      'Beta Image',
+      'Alpha Paper',
+    ])
+    expect(queries.browse({ presence: ['both', 'zotero-only', 'eagle-only'] }).total).toBe(3)
+  })
+
+  it('obsidian-only notes match no presence value', () => {
+    const all = queries.browse({ presence: ['both', 'zotero-only', 'eagle-only'] })
+    expect(all.hits.some((h) => h.title === 'Gamma Note')).toBe(false)
+  })
+
+  it('ANDs with scope (it is NOT in the scope OR-set)', () => {
+    // eagle-only = {Beta}. If presence were OR-ed into scope, adding sourceKeys:['zotero']
+    // would UNION in the zotero docs; because it ANDs, Beta (not in zotero) drops out → empty.
+    expect(queries.browse({ presence: ['eagle-only'], sourceKeys: ['zotero'] }).total).toBe(0)
+    // both = {Both Doc}, which is in zotero → survives the AND with the zotero scope.
+    expect(titles(queries.browse({ presence: ['both'], sourceKeys: ['zotero'] }))).toEqual(['Both Doc'])
+  })
+
+  it('ANDs with a tag filter', () => {
+    expect(titles(queries.browse({ presence: ['zotero-only'], tagsAll: ['ml'] }))).toEqual(['Alpha Paper'])
+    expect(queries.browse({ presence: ['zotero-only'], tagsAll: ['design'] }).total).toBe(0)
+  })
+
+  it('narrows FTS search too', () => {
+    expect(queries.search({ q: 'Doc', presence: ['both'] }).map((h) => h.title)).toEqual(['Both Doc'])
+    expect(queries.search({ q: 'Doc', presence: ['zotero-only'] })).toHaveLength(0)
+  })
+
+  it('nav carries the three presence counts', () => {
+    expect(queries.nav().presence).toEqual([
+      { value: 'both', count: 1 },
+      { value: 'zotero-only', count: 1 },
+      { value: 'eagle-only', count: 1 },
+    ])
+  })
+
+  it('Zod rejects an over-cap presence array', () => {
+    expect(() => queries.browse({ presence: ['both', 'zotero-only', 'eagle-only', 'both'] as never })).toThrow()
+  })
+})
+
 describe('FilterSet schema', () => {
   it('empty FilterSet is unfiltered (browse-all)', () => {
     expect(queries.browse({}).total).toBe(5)

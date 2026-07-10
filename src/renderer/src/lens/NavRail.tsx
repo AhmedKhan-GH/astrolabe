@@ -8,9 +8,11 @@ import type {
   LensSelection,
   SourceKey,
   DocumentKind,
+  PresenceValue,
   SavedView,
   VCollectionSummary,
 } from './types'
+import { PRESENCE_LABELS } from './types'
 
 const TAG_LIMIT = 40
 
@@ -30,6 +32,7 @@ export function NavRail({
   collections = [],
   onToggleKind,
   onToggleScope,
+  onTogglePresence,
   onCycleTag,
   onSetTagMatch,
   onApplyView,
@@ -44,6 +47,7 @@ export function NavRail({
   collections?: VCollectionSummary[]
   onToggleKind: (kind: DocumentKind) => void
   onToggleScope: (dim: ScopeDim, value: SourceKey | number | string) => void
+  onTogglePresence: (value: PresenceValue) => void
   onCycleTag: (name: string) => void
   onSetTagMatch: (mode: 'all' | 'any') => void
   onApplyView?: (view: SavedView) => void
@@ -155,6 +159,32 @@ export function NavRail({
           })}
         </div>
       </Section>
+
+      {nav.presence.some((p) => p.count > 0) && (
+        <Section title="Presence">
+          <div className="flex flex-wrap gap-1.5">
+            {nav.presence.map((p) => {
+              const active = selection.presence.includes(p.value)
+              return (
+                <button
+                  key={p.value}
+                  aria-pressed={active}
+                  onClick={() => onTogglePresence(p.value)}
+                  className={clsx(
+                    'flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs',
+                    active
+                      ? 'border-zinc-500 bg-zinc-700 text-zinc-100'
+                      : 'border-zinc-700 text-zinc-400 hover:bg-zinc-800',
+                  )}
+                >
+                  <span>{PRESENCE_LABELS[p.value]}</span>
+                  <span className="text-[10px] text-zinc-500">{p.count}</span>
+                </button>
+              )
+            })}
+          </div>
+        </Section>
+      )}
 
       <Section title="Sources">
         <div className="flex flex-col gap-2">

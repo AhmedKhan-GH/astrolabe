@@ -4,6 +4,7 @@ import {
   emptySelection,
   toggleScope,
   toggleKind,
+  togglePresence,
   cycleTag,
   setTagMatch,
   removeTag,
@@ -23,6 +24,7 @@ describe('emptySelection', () => {
       kinds: [],
       tags: [],
       tagMatch: 'all',
+      presence: [],
     })
     expect(isEmpty(s)).toBe(true)
   })
@@ -94,6 +96,22 @@ describe('cycleTag', () => {
   })
 })
 
+describe('togglePresence', () => {
+  it('adds then removes a bucket (multi-select, its own AND-dimension)', () => {
+    let s = togglePresence(emptySelection(), 'both')
+    s = togglePresence(s, 'eagle-only')
+    expect(s.presence).toEqual(['both', 'eagle-only'])
+    s = togglePresence(s, 'both')
+    expect(s.presence).toEqual(['eagle-only'])
+  })
+
+  it('never touches the scope dimensions', () => {
+    const s = togglePresence(toggleScope(emptySelection(), 'sourceKeys', 'zotero'), 'zotero-only')
+    expect(s.sourceKeys).toEqual(['zotero'])
+    expect(s.presence).toEqual(['zotero-only'])
+  })
+})
+
 describe('setTagMatch', () => {
   it('flips the match mode', () => {
     expect(setTagMatch(emptySelection(), 'any').tagMatch).toBe('any')
@@ -118,6 +136,7 @@ describe('clearAll / isEmpty', () => {
     expect(isEmpty(cycleTag(emptySelection(), 'ml'))).toBe(false)
     expect(isEmpty(toggleScope(emptySelection(), 'sourceKeys', 'zotero'))).toBe(false)
     expect(isEmpty(toggleScope(emptySelection(), 'virtualCollections', 'to-read'))).toBe(false)
+    expect(isEmpty(togglePresence(emptySelection(), 'both'))).toBe(false)
   })
 
   it('tagMatch alone does not make a selection non-empty', () => {
@@ -150,6 +169,13 @@ describe('toFilterSet', () => {
     let s = toggleScope(emptySelection(), 'virtualCollections', 'to-read')
     s = toggleScope(s, 'virtualCollections', 'faves')
     expect(toFilterSet(s)).toEqual({ virtualCollections: ['to-read', 'faves'] })
+  })
+
+  it('emits presence values, omitting the empty array', () => {
+    expect('presence' in toFilterSet(emptySelection())).toBe(false)
+    let s = togglePresence(emptySelection(), 'both')
+    s = togglePresence(s, 'zotero-only')
+    expect(toFilterSet(s)).toEqual({ presence: ['both', 'zotero-only'] })
   })
 
   it('required tags → tagsAll when tagMatch is "all"', () => {

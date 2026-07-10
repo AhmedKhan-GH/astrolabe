@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest'
 import { toStoredFilter, resolveStoredFilter, selectionFromFilterSet } from './viewRefs'
-import { emptySelection, toFilterSet, toggleScope, toggleKind, cycleTag, setTagMatch } from './selection'
+import { emptySelection, toFilterSet, toggleScope, toggleKind, togglePresence, cycleTag, setTagMatch } from './selection'
 import type { NavData, FilterSet, StoredFilter } from './types'
 
 // Collection ids are index-internal; externalKey is the stable, cross-rebuild ref.
@@ -34,6 +34,7 @@ const nav: NavData = {
   ],
   tags: [],
   virtualCollections: [],
+  presence: [],
 }
 
 describe('toStoredFilter', () => {
@@ -75,6 +76,13 @@ describe('toStoredFilter', () => {
     const stored = toStoredFilter({ collectionIds: [1], virtualCollections: ['to-read', 'faves'] }, nav)
     expect(stored.virtualCollections).toEqual(['to-read', 'faves'])
     expect(stored.collectionRefs).toEqual([{ sourceKey: 'zotero', key: 'ZOT-ROOT' }])
+  })
+
+  it('passes presence values through verbatim (stable, never reffed)', () => {
+    expect(toStoredFilter({ presence: ['both', 'eagle-only'] }, nav).presence).toEqual([
+      'both',
+      'eagle-only',
+    ])
   })
 })
 
@@ -124,6 +132,10 @@ describe('resolveStoredFilter', () => {
     expect(resolveStoredFilter({ virtualCollections: ['to-read'] }, nav).virtualCollections).toEqual([
       'to-read',
     ])
+  })
+
+  it('rehydrates presence values verbatim', () => {
+    expect(resolveStoredFilter({ presence: ['zotero-only'] }, nav).presence).toEqual(['zotero-only'])
   })
 
   it('round-trips ids → refs → ids across a (simulated) rebuild', () => {
@@ -176,6 +188,13 @@ describe('selectionFromFilterSet — inverse of toFilterSet', () => {
     )
   })
 
+  it('maps presence values onto the selection', () => {
+    expect(selectionFromFilterSet({ presence: ['both', 'zotero-only'] }).presence).toEqual([
+      'both',
+      'zotero-only',
+    ])
+  })
+
   it('empty FilterSet → emptySelection', () => {
     expect(selectionFromFilterSet({})).toEqual(emptySelection())
   })
@@ -200,6 +219,12 @@ describe('selectionFromFilterSet — inverse of toFilterSet', () => {
       let s = toggleScope(emptySelection(), 'virtualCollections', 'to-read')
       s = toggleScope(s, 'virtualCollections', 'faves')
       s = toggleKind(s, 'image')
+      return s
+    })(),
+    (() => {
+      let s = togglePresence(emptySelection(), 'both')
+      s = togglePresence(s, 'eagle-only')
+      s = toggleScope(s, 'sourceKeys', 'zotero')
       return s
     })(),
   ])('round-trips selection → FilterSet → selection', (sel) => {

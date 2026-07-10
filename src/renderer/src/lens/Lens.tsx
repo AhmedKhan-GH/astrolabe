@@ -9,6 +9,7 @@ import {
   emptySelection,
   toggleScope,
   toggleKind,
+  togglePresence,
   cycleTag,
   setTagMatch,
   removeTag,
@@ -17,7 +18,7 @@ import {
 import { toStoredFilter, resolveStoredFilter, selectionFromFilterSet } from './viewRefs'
 import type { LensSelection, NavData, NavNode, SavedView, VCollectionSummary } from './types'
 
-const EMPTY_NAV: NavData = { kinds: [], sources: [], tags: [], virtualCollections: [] }
+const EMPTY_NAV: NavData = { kinds: [], sources: [], tags: [], virtualCollections: [], presence: [] }
 
 /**
  * Library Navigator (Lens v1): a left nav rail (structure + tags + kinds) over a
@@ -60,6 +61,8 @@ export function Lens() {
     editSelection((s) => toggleScope(s, dim, value))
   const onToggleKind: Parameters<typeof NavRail>[0]['onToggleKind'] = (kind) =>
     editSelection((s) => toggleKind(s, kind))
+  const onTogglePresence: Parameters<typeof NavRail>[0]['onTogglePresence'] = (value) =>
+    editSelection((s) => togglePresence(s, value))
   const onCycleTag = (name: string) => editSelection((s) => cycleTag(s, name))
   const onSetTagMatch = (mode: 'all' | 'any') => editSelection((s) => setTagMatch(s, mode))
   const onRemoveTag = (name: string) => editSelection((s) => removeTag(s, name))
@@ -285,6 +288,7 @@ export function Lens() {
               collections={vcollections.data ?? []}
               onToggleKind={onToggleKind}
               onToggleScope={onToggleScope}
+              onTogglePresence={onTogglePresence}
               onCycleTag={onCycleTag}
               onSetTagMatch={onSetTagMatch}
               onApplyView={applyView}
@@ -310,6 +314,7 @@ export function Lens() {
             canSave={q.trim().length > 0}
             onToggleScope={onToggleScope}
             onToggleKind={onToggleKind}
+            onTogglePresence={onTogglePresence}
             onRemoveTag={onRemoveTag}
             onClearAll={onClearAll}
             onSaveView={(name) => saveView.mutate(name)}

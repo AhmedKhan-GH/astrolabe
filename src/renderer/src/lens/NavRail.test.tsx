@@ -41,11 +41,17 @@ const nav: NavData = {
     { name: 'biology', count: 10 },
   ],
   virtualCollections: [],
+  presence: [
+    { value: 'both', count: 5 },
+    { value: 'zotero-only', count: 3 },
+    { value: 'eagle-only', count: 2 },
+  ],
 }
 
 const handlers = () => ({
   onToggleKind: vi.fn(),
   onToggleScope: vi.fn(),
+  onTogglePresence: vi.fn(),
   onCycleTag: vi.fn(),
   onSetTagMatch: vi.fn(),
 })
@@ -77,17 +83,50 @@ describe('NavRail — kinds', () => {
   })
 })
 
+describe('NavRail — presence', () => {
+  it('renders a labelled, count-badged chip per bucket and fires onTogglePresence', () => {
+    const h = renderRail()
+    const both = screen.getByRole('button', { name: /in both/i })
+    expect(within(both).getByText('5')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /zotero only/i })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /eagle only/i })).toBeTruthy()
+    both.click()
+    expect(h.onTogglePresence).toHaveBeenCalledWith('both')
+  })
+
+  it('highlights every selected bucket (multi-select)', () => {
+    renderRail({ ...emptySelection(), presence: ['both', 'eagle-only'] })
+    expect(screen.getByRole('button', { name: /in both/i }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: /eagle only/i }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: /zotero only/i }).getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('is hidden when no zotero/eagle documents exist (all buckets zero)', () => {
+    const emptyPresence: NavData = {
+      ...nav,
+      presence: [
+        { value: 'both', count: 0 },
+        { value: 'zotero-only', count: 0 },
+        { value: 'eagle-only', count: 0 },
+      ],
+    }
+    render(<NavRail nav={emptyPresence} selection={emptySelection()} {...handlers()} />)
+    expect(screen.queryByRole('heading', { name: /presence/i })).toBeNull()
+  })
+})
+
 describe('NavRail — sources & tree (no cross-dimension clearing)', () => {
   it('source header fires onToggleScope(sourceKeys, key)', () => {
     const h = renderRail()
-    screen.getByRole('button', { name: /^zotero/i }).click()
+    // Lookahead keeps this on the source header, not the sibling "Zotero only" presence chip.
+    screen.getByRole('button', { name: /^zotero(?!\s*only)/i }).click()
     expect(h.onToggleScope).toHaveBeenCalledWith('sourceKeys', 'zotero')
   })
 
   it('highlights each selected source independently', () => {
     renderRail({ ...emptySelection(), sourceKeys: ['zotero', 'eagle'] })
-    expect(screen.getByRole('button', { name: /^zotero/i }).getAttribute('aria-pressed')).toBe('true')
-    expect(screen.getByRole('button', { name: /^eagle/i }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: /^zotero(?!\s*only)/i }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: /^eagle(?!\s*only)/i }).getAttribute('aria-pressed')).toBe('true')
     expect(screen.getByRole('button', { name: /^obsidian/i }).getAttribute('aria-pressed')).toBe('false')
   })
 

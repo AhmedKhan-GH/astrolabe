@@ -10,6 +10,7 @@ afterEach(cleanup)
 const handlers = () => ({
   onToggleScope: vi.fn(),
   onToggleKind: vi.fn(),
+  onTogglePresence: vi.fn(),
   onRemoveTag: vi.fn(),
   onClearAll: vi.fn(),
 })
@@ -65,6 +66,18 @@ describe('FilterBar', () => {
     )
     expect(screen.getByText('Machine Learning')).toBeTruthy()
     expect(screen.getByText(/collection #9/)).toBeTruthy()
+  })
+
+  it('shows a presence chip with its human label', () => {
+    renderBar({ ...emptySelection(), presence: ['both', 'eagle-only'] })
+    expect(screen.getByText('In both')).toBeTruthy()
+    expect(screen.getByText('Eagle only')).toBeTruthy()
+  })
+
+  it('removing a presence chip toggles that bucket off', () => {
+    const h = renderBar({ ...emptySelection(), presence: ['zotero-only'] })
+    screen.getByRole('button', { name: /remove zotero only/i }).click()
+    expect(h.onTogglePresence).toHaveBeenCalledWith('zotero-only')
   })
 
   it('Clear all fires onClearAll', () => {

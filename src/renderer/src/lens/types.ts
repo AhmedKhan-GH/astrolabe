@@ -7,6 +7,17 @@
 export type SourceKey = 'zotero' | 'eagle' | 'obsidian'
 export type DocumentKind = 'pdf' | 'image' | 'note' | 'other'
 
+/** The zotero↔eagle split as a facet (docs/2026-07-10-lens-presence-facet). Values are stable, so
+ *  they persist and round-trip verbatim (no ref mapping like collections need). */
+export type PresenceValue = 'both' | 'zotero-only' | 'eagle-only'
+
+/** Human labels for the presence chips (rail + FilterBar). */
+export const PRESENCE_LABELS: Record<PresenceValue, string> = {
+  both: 'In both',
+  'zotero-only': 'Zotero only',
+  'eagle-only': 'Eagle only',
+}
+
 /**
  * Renderer mirror of the `queries.ts` filterSetSchema wire contract — same field
  * names, all arrays optional (omitted entirely when empty, keeping the payload
@@ -21,6 +32,7 @@ export interface FilterSet {
   tagsAll?: string[] // document has every one
   tagsAny?: string[] // at least one
   tagsNone?: string[] // none of them
+  presence?: PresenceValue[] // own AND-dimension over zotero/eagle instance existence
 }
 
 /**
@@ -36,6 +48,7 @@ export interface LensSelection {
   kinds: DocumentKind[]
   tags: { name: string; mode: 'require' | 'exclude' }[]
   tagMatch: 'all' | 'any'
+  presence: PresenceValue[] // AND-dimension; composes with scope/kinds/tags, never OR-ed into scope
 }
 
 /** id = collections.id (zotero/eagle) | folder path string (obsidian). */
@@ -68,6 +81,8 @@ export interface StoredFilter {
   tagsAll?: string[]
   tagsAny?: string[]
   tagsNone?: string[]
+  // Presence values are stable, so a saved view persists them verbatim (like virtualCollections).
+  presence?: PresenceValue[]
 }
 
 /** A named lens over the library — file payload (`views/<slug>.json`) plus its slug. */
@@ -89,6 +104,8 @@ export interface NavData {
    * don't currently resolve to an indexed document) — surfaced when non-zero.
    */
   virtualCollections: { slug: string; name: string; count: number; unresolvedCount?: number }[]
+  /** The three presence buckets (both / zotero-only / eagle-only) with document counts. */
+  presence: { value: PresenceValue; count: number }[]
 }
 
 /**

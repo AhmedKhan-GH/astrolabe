@@ -25,6 +25,10 @@ export const filterSetSchema = z.object({
   tagsAll: z.array(z.string().max(200)).max(50).optional(),
   tagsAny: z.array(z.string().max(200)).max(50).optional(),
   tagsNone: z.array(z.string().max(200)).max(50).optional(),
+  // Presence: the zotero↔eagle split as its own AND-dimension (docs/2026-07-10-lens-presence-facet).
+  // Z = a zotero instance exists, E = an eagle instance exists; both = Z∧E, zotero-only = Z∧¬E,
+  // eagle-only = E∧¬Z. Internal OR like every array; NOT part of the scope union.
+  presence: z.array(z.enum(['both', 'zotero-only', 'eagle-only'])).max(3).optional(),
 })
 export type FilterSet = z.infer<typeof filterSetSchema>
 
@@ -70,6 +74,9 @@ export interface NavData {
   sources: NavSource[]
   tags: { name: string; count: number }[]
   virtualCollections: { slug: string; name: string; count: number }[]
+  // The three presence buckets (docs/2026-07-10-lens-presence-facet), computed with the same
+  // Z/E predicates the filter uses — the always-three rows the rail's Presence section renders.
+  presence: { value: PresenceValue; count: number }[]
 }
 
 export interface SearchHit {
@@ -88,6 +95,26 @@ const inList = (values: (string | number)[]): SQL =>
     values.map((v) => sql`${v}`),
     sql`, `,
   )
+
+type PresenceValue = 'both' | 'zotero-only' | 'eagle-only'
+
+/** "A zotero / an eagle instance exists for the aliased `documents d`." (presence facet). */
+const zExists = sql`EXISTS (SELECT 1 FROM document_instances di JOIN sources src ON di.source_id = src.id
+                    WHERE di.document_id = d.id AND src.key = 'zotero')`
+const eExists = sql`EXISTS (SELECT 1 FROM document_instances di JOIN sources src ON di.source_id = src.id
+                    WHERE di.document_id = d.id AND src.key = 'eagle')`
+
+/** The presence predicate for one value, over aliased `documents d` (wrapped for OR-safety). */
+const presencePredicate = (v: PresenceValue): SQL => {
+  switch (v) {
+    case 'both':
+      return sql`(${zExists} AND ${eExists})`
+    case 'zotero-only':
+      return sql`(${zExists} AND NOT ${eExists})`
+    case 'eagle-only':
+      return sql`(${eExists} AND NOT ${zExists})`
+  }
+}
 
 export function createIndexQueries(db: Db) {
   /**
@@ -152,6 +179,11 @@ export function createIndexQueries(db: Db) {
         sql`NOT EXISTS (SELECT 1 FROM document_tags dt JOIN tags t ON dt.tag_id = t.id
                         WHERE dt.document_id = d.id AND t.name IN (${inList(f.tagsNone)}))`,
       )
+
+    // Presence: an own AND-dimension over zotero/eagle instance existence — internal OR of the
+    // selected values, and never folded into the scope union above.
+    if (f.presence?.length)
+      conds.push(sql`(${sql.join(f.presence.map(presencePredicate), sql` OR `)})`)
 
     return conds
   }
@@ -272,7 +304,21 @@ export function createIndexQueries(db: Db) {
           LEFT JOIN virtual_collection_members vm ON vm.vc_id = vc.id
           GROUP BY vc.id ORDER BY vc.name ASC`,
     )
-    return { kinds, sources, tags, virtualCollections }
+    // Presence buckets — one scan over documents, each row tallied into at most one bucket by the
+    // same Z/E predicates the filter uses (obsidian-only rows fall into none). Always three rows.
+    const p = db.get<{ both: number; zoteroOnly: number; eagleOnly: number }>(
+      sql`SELECT
+            sum(CASE WHEN ${zExists} AND ${eExists} THEN 1 ELSE 0 END) AS both,
+            sum(CASE WHEN ${zExists} AND NOT ${eExists} THEN 1 ELSE 0 END) AS zoteroOnly,
+            sum(CASE WHEN ${eExists} AND NOT ${zExists} THEN 1 ELSE 0 END) AS eagleOnly
+          FROM documents d`,
+    )
+    const presence: NavData['presence'] = [
+      { value: 'both', count: p?.both ?? 0 },
+      { value: 'zotero-only', count: p?.zoteroOnly ?? 0 },
+      { value: 'eagle-only', count: p?.eagleOnly ?? 0 },
+    ]
+    return { kinds, sources, tags, virtualCollections, presence }
   }
 
   /** Obsidian browses by folder relpath; zotero/eagle (and any other source) by collections. */
