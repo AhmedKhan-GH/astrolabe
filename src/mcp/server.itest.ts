@@ -81,6 +81,7 @@ describe('mcp handlers over a read-only index', () => {
     expect(hit.tags).toEqual(expect.arrayContaining(['ml', 'textbook']))
     expect(hit.instances).toEqual([
       {
+        instanceId: expect.any(Number),
         sourceKey: 'zotero',
         uri: 'zotero://select/library/items/ABC123',
         filePath: null,

@@ -40,6 +40,7 @@
     "drizzle-orm": "^0.45.2",
     "fuzzysort": "^3.1.0",
     "gray-matter": "^4.0.3",
+    "pdfjs-dist": "^6.1.200",
     "pino": "^10.3.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",

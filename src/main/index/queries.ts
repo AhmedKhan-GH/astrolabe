@@ -39,6 +39,14 @@ export const searchRequestSchema = z.object({
 })
 export type SearchRequest = z.infer<typeof searchRequestSchema>
 
+/** Per-page annotation heat for one document (docs/2026-07-10 canvas spec §Page-annotation heat). */
+export const pageAnnotationsRequestSchema = z.object({ documentId: z.number().int().positive() })
+export type PageAnnotationsRequest = z.infer<typeof pageAnnotationsRequestSchema>
+
+export interface PageAnnotations {
+  pages: { pageIndex: number; count: number }[]
+}
+
 /** Browse (the recency river) — same filters as search minus `q`, plus offset paging. */
 export const browseRequestSchema = z.object({
   ...filterSetSchema.shape,
@@ -53,7 +61,9 @@ export interface BrowseHit {
   kind: string
   modifiedAt: number
   tags: string[]
-  instances: { sourceKey: string; uri: string; filePath: string | null }[]
+  // `instanceId` is the handle the Canvas view serves bytes by (astro-doc://instance/<id>,
+  // docs/2026-07-10-canvas-view-spec §Serving PDF bytes) — the renderer never sees a path scheme.
+  instances: { instanceId: number; sourceKey: string; uri: string; filePath: string | null }[]
   // Virtual-collection slugs this document belongs to (from `hydrate`) — drives the river's
   // membership-popover checked state (docs/2026-07-10-lens-virtual-collections §Wire contract).
   virtualCollections: string[]
@@ -85,7 +95,7 @@ export interface SearchHit {
   kind: string
   snippet: string
   tags: string[]
-  instances: { sourceKey: string; uri: string; filePath: string | null }[]
+  instances: { instanceId: number; sourceKey: string; uri: string; filePath: string | null }[]
   virtualCollections: string[]
 }
 
@@ -193,6 +203,7 @@ export function createIndexQueries(db: Db) {
   function hydrate(documentId: number): Pick<BrowseHit, 'tags' | 'instances' | 'virtualCollections'> {
     const instances = db
       .select({
+        instanceId: s.documentInstances.id,
         sourceKey: s.sources.key,
         uri: s.documentInstances.uri,
         filePath: s.documentInstances.filePath,
@@ -382,7 +393,28 @@ export function createIndexQueries(db: Db) {
     return { documents: documents?.c ?? 0, annotations: annotations?.c ?? 0 }
   }
 
-  return { search, browse, nav, sourceSummaries, indexStats }
+  /**
+   * Per-page annotation counts for the Canvas heat layer (docs/2026-07-10 §Page-annotation heat):
+   * `json_extract(position_json, '$.position.pageIndex')` over every annotation of the document's
+   * instances (so a hash-joined doc sums across sources), grouped and ordered by pageIndex; rows
+   * with a null/absent pageIndex are dropped.
+   */
+  function pageAnnotations(raw: unknown): PageAnnotations {
+    const req = pageAnnotationsRequestSchema.parse(raw)
+    const pages = db.all<{ pageIndex: number; count: number }>(
+      sql`SELECT json_extract(a.position_json, '$.position.pageIndex') AS pageIndex,
+                 count(*) AS count
+          FROM annotations a
+          JOIN document_instances di ON di.id = a.instance_id
+          WHERE di.document_id = ${req.documentId}
+            AND json_extract(a.position_json, '$.position.pageIndex') IS NOT NULL
+          GROUP BY pageIndex
+          ORDER BY pageIndex ASC`,
+    )
+    return { pages }
+  }
+
+  return { search, browse, nav, sourceSummaries, indexStats, pageAnnotations }
 }
 
 export interface IndexStats {

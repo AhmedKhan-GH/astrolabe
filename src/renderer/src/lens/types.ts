@@ -128,7 +128,28 @@ export interface BrowseHit {
   tags: string[]
   /** Slugs of the virtual collections this document belongs to — drives the popover's checked state. */
   virtualCollections: string[]
-  instances: { sourceKey: string; uri: string; filePath: string | null }[]
+  instances: BrowseInstance[]
+}
+
+/**
+ * One source instance of a document. `instanceId` (document_instances.id) is what the
+ * `astro-doc://instance/<id>` PDF protocol resolves — REQUIRED from the backend hydrate()
+ * for the Canvas view to stream bytes (see report: integration point).
+ */
+export interface BrowseInstance {
+  instanceId: number
+  sourceKey: string
+  uri: string
+  filePath: string | null
+}
+
+/**
+ * Per-page annotation counts for one document (`index:page-annotations` wire contract).
+ * pageIndex is 0-based (from `json_extract(position_json, '$.position.pageIndex')`); pages
+ * with no annotations are simply absent. Drives the Canvas heat layer.
+ */
+export interface PageAnnotations {
+  pages: { pageIndex: number; count: number }[]
 }
 
 export interface BrowsePage {

@@ -22,6 +22,7 @@ export function DocumentRiver({
   onReveal = (p) => void window.astrolabe.system.reveal(p),
   onToggleMembership,
   onCreateAndAdd,
+  onOpenCanvas,
   onSync,
 }: {
   filters: FilterSet
@@ -31,6 +32,7 @@ export function DocumentRiver({
   onReveal?: (path: string) => void
   onToggleMembership?: (documentId: number, slug: string, nextChecked: boolean) => void
   onCreateAndAdd?: (documentId: number, name: string) => void
+  onOpenCanvas?: (hit: BrowseHit) => void
   onSync?: () => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -138,6 +140,7 @@ export function DocumentRiver({
                   onReveal={onReveal}
                   onToggleMembership={onToggleMembership}
                   onCreateAndAdd={onCreateAndAdd}
+                  onOpenCanvas={onOpenCanvas}
                 />
               </div>
             )
@@ -157,6 +160,7 @@ export function DocumentRow({
   onReveal,
   onToggleMembership,
   onCreateAndAdd,
+  onOpenCanvas,
 }: {
   hit: BrowseHit
   collections?: VCollectionSummary[]
@@ -165,16 +169,30 @@ export function DocumentRow({
   onReveal: (path: string) => void
   onToggleMembership?: (documentId: number, slug: string, nextChecked: boolean) => void
   onCreateAndAdd?: (documentId: number, name: string) => void
+  onOpenCanvas?: (hit: BrowseHit) => void
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   // The membership affordance appears only when the feature is wired in.
   const canManage = Boolean(onToggleMembership || onCreateAndAdd)
   const filePath = hit.instances.find((i) => i.filePath)?.filePath ?? null
+  // Canvas needs bytes to render: pdf kind + a served file (astro-doc streams by instanceId).
+  const canCanvas = Boolean(onOpenCanvas) && hit.kind === 'pdf' && filePath !== null
   return (
     <div className="group relative mb-2 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
       <div className="flex items-baseline gap-2">
         <span className="text-[10px] uppercase tracking-wider text-zinc-500">{hit.kind}</span>
-        <h3 className="min-w-0 flex-1 truncate font-medium text-zinc-100">{hit.title}</h3>
+        {canCanvas ? (
+          <button
+            aria-label={`open canvas: ${hit.title}`}
+            title="Open canvas — all pages at a glance"
+            onClick={() => onOpenCanvas?.(hit)}
+            className="min-w-0 flex-1 truncate text-left font-medium text-zinc-100 hover:text-white hover:underline"
+          >
+            {hit.title}
+          </button>
+        ) : (
+          <h3 className="min-w-0 flex-1 truncate font-medium text-zinc-100">{hit.title}</h3>
+        )}
         {canManage && (
           <button
             aria-label="add to collection"

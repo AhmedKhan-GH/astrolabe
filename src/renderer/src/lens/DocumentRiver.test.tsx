@@ -16,8 +16,8 @@ const hit = (over: Partial<BrowseHit> = {}): BrowseHit => ({
   tags: ['ml', 'textbook'],
   virtualCollections: [],
   instances: [
-    { sourceKey: 'zotero', uri: 'zotero://select/items/ABC', filePath: '/tmp/x.pdf' },
-    { sourceKey: 'eagle', uri: 'eagle://item/XYZ', filePath: null },
+    { instanceId: 11, sourceKey: 'zotero', uri: 'zotero://select/items/ABC', filePath: '/tmp/x.pdf' },
+    { instanceId: 12, sourceKey: 'eagle', uri: 'eagle://item/XYZ', filePath: null },
   ],
   ...over,
 })
@@ -51,6 +51,45 @@ describe('DocumentRow', () => {
   it('shows no membership affordance when the feature is not wired', () => {
     render(<DocumentRow hit={hit()} onOpenUri={vi.fn()} onOpenFile={vi.fn()} onReveal={vi.fn()} />)
     expect(screen.queryByRole('button', { name: /add to collection/i })).toBeNull()
+  })
+})
+
+describe('DocumentRow — canvas affordance', () => {
+  it('title-click opens the canvas for a pdf hit with a file', () => {
+    const onOpenCanvas = vi.fn()
+    const h = hit()
+    render(
+      <DocumentRow hit={h} onOpenUri={vi.fn()} onOpenFile={vi.fn()} onReveal={vi.fn()} onOpenCanvas={onOpenCanvas} />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /open canvas/i }))
+    expect(onOpenCanvas).toHaveBeenCalledWith(h)
+  })
+
+  it('a non-pdf hit gets no canvas affordance', () => {
+    render(
+      <DocumentRow
+        hit={hit({ kind: 'note' })}
+        onOpenUri={vi.fn()}
+        onOpenFile={vi.fn()}
+        onReveal={vi.fn()}
+        onOpenCanvas={vi.fn()}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: /open canvas/i })).toBeNull()
+  })
+
+  it('a pdf hit with no file gets no canvas affordance', () => {
+    const noFile = hit()
+    noFile.instances = noFile.instances.map((i) => ({ ...i, filePath: null }))
+    render(
+      <DocumentRow hit={noFile} onOpenUri={vi.fn()} onOpenFile={vi.fn()} onReveal={vi.fn()} onOpenCanvas={vi.fn()} />,
+    )
+    expect(screen.queryByRole('button', { name: /open canvas/i })).toBeNull()
+  })
+
+  it('without onOpenCanvas the title stays plain text (no button)', () => {
+    render(<DocumentRow hit={hit()} onOpenUri={vi.fn()} onOpenFile={vi.fn()} onReveal={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: /open canvas/i })).toBeNull()
   })
 })
 

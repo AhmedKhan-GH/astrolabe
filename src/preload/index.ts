@@ -3,6 +3,7 @@ import {
   DB_CHANNEL,
   INDEX_BROWSE_CHANNEL,
   INDEX_NAV_CHANNEL,
+  INDEX_PAGE_ANNOTATIONS_CHANNEL,
   INDEX_REBUILD_CHANNEL,
   INDEX_SOURCES_CHANNEL,
   INDEX_STATS_CHANNEL,
@@ -25,6 +26,7 @@ import type {
   BrowseRequest,
   IndexStats,
   NavData,
+  PageAnnotations,
   SearchHit,
   SearchRequest,
   SourceSummary,
@@ -75,6 +77,8 @@ const api = {
     browse: (req: Partial<BrowseRequest>): Promise<BrowsePage> =>
       ipcRenderer.invoke(INDEX_BROWSE_CHANNEL, req),
     nav: (): Promise<NavData> => ipcRenderer.invoke(INDEX_NAV_CHANNEL),
+    pageAnnotations: (documentId: number): Promise<PageAnnotations> =>
+      ipcRenderer.invoke(INDEX_PAGE_ANNOTATIONS_CHANNEL, { documentId }),
     sync: (): Promise<SyncReport[]> => ipcRenderer.invoke(INDEX_SYNC_CHANNEL),
     rebuild: (): Promise<SyncReport[]> => ipcRenderer.invoke(INDEX_REBUILD_CHANNEL),
     sources: (): Promise<SourceSummary[]> => ipcRenderer.invoke(INDEX_SOURCES_CHANNEL),

@@ -14,6 +14,10 @@ export const INDEX_REBUILD_CHANNEL = 'index:rebuild'
 // channels (docs/01 ceiling: they never ride the generic table-client).
 export const INDEX_BROWSE_CHANNEL = 'index:browse'
 export const INDEX_NAV_CHANNEL = 'index:nav'
+// Canvas view (docs/2026-07-10-canvas-view-spec §Page-annotation heat): per-page annotation
+// counts for one document — a join + json_extract aggregation, so a named channel too. The
+// request schema lives with the query module (queries.ts), like search/browse.
+export const INDEX_PAGE_ANNOTATIONS_CHANNEL = 'index:page-annotations'
 
 const row = z.record(z.string(), z.unknown())
 const id = z.number().int().positive()

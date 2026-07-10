@@ -16,7 +16,18 @@ import {
   toFilterSet,
 } from './selection'
 import { toStoredFilter, resolveStoredFilter, selectionFromFilterSet } from './viewRefs'
-import type { LensSelection, NavData, NavNode, SavedView, VCollectionSummary } from './types'
+import { CanvasView } from './CanvasView'
+import { usePdfDocument } from './pdf/usePdfDocument'
+import { rewriteOpenPdfPage } from './pdf/heat'
+import type {
+  BrowseHit,
+  LensSelection,
+  NavData,
+  NavNode,
+  PageAnnotations,
+  SavedView,
+  VCollectionSummary,
+} from './types'
 
 const EMPTY_NAV: NavData = { kinds: [], sources: [], tags: [], virtualCollections: [], presence: [] }
 
@@ -34,9 +45,54 @@ function useDebounced<T>(value: T, ms: number): T {
   return debounced
 }
 
+/** The instance whose bytes the Canvas streams: zotero preferred (annotation workspace), else
+ *  the first instance with a file on disk. */
+function canvasInstance(hit: BrowseHit) {
+  return (
+    hit.instances.find((i) => i.sourceKey === 'zotero' && i.filePath) ??
+    hit.instances.find((i) => i.filePath) ??
+    null
+  )
+}
+
+/**
+ * Owns the pdf.js hook + heat query for one open document, so CanvasView stays a pure,
+ * fully-testable component (the hook RESULT is a prop) and pdf.js loads only while a
+ * canvas is actually open.
+ */
+function CanvasHost({ hit, onClose }: { hit: BrowseHit; onClose: () => void }) {
+  const instance = canvasInstance(hit)
+  const pdf = usePdfDocument(`astro-doc://instance/${instance?.instanceId ?? 0}`)
+  const heat = useQuery<PageAnnotations>({
+    queryKey: ['pageAnnotations', hit.documentId],
+    queryFn: () => window.astrolabe.index.pageAnnotations(hit.documentId),
+  })
+  // Page-out limitation (spec §Renderer): the instance URI is a select/item link, not an
+  // open-pdf link, so page targeting only works when the URI already is open-pdf shaped;
+  // otherwise the click lands on the document, not the page. Precise per-page deep links
+  // arrive with the reader phase.
+  const openPage = (pageIndex: number): void => {
+    if (!instance) return
+    const uri = instance.uri.includes('open-pdf')
+      ? rewriteOpenPdfPage(instance.uri, pageIndex + 1)
+      : instance.uri
+    void window.astrolabe.system.openUri(uri)
+  }
+  return (
+    <CanvasView
+      title={hit.title}
+      pdf={pdf}
+      heat={heat.data ?? null}
+      onOpenPage={openPage}
+      onClose={onClose}
+    />
+  )
+}
+
 export function Lens() {
   const [q, setQ] = useState('')
   const [selection, setSelection] = useState<LensSelection>(emptySelection())
+  const [canvasFor, setCanvasFor] = useState<BrowseHit | null>(null)
   // The slug of the currently-applied saved view, cleared on any manual edit so the
   // rail highlight never lies about whether the live lens still matches the view.
   const [appliedViewSlug, setAppliedViewSlug] = useState<string | null>(null)
@@ -353,11 +409,14 @@ export function Lens() {
               collections={vcollections.data ?? []}
               onToggleMembership={onToggleMembership}
               onCreateAndAdd={(documentId, name) => createAndAdd.mutate({ documentId, name })}
+              onOpenCanvas={setCanvasFor}
               onSync={() => sync.mutate()}
             />
           )}
         </div>
       </div>
+
+      {canvasFor && <CanvasHost hit={canvasFor} onClose={() => setCanvasFor(null)} />}
     </div>
   )
 }

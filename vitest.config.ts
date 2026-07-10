@@ -18,7 +18,13 @@ export default defineConfig({
         test: {
           name: 'unit',
           environment: 'node',
-          include: ['src/main/**/*.test.ts', 'src/shared/**/*.test.ts', 'src/preload/**/*.test.ts'],
+          include: [
+            'src/main/**/*.test.ts',
+            'src/shared/**/*.test.ts',
+            'src/preload/**/*.test.ts',
+            // Pure renderer logic (no DOM) — e.g. the Canvas heat mapping.
+            'src/renderer/**/*.test.ts',
+          ],
         },
       },
       {

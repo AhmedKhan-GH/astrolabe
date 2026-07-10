@@ -70,7 +70,9 @@ describe('browse', () => {
       kind: 'pdf',
       modifiedAt: 100,
       tags: ['ml'],
-      instances: [{ sourceKey: 'zotero', uri: 'zotero://Z1', filePath: null }],
+      instances: [
+        { instanceId: expect.any(Number), sourceKey: 'zotero', uri: 'zotero://Z1', filePath: null },
+      ],
       virtualCollections: [],
     })
     expect(hit).not.toHaveProperty('snippet')
@@ -329,6 +331,62 @@ describe('presence (zotero/eagle instance existence — its own AND dimension)',
 
   it('Zod rejects an over-cap presence array', () => {
     expect(() => queries.browse({ presence: ['both', 'zotero-only', 'eagle-only', 'both'] as never })).toThrow()
+  })
+})
+
+describe('pageAnnotations (per-page heat over all instances of a document)', () => {
+  const docIdByTitle = (title: string): number =>
+    handle.db.select().from(s.documents).where(eq(s.documents.title, title)).get()!.id
+  // The stored position json shape (src/main/connectors/zotero/mapping.ts): the pageIndex we
+  // aggregate on lives at $.position.pageIndex; a null/absent one must be dropped.
+  const pos = (pageIndex: number | null): string =>
+    JSON.stringify({
+      attachmentKey: 'ATT',
+      openPdfUri: 'zotero://open-pdf/library/items/ATT',
+      position: pageIndex === null ? {} : { pageIndex },
+    })
+
+  // A hash-joined document (same contentSha256 across zotero + eagle) so aggregation must sum
+  // annotations ACROSS both instances, not per-instance.
+  beforeEach(() => {
+    upsert.upsertDocument({
+      sourceKey: 'zotero', externalKey: 'ZP', uri: 'zotero://ZP', title: 'Paper With Notes',
+      kind: 'pdf', contentSha256: 'hpaper', modifiedAt: 600,
+      annotations: [
+        { externalKey: 'a1', type: 'highlight', modifiedAt: 1, positionJson: pos(0) },
+        { externalKey: 'a2', type: 'highlight', modifiedAt: 1, positionJson: pos(0) },
+        { externalKey: 'a3', type: 'highlight', modifiedAt: 1, positionJson: pos(2) },
+        { externalKey: 'a4', type: 'note', modifiedAt: 1, positionJson: pos(null) }, // dropped
+        { externalKey: 'a5', type: 'note', modifiedAt: 1, positionJson: null }, // no json → dropped
+      ],
+    })
+    upsert.upsertDocument({
+      sourceKey: 'eagle', externalKey: 'EP', uri: 'eagle://EP', title: 'Paper With Notes',
+      kind: 'pdf', contentSha256: 'hpaper', modifiedAt: 600,
+      annotations: [
+        { externalKey: 'a6', type: 'highlight', modifiedAt: 1, positionJson: pos(0) }, // page 0, other instance
+        { externalKey: 'a7', type: 'highlight', modifiedAt: 1, positionJson: pos(5) },
+      ],
+    })
+  })
+
+  it('sums per pageIndex across every instance, ordered by pageIndex, null pageIndex dropped', () => {
+    expect(queries.pageAnnotations({ documentId: docIdByTitle('Paper With Notes') })).toEqual({
+      pages: [
+        { pageIndex: 0, count: 3 }, // a1,a2 (zotero) + a6 (eagle)
+        { pageIndex: 2, count: 1 },
+        { pageIndex: 5, count: 1 },
+      ],
+    })
+  })
+
+  it('a document with no page-anchored annotations yields empty pages', () => {
+    expect(queries.pageAnnotations({ documentId: docIdByTitle('Alpha Paper') })).toEqual({ pages: [] })
+  })
+
+  it('Zod rejects a non-positive documentId', () => {
+    expect(() => queries.pageAnnotations({ documentId: 0 })).toThrow()
+    expect(() => queries.pageAnnotations({})).toThrow()
   })
 })
 

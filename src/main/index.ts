@@ -15,6 +15,7 @@ import {
   DB_CHANNEL,
   INDEX_BROWSE_CHANNEL,
   INDEX_NAV_CHANNEL,
+  INDEX_PAGE_ANNOTATIONS_CHANNEL,
   INDEX_REBUILD_CHANNEL,
   INDEX_SEARCH_CHANNEL,
   INDEX_SOURCES_CHANNEL,
@@ -34,10 +35,15 @@ import {
   systemOpenSchema,
 } from '../shared/db-ipc'
 import { createAccessApi, FULL_DISK_ACCESS_SETTINGS_URI } from './system/access'
+import { registerDocProtocol, registerDocProtocolPrivileges } from './system/doc-protocol'
 
 // ESM main process — derive the directory the built file lives in (out/main/).
 const currentDir = dirname(fileURLToPath(import.meta.url))
 const log = moduleLogger('main')
+
+// astro-doc:// (Canvas view, docs/2026-07-10-canvas-view-spec §Serving PDF bytes): scheme
+// privileges MUST be declared before app.whenReady — module load is the only safe point.
+registerDocProtocolPrivileges()
 
 /**
  * Create the single application window with the secure defaults recorded in
@@ -124,6 +130,11 @@ app.whenReady().then(() => {
     // Library Navigator read paths (docs/2026-07-10): the recency river + nav rail.
     ipcMain.handle(INDEX_BROWSE_CHANNEL, (_event, req: unknown) => queries.browse(req))
     ipcMain.handle(INDEX_NAV_CHANNEL, () => queries.nav())
+    // Canvas view (docs/2026-07-10-canvas-view-spec): per-page annotation heat + the
+    // astro-doc:// byte server (allowlisted by the index — the renderer names instance ids,
+    // never paths).
+    ipcMain.handle(INDEX_PAGE_ANNOTATIONS_CHANNEL, (_event, req: unknown) => queries.pageAnnotations(req))
+    registerDocProtocol(() => handle.db)
     // Saved-view CRUD (validation is at the module boundary via zod, like the query handlers).
     ipcMain.handle(VIEWS_LIST_CHANNEL, () => viewsApi.list())
     ipcMain.handle(VIEWS_SAVE_CHANNEL, (_event, raw: unknown) => viewsApi.save(raw))
