@@ -52,8 +52,13 @@ dated point-in-time working documents):
   modular-monolith architecture, packages, Supabase decision, and growth path (moves to the alidade
   repo as its founding doc on creation day).
 
-Dated point-in-time implementation specs, when they exist, live in `docs/specs/YYYY-MM-DD-slug.md`
-(dev-setup convention §9).
+Dated point-in-time implementation specs live in `docs/specs/YYYY-MM-DD-slug.md`
+(dev-setup convention §9):
+
+- [`specs/2026-07-09-runway-to-library-lens.md`](specs/2026-07-09-runway-to-library-lens.md) — the
+  step-by-step build plan from the test-harness commit through Pino, SQLite/IPC, index schema,
+  Zotero + Eagle connectors, Library Lens v0, and the Phase 1.5 interim MCP server; includes the
+  live-verified API ground truth.
 
 ## The one-sentence definition
 

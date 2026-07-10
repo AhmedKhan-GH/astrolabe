@@ -48,6 +48,14 @@ sellable beta in roughly 5–7 months.
 **Usable that week:** one search box over the entire Zotero library + vault + Eagle, with instant
 jump-to-source. Already daily-driver material, before any AI.
 
+### Phase 1.5 — interim agentic access (days, not weeks)
+
+A thin **MCP server over the index** (`search_library`, `get_annotations`, `resolve_provenance`,
+read-only stdio process) so Claude Code/Desktop act as the interim harness — agentic Q&A grounded in
+the index with zero discovery-token burn, months before Alioth. Its tool handlers are the first
+draft of Alioth's context assembler and are consumed by Phase 3. Detailed in
+[the 2026-07-09 implementation spec](specs/2026-07-09-runway-to-library-lens.md).
+
 ## Phase 2 — The graph (weeks 5–9)
 
 **Goal:** the knowledge graph exists, grows on ingestion, and is navigable. The v1 essential (D4).
