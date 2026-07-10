@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { FilterBar } from './FilterBar'
 import { emptySelection } from './selection'
 import type { LensSelection } from './types'
@@ -71,5 +71,57 @@ describe('FilterBar', () => {
     const h = renderBar({ ...emptySelection(), kinds: ['pdf'] })
     screen.getByRole('button', { name: /clear all/i }).click()
     expect(h.onClearAll).toHaveBeenCalled()
+  })
+})
+
+describe('FilterBar — save view', () => {
+  it('renders (for the save affordance) when the selection is empty but canSave is set', () => {
+    const { container } = render(
+      <FilterBar selection={emptySelection()} {...handlers()} canSave onSaveView={vi.fn()} />,
+    )
+    expect(container.firstChild).not.toBeNull()
+    expect(screen.getByRole('button', { name: /save view/i })).toBeTruthy()
+  })
+
+  it('stays hidden when the selection is empty and canSave is unset', () => {
+    const { container } = render(
+      <FilterBar selection={emptySelection()} {...handlers()} onSaveView={vi.fn()} />,
+    )
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('reveals an inline name input (no native prompt) on click', () => {
+    render(<FilterBar selection={{ ...emptySelection(), kinds: ['pdf'] }} {...handlers()} onSaveView={vi.fn()} />)
+    expect(screen.queryByLabelText(/view name/i)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /save view/i }))
+    expect(screen.getByLabelText(/view name/i)).toBeTruthy()
+  })
+
+  it('Enter fires onSaveView with the typed name', () => {
+    const onSaveView = vi.fn()
+    render(
+      <FilterBar selection={{ ...emptySelection(), kinds: ['pdf'] }} {...handlers()} onSaveView={onSaveView} />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /save view/i }))
+    const input = screen.getByLabelText(/view name/i) as HTMLInputElement
+    fireEvent.change(input, { target: { value: 'Recent PDFs' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(onSaveView).toHaveBeenCalledWith('Recent PDFs')
+  })
+
+  it('does not fire onSaveView on Enter with a blank name', () => {
+    const onSaveView = vi.fn()
+    render(
+      <FilterBar selection={{ ...emptySelection(), kinds: ['pdf'] }} {...handlers()} onSaveView={onSaveView} />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /save view/i }))
+    const input = screen.getByLabelText(/view name/i)
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(onSaveView).not.toHaveBeenCalled()
+  })
+
+  it('shows no save affordance when onSaveView is not provided', () => {
+    render(<FilterBar selection={{ ...emptySelection(), kinds: ['pdf'] }} {...handlers()} />)
+    expect(screen.queryByRole('button', { name: /save view/i })).toBeNull()
   })
 })

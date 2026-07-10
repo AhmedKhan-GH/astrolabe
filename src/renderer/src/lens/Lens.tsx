@@ -14,7 +14,10 @@ import {
   removeTag,
   toFilterSet,
 } from './selection'
-import type { LensSelection, NavData, NavNode } from './types'
+import { toStoredFilter, resolveStoredFilter, selectionFromFilterSet } from './viewRefs'
+import type { LensSelection, NavData, NavNode, SavedView } from './types'
+
+const EMPTY_NAV: NavData = { kinds: [], sources: [], tags: [] }
 
 /**
  * Library Navigator (Lens v1): a left nav rail (structure + tags + kinds) over a
@@ -33,6 +36,9 @@ function useDebounced<T>(value: T, ms: number): T {
 export function Lens() {
   const [q, setQ] = useState('')
   const [selection, setSelection] = useState<LensSelection>(emptySelection())
+  // The slug of the currently-applied saved view, cleared on any manual edit so the
+  // rail highlight never lies about whether the live lens still matches the view.
+  const [appliedViewSlug, setAppliedViewSlug] = useState<string | null>(null)
   const debouncedQ = useDebounced(q, 200)
   const queryClient = useQueryClient()
 
@@ -40,14 +46,24 @@ export function Lens() {
   // changes, browse/search refetch. TanStack hashes object keys deterministically.
   const filterSet = useMemo(() => toFilterSet(selection), [selection])
 
+  // Manual edits detach from any applied view; a wrapper keeps that invariant in one place.
+  const editSelection = (fn: (s: LensSelection) => LensSelection) => {
+    setSelection(fn)
+    setAppliedViewSlug(null)
+  }
+  const editQ = (value: string) => {
+    setQ(value)
+    setAppliedViewSlug(null)
+  }
+
   const onToggleScope: Parameters<typeof NavRail>[0]['onToggleScope'] = (dim, value) =>
-    setSelection((s) => toggleScope(s, dim, value))
+    editSelection((s) => toggleScope(s, dim, value))
   const onToggleKind: Parameters<typeof NavRail>[0]['onToggleKind'] = (kind) =>
-    setSelection((s) => toggleKind(s, kind))
-  const onCycleTag = (name: string) => setSelection((s) => cycleTag(s, name))
-  const onSetTagMatch = (mode: 'all' | 'any') => setSelection((s) => setTagMatch(s, mode))
-  const onRemoveTag = (name: string) => setSelection((s) => removeTag(s, name))
-  const onClearAll = () => setSelection(emptySelection())
+    editSelection((s) => toggleKind(s, kind))
+  const onCycleTag = (name: string) => editSelection((s) => cycleTag(s, name))
+  const onSetTagMatch = (mode: 'all' | 'any') => editSelection((s) => setTagMatch(s, mode))
+  const onRemoveTag = (name: string) => editSelection((s) => removeTag(s, name))
+  const onClearAll = () => editSelection(() => emptySelection())
 
   const search = useQuery<ResultData[]>({
     queryKey: ['search', debouncedQ, filterSet],
@@ -60,6 +76,33 @@ export function Lens() {
     queryKey: ['nav'],
     queryFn: () => window.astrolabe.index.nav(),
   })
+
+  // Saved views — named lenses persisted as one JSON file each (user artifact).
+  const views = useQuery<SavedView[]>({
+    queryKey: ['views'],
+    queryFn: () => window.astrolabe.views.list(),
+  })
+  const saveView = useMutation({
+    mutationFn: (name: string) =>
+      window.astrolabe.views.save({
+        name,
+        q: q.trim() || undefined,
+        filter: toStoredFilter(filterSet, nav.data ?? EMPTY_NAV),
+      }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['views'] }),
+  })
+  const deleteView = useMutation({
+    mutationFn: (slug: string) => window.astrolabe.views.remove(slug),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['views'] }),
+  })
+
+  // Applying a view replaces q + selection wholesale; unresolvable collection refs
+  // are dropped so the FilterBar shows exactly what took effect (honest stale-ref surface).
+  const applyView = (view: SavedView) => {
+    setSelection(selectionFromFilterSet(resolveStoredFilter(view.filter, nav.data ?? EMPTY_NAV)))
+    setQ(view.q ?? '')
+    setAppliedViewSlug(view.slug)
+  }
 
   // Collection id → display name, harvested from the nav trees (the renderer's only
   // source of collection names) so FilterBar chips can label numeric collection ids.
@@ -184,10 +227,14 @@ export function Lens() {
             <NavRail
               nav={nav.data}
               selection={selection}
+              views={views.data ?? []}
+              appliedViewSlug={appliedViewSlug}
               onToggleKind={onToggleKind}
               onToggleScope={onToggleScope}
               onCycleTag={onCycleTag}
               onSetTagMatch={onSetTagMatch}
+              onApplyView={applyView}
+              onDeleteView={(slug) => deleteView.mutate(slug)}
             />
           ) : (
             <aside className="h-full border-r border-zinc-800 pr-3 text-xs text-zinc-600">
@@ -203,15 +250,17 @@ export function Lens() {
           <FilterBar
             selection={selection}
             collectionNames={collectionNames}
+            canSave={q.trim().length > 0}
             onToggleScope={onToggleScope}
             onToggleKind={onToggleKind}
             onRemoveTag={onRemoveTag}
             onClearAll={onClearAll}
+            onSaveView={(name) => saveView.mutate(name)}
           />
           <input
             autoFocus
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => editQ(e.target.value)}
             placeholder="Search your library — titles, annotations, tags…"
             className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:border-zinc-500"
           />

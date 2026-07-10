@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import clsx from 'clsx'
 import { CollectionTree } from './CollectionTree'
-import type { NavData, NavNode, LensSelection, SourceKey, DocumentKind } from './types'
+import type { NavData, NavNode, LensSelection, SourceKey, DocumentKind, SavedView } from './types'
 
 const TAG_LIMIT = 40
 
@@ -16,13 +16,19 @@ type TagMode = 'neutral' | 'require' | 'exclude'
 export function NavRail({
   nav,
   selection,
+  views = [],
+  appliedViewSlug,
   onToggleKind,
   onToggleScope,
   onCycleTag,
   onSetTagMatch,
+  onApplyView,
+  onDeleteView,
 }: {
   nav: NavData
   selection: LensSelection
+  views?: SavedView[]
+  appliedViewSlug?: string | null
   onToggleKind: (kind: DocumentKind) => void
   onToggleScope: (
     dim: 'sourceKeys' | 'collectionIds' | 'folderPrefixes',
@@ -30,6 +36,8 @@ export function NavRail({
   ) => void
   onCycleTag: (name: string) => void
   onSetTagMatch: (mode: 'all' | 'any') => void
+  onApplyView?: (view: SavedView) => void
+  onDeleteView?: (slug: string) => void
 }) {
   const [tagFilter, setTagFilter] = useState('')
 
@@ -43,6 +51,37 @@ export function NavRail({
 
   return (
     <nav className="flex w-60 shrink-0 flex-col gap-4 overflow-y-auto border-r border-zinc-800 pr-3 text-sm">
+      {views.length > 0 && (
+        <Section title="Views">
+          <div className="flex flex-col gap-0.5">
+            {views.map((view) => {
+              const active = view.slug === appliedViewSlug
+              return (
+                <div key={view.slug} className="group flex items-center gap-0.5">
+                  <button
+                    aria-pressed={active}
+                    onClick={() => onApplyView?.(view)}
+                    className={clsx(
+                      'flex min-w-0 flex-1 items-center rounded px-1.5 py-0.5 text-left text-xs',
+                      active ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-300 hover:bg-zinc-800',
+                    )}
+                  >
+                    <span className="truncate">{view.name}</span>
+                  </button>
+                  <button
+                    aria-label={`delete view ${view.name}`}
+                    onClick={() => onDeleteView?.(view.slug)}
+                    className="shrink-0 px-1 text-xs text-zinc-600 opacity-0 hover:text-zinc-200 group-hover:opacity-100"
+                  >
+                    ×
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </Section>
+      )}
+
       <Section title="Kinds">
         <div className="flex flex-wrap gap-1.5">
           {nav.kinds.map((k) => {

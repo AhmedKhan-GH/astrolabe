@@ -53,7 +53,7 @@ test('preload bridge exposes exactly its allowlist', async () => {
   const api = await window.evaluate(() => (window as never as Record<string, unknown>)['astrolabe'])
   // The bridge surface is a security contract: exactly these keys, nothing more.
   expect(api).toBeTruthy()
-  expect(Object.keys(api as object).sort()).toEqual(['db', 'index', 'system', 'versions'])
+  expect(Object.keys(api as object).sort()).toEqual(['db', 'index', 'system', 'versions', 'views'])
   const versions = (api as { versions: Record<string, unknown> }).versions
   expect(typeof versions.electron).toBe('string')
   expect(typeof versions.chrome).toBe('string')

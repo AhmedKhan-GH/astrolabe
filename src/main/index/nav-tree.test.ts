@@ -17,8 +17,8 @@ describe('buildCollectionTree', () => {
   it('flat roots (no parents) carry direct-membership counts, alpha-ordered', () => {
     const tree = buildCollectionTree(
       [
-        { id: 1, name: 'Zebra', parentId: null },
-        { id: 2, name: 'Alpha', parentId: null },
+        { id: 1, name: 'Zebra', parentId: null, externalKey: 'zebra' },
+        { id: 2, name: 'Alpha', parentId: null, externalKey: 'alpha' },
       ],
       new Map([
         [1, 3],
@@ -36,9 +36,9 @@ describe('buildCollectionTree', () => {
   it('nests children under their parentId', () => {
     const tree = buildCollectionTree(
       [
-        { id: 1, name: 'Library', parentId: null },
-        { id: 2, name: 'Papers', parentId: 1 },
-        { id: 3, name: 'Drafts', parentId: 2 },
+        { id: 1, name: 'Library', parentId: null, externalKey: 'lib' },
+        { id: 2, name: 'Papers', parentId: 1, externalKey: 'papers' },
+        { id: 3, name: 'Drafts', parentId: 2, externalKey: 'drafts' },
       ],
       new Map([[3, 5]]),
     )
@@ -52,11 +52,23 @@ describe('buildCollectionTree', () => {
 
   it('orphan parentId (parent not in rows) is promoted to a root', () => {
     const tree = buildCollectionTree(
-      [{ id: 2, name: 'Orphan', parentId: 999 }],
+      [{ id: 2, name: 'Orphan', parentId: 999, externalKey: 'orphan' }],
       new Map(),
     )
     expect(byName(tree)).toEqual(['Orphan'])
     expect(tree[0]?.count).toBe(0) // missing from count map → 0
+  })
+
+  it('carries externalKey so a view can persist a rebuild-stable collection ref', () => {
+    const tree = buildCollectionTree(
+      [
+        { id: 1, name: 'Library', parentId: null, externalKey: 'lib' },
+        { id: 2, name: 'Papers', parentId: 1, externalKey: 'papers' },
+      ],
+      new Map(),
+    )
+    expect(tree[0]?.externalKey).toBe('lib')
+    expect(tree[0]?.children[0]?.externalKey).toBe('papers')
   })
 })
 

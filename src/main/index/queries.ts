@@ -254,7 +254,14 @@ export function createIndexQueries(db: Db) {
       return buildFolderTree(relPaths)
     }
     const rows = db
-      .select({ id: s.collections.id, name: s.collections.name, parentId: s.collections.parentId })
+      .select({
+        id: s.collections.id,
+        name: s.collections.name,
+        parentId: s.collections.parentId,
+        // externalKey rides along so nav nodes carry the rebuild-stable collection key that
+        // saved views persist (the regenerated `id` is unsafe across a rebuild).
+        externalKey: s.collections.externalKey,
+      })
       .from(s.collections)
       .where(eq(s.collections.sourceId, src.id))
       .all()

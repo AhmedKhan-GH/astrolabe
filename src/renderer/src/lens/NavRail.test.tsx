@@ -3,7 +3,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, within, fireEvent } from '@testing-library/react'
 import { NavRail } from './NavRail'
 import { emptySelection } from './selection'
-import type { NavData, LensSelection } from './types'
+import type { NavData, LensSelection, SavedView } from './types'
 
 afterEach(cleanup)
 
@@ -48,6 +48,11 @@ const handlers = () => ({
   onCycleTag: vi.fn(),
   onSetTagMatch: vi.fn(),
 })
+
+const views: SavedView[] = [
+  { slug: 'unread-ml', name: 'Unread ML', createdAt: '2026-07-10T00:00:00.000Z', filter: {} },
+  { slug: 'photos', name: 'Photos', createdAt: '2026-07-10T00:00:00.000Z', filter: {} },
+]
 
 function renderRail(selection: LensSelection = emptySelection(), h = handlers()) {
   render(<NavRail nav={nav} selection={selection} {...h} />)
@@ -129,6 +134,69 @@ describe('NavRail — tags (tri-state)', () => {
     fireEvent.change(input, { target: { value: 'phys' } })
     expect(screen.queryByRole('button', { name: /#physics/ })).toBeTruthy()
     expect(screen.queryByRole('button', { name: /#ml/ })).toBeNull()
+  })
+})
+
+describe('NavRail — views', () => {
+  it('renders no Views section when the list is empty', () => {
+    renderRail()
+    expect(screen.queryByRole('heading', { name: /views/i })).toBeNull()
+  })
+
+  it('renders a row per saved view', () => {
+    render(<NavRail nav={nav} selection={emptySelection()} {...handlers()} views={views} />)
+    expect(screen.getByRole('heading', { name: /views/i })).toBeTruthy()
+    expect(screen.getByText('Unread ML')).toBeTruthy()
+    expect(screen.getByText('Photos')).toBeTruthy()
+  })
+
+  it('clicking a view fires onApplyView with the view', () => {
+    const onApplyView = vi.fn()
+    render(
+      <NavRail nav={nav} selection={emptySelection()} {...handlers()} views={views} onApplyView={onApplyView} />,
+    )
+    screen.getByText('Unread ML').click()
+    expect(onApplyView).toHaveBeenCalledWith(views[0])
+  })
+
+  it('the × on a view row fires onDeleteView with its slug', () => {
+    const onDeleteView = vi.fn()
+    render(
+      <NavRail nav={nav} selection={emptySelection()} {...handlers()} views={views} onDeleteView={onDeleteView} />,
+    )
+    screen.getByRole('button', { name: /delete view Photos/i }).click()
+    expect(onDeleteView).toHaveBeenCalledWith('photos')
+  })
+
+  it('deleting does not also apply the view', () => {
+    const onApplyView = vi.fn()
+    const onDeleteView = vi.fn()
+    render(
+      <NavRail
+        nav={nav}
+        selection={emptySelection()}
+        {...handlers()}
+        views={views}
+        onApplyView={onApplyView}
+        onDeleteView={onDeleteView}
+      />,
+    )
+    screen.getByRole('button', { name: /delete view Photos/i }).click()
+    expect(onApplyView).not.toHaveBeenCalled()
+  })
+
+  it('highlights the applied view', () => {
+    render(
+      <NavRail
+        nav={nav}
+        selection={emptySelection()}
+        {...handlers()}
+        views={views}
+        appliedViewSlug="photos"
+      />,
+    )
+    expect(screen.getByRole('button', { name: /^Photos/ }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: /^Unread ML/ }).getAttribute('aria-pressed')).toBe('false')
   })
 })
 

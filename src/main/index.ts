@@ -8,6 +8,7 @@ import { createDbDispatcher } from './db/dispatcher'
 import { createUpsertApi } from './index/upsert'
 import { createIndexQueries } from './index/queries'
 import { createSyncApi } from './index/sync'
+import { createViewsApi } from './lib/views'
 import { connectors } from './connectors/registry'
 import {
   DB_CHANNEL,
@@ -20,6 +21,9 @@ import {
   INDEX_SYNC_CHANNEL,
   SYSTEM_OPEN_CHANNEL,
   SYSTEM_REQUEST_ACCESS_CHANNEL,
+  VIEWS_DELETE_CHANNEL,
+  VIEWS_LIST_CHANNEL,
+  VIEWS_SAVE_CHANNEL,
   requestAccessSchema,
   systemOpenSchema,
 } from '../shared/db-ipc'
@@ -85,6 +89,9 @@ app.whenReady().then(() => {
     const upsert = createUpsertApi(handle.db)
     const queries = createIndexQueries(handle.db)
     const syncApi = createSyncApi(handle.db, connectors, upsert)
+    // Saved views are a user artifact, not index data — one JSON file per view under the
+    // workspace, so they survive a rebuild and ride file-sync (docs/2026-07-10-lens-saved-views).
+    const viewsApi = createViewsApi(join(ws.astroDir, 'views'))
     ipcMain.handle(DB_CHANNEL, (_event, req: unknown) => dispatch(req))
     ipcMain.handle(INDEX_SEARCH_CHANNEL, (_event, req: unknown) => queries.search(req))
     ipcMain.handle(INDEX_SYNC_CHANNEL, () => syncApi.syncAll())
@@ -94,6 +101,10 @@ app.whenReady().then(() => {
     // Library Navigator read paths (docs/2026-07-10): the recency river + nav rail.
     ipcMain.handle(INDEX_BROWSE_CHANNEL, (_event, req: unknown) => queries.browse(req))
     ipcMain.handle(INDEX_NAV_CHANNEL, () => queries.nav())
+    // Saved-view CRUD (validation is at the module boundary via zod, like the query handlers).
+    ipcMain.handle(VIEWS_LIST_CHANNEL, () => viewsApi.list())
+    ipcMain.handle(VIEWS_SAVE_CHANNEL, (_event, raw: unknown) => viewsApi.save(raw))
+    ipcMain.handle(VIEWS_DELETE_CHANNEL, (_event, raw: unknown) => viewsApi.remove(raw))
     // Grant-access probe: an fs read from THIS process summons the native macOS
     // consent dialog; a hard TCC denial falls back to the Full Disk Access pane
     // (which no app can prompt for programmatically — deep-link only).

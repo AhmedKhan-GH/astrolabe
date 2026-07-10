@@ -23,6 +23,21 @@ export const INDEX_STATS_CHANNEL = 'index:stats'
 export const SYSTEM_OPEN_CHANNEL = 'system:open'
 export const SYSTEM_REQUEST_ACCESS_CHANNEL = 'system:request-access'
 
+// Saved views (docs/2026-07-10-lens-saved-views-spec): named lenses persisted as one JSON file
+// per view under `<workspace>/.astrolabe/views/`. list → SavedView[]; save({name,q?,filter}) →
+// SavedView; delete({slug}) → boolean. The save request + file schemas live WITH the module
+// (`src/main/lib/views.ts`), not here: they embed `storedFilterSchema`, which derives from
+// `filterSetSchema` (main/index/queries.ts) — importing it into this shared file would invert
+// the layer direction and drag drizzle into the preload bundle. Only the layer-free `{slug}`
+// delete request stays here, alongside the channel names.
+export const VIEWS_LIST_CHANNEL = 'views:list'
+export const VIEWS_SAVE_CHANNEL = 'views:save'
+export const VIEWS_DELETE_CHANNEL = 'views:delete'
+
+/** A view is addressed by its slug (the file basename); the only field delete needs. */
+export const deleteViewRequestSchema = z.object({ slug: z.string().min(1).max(200) })
+export type DeleteViewRequest = z.infer<typeof deleteViewRequestSchema>
+
 /** Grant-access probe (macOS TCC): only the known sources are probeable. */
 export const requestAccessSchema = z.object({
   sourceKey: z.enum(['zotero', 'eagle', 'obsidian']),

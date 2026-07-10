@@ -41,7 +41,38 @@ export interface NavNode {
   id: number | string
   name: string
   count: number
+  /**
+   * Stable cross-rebuild identifier for zotero/eagle collection nodes
+   * (`collections.externalKey`). Raw `id` regenerates on rebuild, so saved views
+   * persist this instead. Absent on obsidian folder nodes (their id is already a
+   * stable path).
+   */
+  externalKey?: string
   children: NavNode[]
+}
+
+/**
+ * A saved-view's persisted filter: the wire FilterSet with `collectionIds` (index-
+ * internal, regenerated on rebuild) swapped for `collectionRefs` — stable
+ * (sourceKey, externalKey) pairs that survive index rebuilds.
+ */
+export interface StoredFilter {
+  sourceKeys?: SourceKey[]
+  collectionRefs?: { sourceKey: SourceKey; key: string }[]
+  folderPrefixes?: string[]
+  kinds?: DocumentKind[]
+  tagsAll?: string[]
+  tagsAny?: string[]
+  tagsNone?: string[]
+}
+
+/** A named lens over the library — file payload (`views/<slug>.json`) plus its slug. */
+export interface SavedView {
+  slug: string
+  name: string
+  createdAt: string
+  q?: string
+  filter: StoredFilter
 }
 
 export interface NavData {

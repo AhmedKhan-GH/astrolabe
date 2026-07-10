@@ -10,6 +10,9 @@ import {
   INDEX_SYNC_CHANNEL,
   SYSTEM_OPEN_CHANNEL,
   SYSTEM_REQUEST_ACCESS_CHANNEL,
+  VIEWS_DELETE_CHANNEL,
+  VIEWS_LIST_CHANNEL,
+  VIEWS_SAVE_CHANNEL,
 } from '../shared/db-ipc'
 import type { Meta, NewMeta } from '../main/db/schema'
 import type {
@@ -24,6 +27,7 @@ import type {
 import type { SyncReport } from '../main/index/sync'
 import type { AccessProbeResult } from '../main/system/access'
 import type { SourceKey } from '../main/connectors/types'
+import type { SavedView, SaveViewRequest } from '../main/lib/views'
 
 /**
  * The single, explicit IPC surface exposed to the renderer — an allowlist, never a
@@ -69,6 +73,12 @@ const api = {
     rebuild: (): Promise<SyncReport[]> => ipcRenderer.invoke(INDEX_REBUILD_CHANNEL),
     sources: (): Promise<SourceSummary[]> => ipcRenderer.invoke(INDEX_SOURCES_CHANNEL),
     stats: (): Promise<IndexStats> => ipcRenderer.invoke(INDEX_STATS_CHANNEL),
+  },
+  views: {
+    list: (): Promise<SavedView[]> => ipcRenderer.invoke(VIEWS_LIST_CHANNEL),
+    save: (req: SaveViewRequest): Promise<SavedView> => ipcRenderer.invoke(VIEWS_SAVE_CHANNEL, req),
+    remove: (slug: string): Promise<boolean> =>
+      ipcRenderer.invoke(VIEWS_DELETE_CHANNEL, { slug }),
   },
   system: {
     openUri: (value: string): Promise<boolean> =>

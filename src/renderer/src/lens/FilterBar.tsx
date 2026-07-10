@@ -1,22 +1,29 @@
+import { useState } from 'react'
 import clsx from 'clsx'
 import { isEmpty } from './selection'
 import type { LensSelection, SourceKey, DocumentKind } from './types'
 
 /**
  * Active-filter summary above the search input: one removable chip per active facet
- * value, plus "Clear all". Renders nothing when the selection is empty. Keeps
- * selections made in collapsed tree nodes visible and reversible.
+ * value, plus "Clear all". Renders nothing when there is nothing active — but stays
+ * visible for the "Save view…" affordance whenever `canSave` is set (a search `q`
+ * is typed) even with an empty selection. Keeps selections made in collapsed tree
+ * nodes visible and reversible.
  */
 export function FilterBar({
   selection,
   collectionNames,
+  canSave,
   onToggleScope,
   onToggleKind,
   onRemoveTag,
   onClearAll,
+  onSaveView,
 }: {
   selection: LensSelection
   collectionNames?: Map<number, string>
+  /** True when there is state to save beyond the selection (a non-empty `q`). */
+  canSave?: boolean
   onToggleScope: (
     dim: 'sourceKeys' | 'collectionIds' | 'folderPrefixes',
     value: SourceKey | number | string,
@@ -24,43 +31,98 @@ export function FilterBar({
   onToggleKind: (kind: DocumentKind) => void
   onRemoveTag: (name: string) => void
   onClearAll: () => void
+  onSaveView?: (name: string) => void
 }) {
-  if (isEmpty(selection)) return null
+  const empty = isEmpty(selection)
+  // Hidden only when truly nothing is active — no facets and nothing else to save.
+  if (empty && !canSave) return null
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      {selection.sourceKeys.map((k) => (
-        <Chip key={`src-${k}`} label={k} onRemove={() => onToggleScope('sourceKeys', k)} />
-      ))}
-      {selection.collectionIds.map((id) => (
-        <Chip
-          key={`col-${id}`}
-          label={collectionNames?.get(id) ?? `collection #${id}`}
-          onRemove={() => onToggleScope('collectionIds', id)}
-        />
-      ))}
-      {selection.folderPrefixes.map((p) => (
-        <Chip key={`fld-${p}`} label={p} onRemove={() => onToggleScope('folderPrefixes', p)} />
-      ))}
-      {selection.kinds.map((k) => (
-        <Chip key={`kind-${k}`} label={k} onRemove={() => onToggleKind(k)} />
-      ))}
-      {selection.tags.map((t) => (
-        <Chip
-          key={`tag-${t.name}`}
-          label={`${t.mode === 'exclude' ? '−' : ''}#${t.name}`}
-          removeName={t.name}
-          tone={t.mode === 'exclude' ? 'exclude' : 'require'}
-          onRemove={() => onRemoveTag(t.name)}
-        />
-      ))}
-      <button
-        onClick={onClearAll}
-        className="ml-1 rounded px-1.5 py-0.5 text-[11px] text-zinc-500 underline-offset-2 hover:text-zinc-300 hover:underline"
-      >
-        Clear all
-      </button>
+      {!empty && (
+        <>
+          {selection.sourceKeys.map((k) => (
+            <Chip key={`src-${k}`} label={k} onRemove={() => onToggleScope('sourceKeys', k)} />
+          ))}
+          {selection.collectionIds.map((id) => (
+            <Chip
+              key={`col-${id}`}
+              label={collectionNames?.get(id) ?? `collection #${id}`}
+              onRemove={() => onToggleScope('collectionIds', id)}
+            />
+          ))}
+          {selection.folderPrefixes.map((p) => (
+            <Chip key={`fld-${p}`} label={p} onRemove={() => onToggleScope('folderPrefixes', p)} />
+          ))}
+          {selection.kinds.map((k) => (
+            <Chip key={`kind-${k}`} label={k} onRemove={() => onToggleKind(k)} />
+          ))}
+          {selection.tags.map((t) => (
+            <Chip
+              key={`tag-${t.name}`}
+              label={`${t.mode === 'exclude' ? '−' : ''}#${t.name}`}
+              removeName={t.name}
+              tone={t.mode === 'exclude' ? 'exclude' : 'require'}
+              onRemove={() => onRemoveTag(t.name)}
+            />
+          ))}
+          <button
+            onClick={onClearAll}
+            className="ml-1 rounded px-1.5 py-0.5 text-[11px] text-zinc-500 underline-offset-2 hover:text-zinc-300 hover:underline"
+          >
+            Clear all
+          </button>
+        </>
+      )}
+      {onSaveView && <SaveView onSaveView={onSaveView} />}
     </div>
+  )
+}
+
+/**
+ * Inline "Save view…" affordance — a button that swaps to a name input on click
+ * (never a native `prompt()`, per the audit lesson); Enter saves, Escape cancels.
+ */
+function SaveView({ onSaveView }: { onSaveView: (name: string) => void }) {
+  const [naming, setNaming] = useState(false)
+  const [name, setName] = useState('')
+
+  if (!naming) {
+    return (
+      <button
+        onClick={() => setNaming(true)}
+        className="ml-auto rounded border border-zinc-700 px-1.5 py-0.5 text-[11px] text-zinc-400 hover:bg-zinc-800"
+      >
+        Save view…
+      </button>
+    )
+  }
+
+  const commit = (): void => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    onSaveView(trimmed)
+    setName('')
+    setNaming(false)
+  }
+
+  return (
+    <input
+      autoFocus
+      aria-label="view name"
+      value={name}
+      onChange={(e) => setName(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') commit()
+        else if (e.key === 'Escape') {
+          setName('')
+          setNaming(false)
+        }
+      }}
+      onBlur={() => setNaming(false)}
+      placeholder="Name this view…"
+      className="ml-auto w-40 rounded border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[11px] text-zinc-100 placeholder-zinc-600 outline-none focus:border-zinc-500"
+    />
   )
 }
 

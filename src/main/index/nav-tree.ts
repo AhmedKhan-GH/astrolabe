@@ -5,11 +5,15 @@
  * SQLite in the loop. `queries.nav()` feeds these the rows it reads.
  */
 
-/** A rail node. `id` is `collections.id` (zotero/eagle) or the folderPrefix string (obsidian). */
+/** A rail node. `id` is `collections.id` (zotero/eagle) or the folderPrefix string (obsidian).
+ *  `externalKey` is the rebuild-stable collection key (zotero/eagle only); it lets a saved view
+ *  persist a collection ref that survives an index rebuild, unlike the regenerated `id`. Obsidian
+ *  folder nodes omit it — their `id` (the folderPrefix) is already the stable path. */
 export interface NavNode {
   id: number | string
   name: string
   count: number
+  externalKey?: string
   children: NavNode[]
 }
 
@@ -28,12 +32,18 @@ function sortTree(nodes: NavNode[]): NavNode[] {
  * a root rather than dropped, so no collection ever vanishes from the rail.
  */
 export function buildCollectionTree(
-  rows: { id: number; name: string; parentId: number | null }[],
+  rows: { id: number; name: string; parentId: number | null; externalKey: string }[],
   countByCollectionId: Map<number, number>,
 ): NavNode[] {
   const nodes = new Map<number, NavNode>()
   for (const r of rows) {
-    nodes.set(r.id, { id: r.id, name: r.name, count: countByCollectionId.get(r.id) ?? 0, children: [] })
+    nodes.set(r.id, {
+      id: r.id,
+      name: r.name,
+      count: countByCollectionId.get(r.id) ?? 0,
+      externalKey: r.externalKey,
+      children: [],
+    })
   }
   const roots: NavNode[] = []
   for (const r of rows) {
