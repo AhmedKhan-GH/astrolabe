@@ -9,6 +9,7 @@ const SOURCE_BADGE: Record<string, string> = {
   zotero: 'bg-red-950 text-red-300 border-red-800',
   eagle: 'bg-sky-950 text-sky-300 border-sky-800',
   obsidian: 'bg-violet-950 text-violet-300 border-violet-800',
+  goodnotes: 'bg-amber-950 text-amber-300 border-amber-800',
 }
 
 /** One-line presence statement (copy — the zotero↔eagle split made human-readable). */

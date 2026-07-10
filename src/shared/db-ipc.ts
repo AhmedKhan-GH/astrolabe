@@ -86,7 +86,7 @@ export type VCollectionMembersRequest = z.infer<typeof vcollectionMembersRequest
 
 /** Grant-access probe (macOS TCC): only the known sources are probeable. */
 export const requestAccessSchema = z.object({
-  sourceKey: z.enum(['zotero', 'eagle', 'obsidian']),
+  sourceKey: z.enum(['zotero', 'eagle', 'obsidian', 'goodnotes']),
 })
 export type RequestAccessRequest = z.infer<typeof requestAccessSchema>
 

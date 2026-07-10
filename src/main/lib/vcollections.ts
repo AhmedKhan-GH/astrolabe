@@ -23,7 +23,7 @@ import { slugify as slugifyBase } from './slug'
  */
 const log = moduleLogger('vcollections')
 
-const SOURCE_KEYS = ['zotero', 'eagle', 'obsidian'] as const
+const SOURCE_KEYS = ['zotero', 'eagle', 'obsidian', 'goodnotes'] as const
 
 /**
  * A member reference is hash-first ({hash} from `documents.contentSha256`, the rebuild-stable

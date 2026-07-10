@@ -16,7 +16,7 @@ import { documentLinks, type BackLink } from './links'
  *  the ALL/ANY/NONE boolean structure. All fields optional — the empty set is no constraint,
  *  and the MCP server's `{q, limit}` calls stay valid. Shared verbatim by browse and search. */
 export const filterSetSchema = z.object({
-  sourceKeys: z.array(z.enum(['zotero', 'eagle', 'obsidian'])).max(3).optional(),
+  sourceKeys: z.array(z.enum(['zotero', 'eagle', 'obsidian', 'goodnotes'])).max(4).optional(),
   collectionIds: z.array(z.number().int().positive()).max(100).optional(),
   folderPrefixes: z.array(z.string().max(500)).max(50).optional(), // externalKey LIKE '<p>%', obsidian-scoped
   // Virtual-collection slugs (docs/2026-07-10-lens-virtual-collections). Rebuild-stable, so a

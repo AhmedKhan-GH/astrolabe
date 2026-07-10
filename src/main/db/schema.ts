@@ -19,7 +19,7 @@ export type NewMeta = typeof meta.$inferInsert
 /** One row per connector; status + incremental cursor. */
 export const sources = sqliteTable('sources', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  key: text('key').notNull().unique(), // 'zotero' | 'eagle' | 'obsidian'
+  key: text('key').notNull().unique(), // 'zotero' | 'eagle' | 'obsidian' | 'goodnotes'
   // 'denied' = configured but blocked by OS permissions (macOS TCC) — distinct
   // from 'unavailable' (tool not running / unconfigured) so the UI can offer a fix.
   status: text('status', { enum: ['ok', 'unavailable', 'denied', 'disabled'] })

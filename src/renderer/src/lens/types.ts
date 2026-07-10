@@ -4,7 +4,7 @@
  * component tests never reach for the preload seam.
  */
 
-export type SourceKey = 'zotero' | 'eagle' | 'obsidian'
+export type SourceKey = 'zotero' | 'eagle' | 'obsidian' | 'goodnotes'
 export type DocumentKind = 'pdf' | 'image' | 'note' | 'other'
 
 /** The zotero↔eagle split as a facet (docs/2026-07-10-lens-presence-facet). Values are stable, so
