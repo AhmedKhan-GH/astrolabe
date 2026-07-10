@@ -18,9 +18,14 @@ public-asset paths 404ing under `file://` in the built app). **Pino logging is i
 `moduleLogger('…')` children; JSON file sink at `userData/logs/main.log`; pretty stdout dev-only).
 **The database foundation is in** (Pillar 3 — `~/Astrolabe/.astrolabe/index.db`, WAL, fail-fast
 DB→IPC→window boot, typed table-client over `db:query`, migrations committed + shipped via
-extraResources; integration tests run vitest under Electron-as-node for ABI parity). Next action:
-runway step 3 — index schema v1 + connector contract, per the
-[runway spec](specs/2026-07-09-runway-to-library-lens.md).
+extraResources; integration tests run vitest under Electron-as-node for ABI parity).
+
+**Runway steps 3–6 have landed** (see the [runway spec](specs/2026-07-09-runway-to-library-lens.md)
+statuses): index schema v1 with the SHA-256 cross-source join, Zotero + Eagle connectors (live-
+verified: 152 docs/309 annotations + 900 docs into the real index; `pnpm sync:live`), and the
+Library Lens v0 (search + snippets + deep links + Sync/Rebuild). Known limitation recorded: Eagle
+file hashing requires disk access to the iCloud library path (TCC) — grant Full Disk Access to the
+app/terminal for cross-source joins. Next: MCP server (step 7) + Obsidian connector (step 8).
 
 ## Scaffold sequence
 

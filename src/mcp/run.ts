@@ -82,6 +82,5 @@ export async function serve(): Promise<void> {
   const server = createServer(db)
   const transport = new StdioServerTransport()
   await server.connect(transport)
-  // eslint-disable-next-line no-console -- stderr is allowed; stdout is the protocol.
   console.error(`[astrolabe-mcp] serving read-only index at ${dbPath}`)
 }
