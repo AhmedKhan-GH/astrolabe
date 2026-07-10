@@ -76,10 +76,12 @@ export function usePdfDocument(url: string): PdfDocumentState {
       const dpr = window.devicePixelRatio || 1
       const base = page.getViewport({ scale: 1 })
       const viewport = page.getViewport({ scale: (width / base.width) * dpr })
+      // Only the bitmap dimensions are set — they carry the page's true aspect ratio,
+      // and the caller's CSS (w-full h-auto / max-w-full max-h-full) scales the
+      // intrinsic size proportionally. Inline CSS pixel sizes here would pin one axis
+      // and let the other be clamped independently, distorting non-standard pages.
       canvas.width = Math.floor(viewport.width)
       canvas.height = Math.floor(viewport.height)
-      canvas.style.width = `${width}px`
-      canvas.style.height = `${Math.floor(viewport.height / dpr)}px`
       await page.render({ canvas, viewport }).promise
     },
     [],
