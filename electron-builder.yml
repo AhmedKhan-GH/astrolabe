@@ -34,6 +34,12 @@ mac:
     - dmg   # human download / drag-to-Applications
     - zip   # required by electron-updater's macOS feed (Phase 6)
   category: public.app-category.productivity
+  # Self-signed "Astrolabe Dev" cert (login keychain): gives dev builds a
+  # certificate-anchored designated requirement, so macOS TCC grants (iCloud
+  # folder consent / Full Disk Access) survive rebuilds — ad-hoc signatures are
+  # cdhash-anchored and silently orphan every grant on each rebuild. Replace
+  # with a real Developer ID identity when distribution starts (Phase 6).
+  identity: Astrolabe Dev
 
 win:
   target:

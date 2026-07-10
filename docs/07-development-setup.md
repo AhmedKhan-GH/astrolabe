@@ -69,11 +69,28 @@ global.
 - **Packaging (electron-builder):** one `electron-builder.yml` drives all platforms; each is built
   on its own native machine — `pnpm package:mac` (dmg + zip), `pnpm package:win` (nsis),
   `pnpm package:linux` (AppImage), or `pnpm package:dir` for a fast unpacked `.app` while iterating.
-  All **unsigned** for now. `asarUnpack: '**/*.node'` and electron-builder's per-device
+  macOS development builds use the stable `Astrolabe Dev` signing identity from the login keychain;
+  distribution signing/notarization remains Phase 6. `asarUnpack: '**/*.node'` and electron-builder's per-device
   `@electron/rebuild` are durable prep for Phase 2's better-sqlite3 (the ABI-mismatch fix); the
   `postinstall: electron-builder install-app-deps` dev-side rebuild hook enters with that native dep.
-  Signing/notarization, the electron-updater feed (+ Cloudflare R2), and a CI build matrix remain
-  Phase 6.
+  The electron-updater feed (+ Cloudflare R2) and a CI build matrix also remain Phase 6.
+
+### TCC-stable macOS development install
+
+Use `pnpm dev:install:mac` when testing connectors that need protected filesystem access. It builds
+and signs the unpacked app, verifies its bundle ID and designated requirement, safely replaces
+`/Applications/Astrolabe.app`, registers it with Launch Services, and relaunches it. Keeping both
+the installed path and signing requirement stable allows macOS privacy grants to survive rebuilds.
+
+The command refuses to replace an existing app when the signing identity changes. For an intentional
+certificate migration, run it once with `ASTROLABE_ALLOW_IDENTITY_CHANGE=1`; macOS permissions must
+then be granted again. `pnpm dev` remains the fast renderer/main-process loop, but its Electron host
+is not the binary to use for TCC-sensitive testing.
+
+WebStorm exposes matching project run configurations: **Astrolabe Dev (HMR)** for the normal fast
+loop and **Astrolabe Installed (macOS/TCC)** for the signed application update. The latter delegates
+to the macOS-guarded package script, so it exits without changing anything on another operating
+system.
 
 ### Native module note
 

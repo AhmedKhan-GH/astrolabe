@@ -23,6 +23,7 @@
     "test": "pnpm test:unit && pnpm test:integration && pnpm test:e2e",
     "package:dir": "electron-vite build && electron-builder --dir",
     "package:mac": "electron-vite build && electron-builder --mac",
+    "dev:install:mac": "bash scripts/install-dev-mac.sh",
     "package:win": "electron-vite build && electron-builder --win",
     "package:linux": "electron-vite build && electron-builder --linux",
     "sync:live": "ELECTRON_RUN_AS_NODE=1 electron node_modules/tsx/dist/cli.mjs scripts/live-sync.ts",
