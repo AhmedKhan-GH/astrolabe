@@ -103,3 +103,16 @@ test('boot is clean — no page errors, no console errors, preload loaded', asyn
   // expected until the app is packaged (docs/07 as-built notes).
   expect(consoleErrors).toEqual([])
 })
+
+test('astro scheme is fetchable from the renderer (404 on unknown doc instance)', async () => {
+  // Status 404 proves the whole chain: scheme privileges (supportFetchAPI — without
+  // it fetch throws/returns 0 and pdf.js canvas loads fail), handler registration,
+  // and the index allowlist rejecting an id it does not know.
+  const status = await window.evaluate(() =>
+    fetch('astro://doc/999999').then(
+      (r) => r.status,
+      (e) => `fetch rejected: ${String(e)}`,
+    ),
+  )
+  expect(status).toBe(404)
+})

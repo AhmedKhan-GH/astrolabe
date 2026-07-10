@@ -7,7 +7,7 @@ import { createUpsertApi, type UpsertApi } from '../index/upsert'
 import { resolveInstanceFile } from './doc-protocol'
 
 /**
- * The pure resolution the astro-doc:// handler is built on (docs/2026-07-10 canvas spec
+ * The pure resolution the astro://doc handler is built on (docs/2026-07-10 canvas spec
  * §Serving PDF bytes): map an instance id to its allowlisted on-disk path, or null when it
  * can't be served (unknown id / null filePath). The handler's own 404-on-null and streaming
  * are covered by using the app, not jsdom — this is the branching logic worth a test.

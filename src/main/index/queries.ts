@@ -61,7 +61,7 @@ export interface BrowseHit {
   kind: string
   modifiedAt: number
   tags: string[]
-  // `instanceId` is the handle the Canvas view serves bytes by (astro-doc://instance/<id>,
+  // `instanceId` is the handle the Canvas view serves bytes by (astro://doc/<id>,
   // docs/2026-07-10-canvas-view-spec §Serving PDF bytes) — the renderer never sees a path scheme.
   instances: { instanceId: number; sourceKey: string; uri: string; filePath: string | null }[]
   // Virtual-collection slugs this document belongs to (from `hydrate`) — drives the river's

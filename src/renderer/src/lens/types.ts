@@ -133,7 +133,7 @@ export interface BrowseHit {
 
 /**
  * One source instance of a document. `instanceId` (document_instances.id) is what the
- * `astro-doc://instance/<id>` PDF protocol resolves — REQUIRED from the backend hydrate()
+ * `astro://doc/<id>` PDF protocol resolves — REQUIRED from the backend hydrate()
  * for the Canvas view to stream bytes (see report: integration point).
  */
 export interface BrowseInstance {

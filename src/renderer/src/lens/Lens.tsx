@@ -62,7 +62,7 @@ function canvasInstance(hit: BrowseHit) {
  */
 function CanvasHost({ hit, onClose }: { hit: BrowseHit; onClose: () => void }) {
   const instance = canvasInstance(hit)
-  const pdf = usePdfDocument(`astro-doc://instance/${instance?.instanceId ?? 0}`)
+  const pdf = usePdfDocument(`astro://doc/${instance?.instanceId ?? 0}`)
   const heat = useQuery<PageAnnotations>({
     queryKey: ['pageAnnotations', hit.documentId],
     queryFn: () => window.astrolabe.index.pageAnnotations(hit.documentId),

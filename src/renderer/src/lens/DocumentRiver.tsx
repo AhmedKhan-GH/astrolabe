@@ -175,7 +175,7 @@ export function DocumentRow({
   // The membership affordance appears only when the feature is wired in.
   const canManage = Boolean(onToggleMembership || onCreateAndAdd)
   const filePath = hit.instances.find((i) => i.filePath)?.filePath ?? null
-  // Canvas needs bytes to render: pdf kind + a served file (astro-doc streams by instanceId).
+  // Canvas needs bytes to render: pdf kind + a served file (astro://doc streams by instanceId).
   const canCanvas = Boolean(onOpenCanvas) && hit.kind === 'pdf' && filePath !== null
   return (
     <div className="group relative mb-2 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">

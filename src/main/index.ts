@@ -35,15 +35,15 @@ import {
   systemOpenSchema,
 } from '../shared/db-ipc'
 import { createAccessApi, FULL_DISK_ACCESS_SETTINGS_URI } from './system/access'
-import { registerDocProtocol, registerDocProtocolPrivileges } from './system/doc-protocol'
+import { APP_INDEX_URL, registerAstroProtocol, registerAstroProtocolPrivileges } from './system/doc-protocol'
 
 // ESM main process — derive the directory the built file lives in (out/main/).
 const currentDir = dirname(fileURLToPath(import.meta.url))
 const log = moduleLogger('main')
 
-// astro-doc:// (Canvas view, docs/2026-07-10-canvas-view-spec §Serving PDF bytes): scheme
+// astro:// (Canvas view, docs/2026-07-10-canvas-view-spec §Serving PDF bytes): scheme
 // privileges MUST be declared before app.whenReady — module load is the only safe point.
-registerDocProtocolPrivileges()
+registerAstroProtocolPrivileges()
 
 /**
  * Create the single application window with the secure defaults recorded in
@@ -86,7 +86,9 @@ function createWindow(): void {
   if (rendererUrl) {
     void mainWindow.loadURL(rendererUrl)
   } else {
-    void mainWindow.loadFile(join(currentDir, '../renderer/index.html'))
+    // Served over astro://app, NOT loadFile: a file:// document may never fetch a
+    // custom scheme (Blink hard allowlist), which would break every astro://doc load.
+    void mainWindow.loadURL(APP_INDEX_URL)
   }
 }
 
@@ -131,10 +133,10 @@ app.whenReady().then(() => {
     ipcMain.handle(INDEX_BROWSE_CHANNEL, (_event, req: unknown) => queries.browse(req))
     ipcMain.handle(INDEX_NAV_CHANNEL, () => queries.nav())
     // Canvas view (docs/2026-07-10-canvas-view-spec): per-page annotation heat + the
-    // astro-doc:// byte server (allowlisted by the index — the renderer names instance ids,
-    // never paths).
+    // astro:// server (doc host allowlisted by the index — the renderer names instance
+    // ids, never paths; app host serves the packaged renderer bundle).
     ipcMain.handle(INDEX_PAGE_ANNOTATIONS_CHANNEL, (_event, req: unknown) => queries.pageAnnotations(req))
-    registerDocProtocol(() => handle.db)
+    registerAstroProtocol(() => handle.db, join(currentDir, '../renderer'))
     // Saved-view CRUD (validation is at the module boundary via zod, like the query handlers).
     ipcMain.handle(VIEWS_LIST_CHANNEL, () => viewsApi.list())
     ipcMain.handle(VIEWS_SAVE_CHANNEL, (_event, raw: unknown) => viewsApi.save(raw))
