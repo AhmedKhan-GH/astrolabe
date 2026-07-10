@@ -1,14 +1,16 @@
 import clsx from 'clsx'
 import { renderSnippet } from './snippet'
+import type { BrowseInstance } from './types'
 
-/** Mirrors SearchHit from src/main/index/queries (structural copy; type flows via preload). */
+/** Mirrors SearchHit from src/main/index/queries (structural copy; type flows via preload).
+ *  `instances` share BrowseInstance with the river so the Canvas opens from either pane. */
 export interface ResultData {
   documentId: number
   title: string
   kind: string
   snippet: string
   tags: string[]
-  instances: { sourceKey: string; uri: string; filePath: string | null }[]
+  instances: BrowseInstance[]
 }
 
 const SOURCE_BADGE: Record<string, string> = {
@@ -22,18 +24,34 @@ export function SearchResult({
   onOpenUri,
   onOpenFile,
   onReveal,
+  onOpenCanvas,
 }: {
   hit: ResultData
   onOpenUri: (uri: string) => void
   onOpenFile: (path: string) => void
   onReveal: (path: string) => void
+  onOpenCanvas?: (hit: ResultData) => void
 }) {
   const filePath = hit.instances.find((i) => i.filePath)?.filePath ?? null
+  // Same rule as the river (DocumentRiver `canCanvas`): the Canvas streams bytes, so it needs
+  // a pdf kind + a file on disk, and the affordance appears only when the handler is wired.
+  const canCanvas = Boolean(onOpenCanvas) && hit.kind === 'pdf' && filePath !== null
   return (
     <li className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
       <div className="flex items-baseline gap-2">
         <span className="text-[10px] uppercase tracking-wider text-zinc-500">{hit.kind}</span>
-        <h3 className="truncate font-medium text-zinc-100">{hit.title}</h3>
+        {canCanvas ? (
+          <button
+            aria-label={`open canvas: ${hit.title}`}
+            title="Open canvas — all pages at a glance"
+            onClick={() => onOpenCanvas?.(hit)}
+            className="min-w-0 flex-1 truncate text-left font-medium text-zinc-100 hover:text-white hover:underline"
+          >
+            {hit.title}
+          </button>
+        ) : (
+          <h3 className="truncate font-medium text-zinc-100">{hit.title}</h3>
+        )}
       </div>
       {hit.snippet && (
         <p className="mt-1 line-clamp-2 text-sm text-zinc-400">{renderSnippet(hit.snippet)}</p>

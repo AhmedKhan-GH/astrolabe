@@ -71,11 +71,24 @@ describe('browse', () => {
       modifiedAt: 100,
       tags: ['ml'],
       instances: [
-        { instanceId: expect.any(Number), sourceKey: 'zotero', uri: 'zotero://Z1', filePath: null },
+        { instanceId: expect.any(Number), sourceKey: 'zotero', uri: 'zotero://Z1', filePath: null, openPdfUri: null },
       ],
       virtualCollections: [],
     })
     expect(hit).not.toHaveProperty('snippet')
+  })
+
+  it('instance openPdfUri: built from the metaJson attachmentKey, null without one', () => {
+    upsert.upsertDocument({
+      sourceKey: 'zotero', externalKey: 'ZK', uri: 'zotero://select/library/items/ZK',
+      title: 'Keyed Paper', kind: 'pdf', modifiedAt: 700,
+      metaJson: JSON.stringify({ itemType: 'attachment', attachmentKey: 'ATTKEY' }),
+    })
+    const keyed = queries.browse({ kinds: ['pdf'] }).hits.find((h) => h.title === 'Keyed Paper')!
+    expect(keyed.instances[0]!.openPdfUri).toBe('zotero://open-pdf/library/items/ATTKEY')
+    // Alpha Paper carries no metaJson → null.
+    const alpha = queries.browse({ kinds: ['pdf'] }).hits.find((h) => h.title === 'Alpha Paper')!
+    expect(alpha.instances[0]!.openPdfUri).toBeNull()
   })
 
   it('kinds: d.kind IN (…) — single and multi', () => {

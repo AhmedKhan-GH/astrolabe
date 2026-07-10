@@ -144,7 +144,13 @@ export function mapItemsToDocuments(rawItems: unknown[], opts: { dataDir: string
       tags: d.tags.map((t) => t.tag),
       collectionKeys: d.collections,
       annotations: annotations.length > 0 ? annotations : undefined,
-      metaJson: JSON.stringify({ itemType: d.itemType }),
+      // attachmentKey rides on the instance so queries.ts can build a page-targeted
+      // zotero://open-pdf link (the document's own uri is a select link, not the PDF).
+      // Only when a PDF attachment exists — otherwise there is nothing to open-pdf into.
+      metaJson: JSON.stringify({
+        itemType: d.itemType,
+        ...(pdfAttachment && isPdf(pdfAttachment) ? { attachmentKey: pdfAttachment.key } : {}),
+      }),
     })
   }
 

@@ -85,6 +85,7 @@ describe('mcp handlers over a read-only index', () => {
         sourceKey: 'zotero',
         uri: 'zotero://select/library/items/ABC123',
         filePath: null,
+        openPdfUri: null,
       },
     ])
     expect(hit.documentId).toBe(documentId)

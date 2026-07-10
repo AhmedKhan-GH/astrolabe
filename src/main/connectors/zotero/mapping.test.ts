@@ -49,6 +49,24 @@ describe('mapItemsToDocuments', () => {
     )
   })
 
+  it('captures the pdf attachment key in the instance metaJson (keeps itemType)', () => {
+    // child pdf attachment (LLWXS3LB) for the journalArticle; the top-level attachment
+    // (VSVGJBTT) is its own key; the book's child pdf is T9SSDYGS.
+    const meta = (key: string) => JSON.parse(docByKey(key)?.metaJson ?? '{}') as Record<string, unknown>
+    expect(meta('ZL98NX6Y')).toEqual({ itemType: 'journalArticle', attachmentKey: 'LLWXS3LB' })
+    expect(meta('VSVGJBTT')).toEqual({ itemType: 'attachment', attachmentKey: 'VSVGJBTT' })
+    expect(meta('8QYTD4NN')).toEqual({ itemType: 'book', attachmentKey: 'T9SSDYGS' })
+  })
+
+  it('omits attachmentKey (keeps itemType) when the item has no pdf attachment', () => {
+    const bare = {
+      key: 'BARE0001',
+      data: { key: 'BARE0001', itemType: 'journalArticle', title: 'No PDF here' },
+    }
+    const { documents } = mapItemsToDocuments([bare], { dataDir: DATA_DIR })
+    expect(JSON.parse(documents[0]?.metaJson ?? '{}')).toEqual({ itemType: 'journalArticle' })
+  })
+
   it('extracts tags and collection keys from item data', () => {
     const doc = docByKey('ZL98NX6Y')
     expect(doc?.tags?.sort()).toEqual(['model', 'printed'])

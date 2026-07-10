@@ -17,10 +17,10 @@ import {
 } from './selection'
 import { toStoredFilter, resolveStoredFilter, selectionFromFilterSet } from './viewRefs'
 import { CanvasView } from './CanvasView'
+import { canvasCandidates, type CanvasHostHit } from './canvas'
 import { usePdfDocument } from './pdf/usePdfDocument'
 import { rewriteOpenPdfPage } from './pdf/heat'
 import type {
-  BrowseHit,
   LensSelection,
   NavData,
   NavNode,
@@ -45,37 +45,39 @@ function useDebounced<T>(value: T, ms: number): T {
   return debounced
 }
 
-/** The instance whose bytes the Canvas streams: zotero preferred (annotation workspace), else
- *  the first instance with a file on disk. */
-function canvasInstance(hit: BrowseHit) {
-  return (
-    hit.instances.find((i) => i.sourceKey === 'zotero' && i.filePath) ??
-    hit.instances.find((i) => i.filePath) ??
-    null
-  )
-}
-
 /**
  * Owns the pdf.js hook + heat query for one open document, so CanvasView stays a pure,
  * fully-testable component (the hook RESULT is a prop) and pdf.js loads only while a
  * canvas is actually open.
  */
-function CanvasHost({ hit, onClose }: { hit: BrowseHit; onClose: () => void }) {
-  const instance = canvasInstance(hit)
+function CanvasHost({ hit, onClose }: { hit: CanvasHostHit; onClose: () => void }) {
+  // File-backed instances zotero-first (canvas.ts). If one fails to render, fall forward to
+  // the next candidate — a broken/moved Zotero file shouldn't dead-end a document that Eagle
+  // also has on disk.
+  const candidates = canvasCandidates(hit.instances)
+  const [candidateIndex, setCandidateIndex] = useState(0)
+  const instance = candidates[candidateIndex] ?? null
   const pdf = usePdfDocument(`astro://doc/${instance?.instanceId ?? 0}`)
+  useEffect(() => {
+    if (pdf.status === 'error' && candidateIndex < candidates.length - 1)
+      setCandidateIndex((i) => i + 1)
+  }, [pdf.status, candidateIndex, candidates.length])
   const heat = useQuery<PageAnnotations>({
     queryKey: ['pageAnnotations', hit.documentId],
     queryFn: () => window.astrolabe.index.pageAnnotations(hit.documentId),
   })
-  // Page-out limitation (spec §Renderer): the instance URI is a select/item link, not an
-  // open-pdf link, so page targeting only works when the URI already is open-pdf shaped;
-  // otherwise the click lands on the document, not the page. Precise per-page deep links
-  // arrive with the reader phase.
+  // Page-targeted deep link: when main indexed an open-pdf base for this instance (built from
+  // the zotero attachmentKey), rewrite its page to the clicked one — that lands on the page,
+  // not just the document. Older/non-zotero instances have no base, so we open the plain uri
+  // (which only page-targets if it already happens to be open-pdf shaped). Needs a Rebuild
+  // index for the attachmentKey backfill before page-out works on an existing library.
   const openPage = (pageIndex: number): void => {
     if (!instance) return
-    const uri = instance.uri.includes('open-pdf')
-      ? rewriteOpenPdfPage(instance.uri, pageIndex + 1)
-      : instance.uri
+    const uri = instance.openPdfUri
+      ? rewriteOpenPdfPage(instance.openPdfUri, pageIndex + 1)
+      : instance.uri.includes('open-pdf')
+        ? rewriteOpenPdfPage(instance.uri, pageIndex + 1)
+        : instance.uri
     void window.astrolabe.system.openUri(uri)
   }
   return (
@@ -92,7 +94,7 @@ function CanvasHost({ hit, onClose }: { hit: BrowseHit; onClose: () => void }) {
 export function Lens() {
   const [q, setQ] = useState('')
   const [selection, setSelection] = useState<LensSelection>(emptySelection())
-  const [canvasFor, setCanvasFor] = useState<BrowseHit | null>(null)
+  const [canvasFor, setCanvasFor] = useState<CanvasHostHit | null>(null)
   // The slug of the currently-applied saved view, cleared on any manual edit so the
   // rail highlight never lies about whether the live lens still matches the view.
   const [appliedViewSlug, setAppliedViewSlug] = useState<string | null>(null)
@@ -399,6 +401,7 @@ export function Lens() {
                     onOpenUri={(uri) => void window.astrolabe.system.openUri(uri)}
                     onOpenFile={(p) => void window.astrolabe.system.openPath(p)}
                     onReveal={(p) => void window.astrolabe.system.reveal(p)}
+                    onOpenCanvas={setCanvasFor}
                   />
                 ))}
               </ul>
@@ -416,7 +419,9 @@ export function Lens() {
         </div>
       </div>
 
-      {canvasFor && <CanvasHost hit={canvasFor} onClose={() => setCanvasFor(null)} />}
+      {canvasFor && (
+        <CanvasHost key={canvasFor.documentId} hit={canvasFor} onClose={() => setCanvasFor(null)} />
+      )}
     </div>
   )
 }

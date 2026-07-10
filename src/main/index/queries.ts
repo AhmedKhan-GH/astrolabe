@@ -63,7 +63,15 @@ export interface BrowseHit {
   tags: string[]
   // `instanceId` is the handle the Canvas view serves bytes by (astro://doc/<id>,
   // docs/2026-07-10-canvas-view-spec §Serving PDF bytes) — the renderer never sees a path scheme.
-  instances: { instanceId: number; sourceKey: string; uri: string; filePath: string | null }[]
+  // `openPdfUri` is the page-targetable zotero base (null unless the instance carries an
+  // attachmentKey) — the renderer appends the clicked page to deep-link into the reader.
+  instances: {
+    instanceId: number
+    sourceKey: string
+    uri: string
+    filePath: string | null
+    openPdfUri: string | null
+  }[]
   // Virtual-collection slugs this document belongs to (from `hydrate`) — drives the river's
   // membership-popover checked state (docs/2026-07-10-lens-virtual-collections §Wire contract).
   virtualCollections: string[]
@@ -95,7 +103,13 @@ export interface SearchHit {
   kind: string
   snippet: string
   tags: string[]
-  instances: { instanceId: number; sourceKey: string; uri: string; filePath: string | null }[]
+  instances: {
+    instanceId: number
+    sourceKey: string
+    uri: string
+    filePath: string | null
+    openPdfUri: string | null
+  }[]
   virtualCollections: string[]
 }
 
@@ -107,6 +121,24 @@ const inList = (values: (string | number)[]): SQL =>
   )
 
 type PresenceValue = 'both' | 'zotero-only' | 'eagle-only'
+
+/**
+ * Page-targetable open-pdf base from an instance's metaJson attachmentKey, or null. The key
+ * is captured at sync time by the zotero connector (src/main/connectors/zotero/mapping.ts,
+ * which owns the `zoteroOpenPdfUri` helper); the template is inlined here so the read path
+ * never imports connector code. The renderer appends the clicked page to this base.
+ */
+function openPdfUriFromMeta(metaJson: string | null): string | null {
+  if (!metaJson) return null
+  try {
+    const parsed = JSON.parse(metaJson) as { attachmentKey?: unknown }
+    if (typeof parsed.attachmentKey === 'string' && parsed.attachmentKey)
+      return `zotero://open-pdf/library/items/${parsed.attachmentKey}`
+    return null
+  } catch {
+    return null
+  }
+}
 
 /** "A zotero / an eagle instance exists for the aliased `documents d`." (presence facet). */
 const zExists = sql`EXISTS (SELECT 1 FROM document_instances di JOIN sources src ON di.source_id = src.id
@@ -201,17 +233,22 @@ export function createIndexQueries(db: Db) {
   /** A document's tags + per-source provenance + virtual-collection memberships — the shared
    *  tail of a search/browse hit. */
   function hydrate(documentId: number): Pick<BrowseHit, 'tags' | 'instances' | 'virtualCollections'> {
-    const instances = db
+    const instanceRows = db
       .select({
         instanceId: s.documentInstances.id,
         sourceKey: s.sources.key,
         uri: s.documentInstances.uri,
         filePath: s.documentInstances.filePath,
+        metaJson: s.documentInstances.metaJson,
       })
       .from(s.documentInstances)
       .innerJoin(s.sources, eq(s.documentInstances.sourceId, s.sources.id))
       .where(eq(s.documentInstances.documentId, documentId))
       .all()
+    const instances = instanceRows.map(({ metaJson, ...rest }) => ({
+      ...rest,
+      openPdfUri: openPdfUriFromMeta(metaJson),
+    }))
     const tagRows = db
       .select({ name: s.tags.name })
       .from(s.tags)

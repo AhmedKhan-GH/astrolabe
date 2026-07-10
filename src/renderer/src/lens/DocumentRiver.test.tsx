@@ -16,8 +16,8 @@ const hit = (over: Partial<BrowseHit> = {}): BrowseHit => ({
   tags: ['ml', 'textbook'],
   virtualCollections: [],
   instances: [
-    { instanceId: 11, sourceKey: 'zotero', uri: 'zotero://select/items/ABC', filePath: '/tmp/x.pdf' },
-    { instanceId: 12, sourceKey: 'eagle', uri: 'eagle://item/XYZ', filePath: null },
+    { instanceId: 11, sourceKey: 'zotero', uri: 'zotero://select/items/ABC', filePath: '/tmp/x.pdf', openPdfUri: null },
+    { instanceId: 12, sourceKey: 'eagle', uri: 'eagle://item/XYZ', filePath: null, openPdfUri: null },
   ],
   ...over,
 })

@@ -75,10 +75,11 @@ describe('CanvasView page cells', () => {
     }
   })
 
-  it('clicking a cell fires onOpenPage with the 0-based page index', () => {
+  it('clicking a cell opens the in-canvas lightbox (does not jump straight out)', () => {
     const { onOpenPage } = setup()
     fireEvent.click(screen.getByRole('button', { name: 'page 1' })) // 3rd page → index 2
-    expect(onOpenPage).toHaveBeenCalledWith(2)
+    expect(screen.getByRole('dialog', { name: /page view/i })).toBeTruthy()
+    expect(onOpenPage).not.toHaveBeenCalled()
   })
 
   it('shows a loading state instead of cells while the PDF loads', () => {
@@ -118,5 +119,58 @@ describe('CanvasView heat layer', () => {
     setup({ heat: null })
     const cell = screen.getByRole('button', { name: 'page 2' }) // would carry count 5
     expect(within(cell).queryByText('5')).toBeNull()
+  })
+})
+
+describe('CanvasView lightbox', () => {
+  const openLightbox = (label = 'page i') => {
+    fireEvent.click(screen.getByRole('button', { name: label }))
+    return screen.getByRole('dialog', { name: /page view/i })
+  }
+
+  it('cell click opens a lightbox headed with the page label', () => {
+    setup()
+    const dialog = openLightbox('page ii') // pageIndex 1
+    expect(within(dialog).getByText('page ii')).toBeTruthy()
+  })
+
+  it('arrow keys page through the lightbox (clamped at the ends)', () => {
+    setup() // labels ['i','ii','1','2','3']
+    const dialog = openLightbox('page i') // pageIndex 0
+    expect(within(dialog).queryByText('page i')).toBeTruthy()
+    fireEvent.keyDown(document, { key: 'ArrowLeft' }) // clamped at 0
+    expect(within(dialog).getByText('page i')).toBeTruthy()
+    fireEvent.keyDown(document, { key: 'ArrowRight' }) // → pageIndex 1
+    expect(within(dialog).getByText('page ii')).toBeTruthy()
+    fireEvent.keyDown(document, { key: 'ArrowRight' }) // → pageIndex 2
+    expect(within(dialog).getByText('page 1')).toBeTruthy()
+  })
+
+  it('chevron buttons navigate prev/next', () => {
+    setup()
+    const dialog = openLightbox('page ii') // pageIndex 1
+    fireEvent.click(within(dialog).getByRole('button', { name: /next page/i }))
+    expect(within(dialog).getByText('page 1')).toBeTruthy() // pageIndex 2
+    fireEvent.click(within(dialog).getByRole('button', { name: /previous page/i }))
+    expect(within(dialog).getByText('page ii')).toBeTruthy() // back to 1
+  })
+
+  it('Escape closes the lightbox first, leaving the canvas open', () => {
+    const { onClose } = setup()
+    openLightbox('page ii')
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: /page view/i })).toBeNull()
+    expect(onClose).not.toHaveBeenCalled()
+    // a second Escape now closes the canvas
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledOnce()
+  })
+
+  it('"open in source" fires onOpenPage with the current page index', () => {
+    const { onOpenPage } = setup()
+    const dialog = openLightbox('page ii') // pageIndex 1
+    fireEvent.click(within(dialog).getByRole('button', { name: /next page/i })) // → pageIndex 2
+    fireEvent.click(within(dialog).getByRole('button', { name: /open in source/i }))
+    expect(onOpenPage).toHaveBeenCalledWith(2)
   })
 })

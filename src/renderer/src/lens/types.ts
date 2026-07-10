@@ -141,6 +141,12 @@ export interface BrowseInstance {
   sourceKey: string
   uri: string
   filePath: string | null
+  /**
+   * Page-targetable `zotero://open-pdf/library/items/<key>` base (main builds it from the
+   * instance's attachmentKey), or null. The Canvas appends the clicked page for a deep link
+   * that lands on the page, not just the document.
+   */
+  openPdfUri: string | null
 }
 
 /**
