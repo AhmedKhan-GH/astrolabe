@@ -254,6 +254,13 @@ adapter layer is new; keep it too thin to need much). **DoD:** in a fresh Claude
 "what did I highlight about precision/recall?" answers from *your* Zotero annotations with
 `zotero://` links, via the index, not tool-spelunking.
 
+**Status: landed 2026-07-09.** Four tools (`search_library`, `get_document`, `get_annotations`,
+`list_sources`); transport-free handlers + integration tests against a real read-only temp index
+(read-only guarantee itself tested); live JSON-RPC session verified against the real index.
+As-built notes: `server.ts` re-execs under Electron-as-node (better-sqlite3 is Electron-ABI here);
+nested eslint config hardens `no-console` in src/mcp (stdout = wire); `typecheck:mcp` joined the
+gate. Registration instructions in `src/mcp/README.md`.
+
 ## Step 8 (Phase 1 close-out) — Obsidian connector
 
 **Commit:** `feat(connector): obsidian vault sync`
@@ -261,6 +268,13 @@ Chokidar watcher (the contract's `watch()` finally consumed) + gray-matter front
 wiki-link/tag parsing → notes as documents (`obsidian://open?vault=…&file=…`), tags into the same
 M:N, backlink pairs stored for Phase 2 edges. Tier A on parsing (fixtures: real vault samples).
 Lens gains the third badge. **Phase 1 complete.**
+
+**Status: landed 2026-07-09.** Vault path from `manifest.json` (`connectors.obsidian.vaultPath`) —
+unset = source unavailable with a hint (a real vault exists under iCloud, TCC-blocked from shells;
+configure the manifest and the GUI app reads it). Notes are file-identity: no sha256/cross-source
+join by design. Note bodies ride the annotation→FTS pipeline (`<relpath>#body`) until Phase 2's
+extractedText. wikiLinks stored in metaJson for Phase 2 edges. chokidar v5 `ignored`-matcher watch,
+2s debounce, consumed by the registry wiring later (app-level watch scheduling is post-runway).
 
 ---
 

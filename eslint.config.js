@@ -18,6 +18,7 @@ export default defineConfig([
     ],
     languageOptions: {
       globals: globals.browser,
+      parserOptions: { tsconfigRootDir: import.meta.dirname },
     },
   },
   {
@@ -35,6 +36,7 @@ export default defineConfig([
     extends: [js.configs.recommended, tseslint.configs.recommended],
     languageOptions: {
       globals: globals.node,
+      parserOptions: { tsconfigRootDir: import.meta.dirname },
     },
   },
   {
@@ -51,6 +53,10 @@ export default defineConfig([
             { target: './src/main/lib', from: './src/main/connectors' },
             { target: './src/main/connectors/zotero', from: './src/main/connectors/eagle' },
             { target: './src/main/connectors/eagle', from: './src/main/connectors/zotero' },
+            { target: './src/main/connectors/obsidian', from: './src/main/connectors/zotero' },
+            { target: './src/main/connectors/obsidian', from: './src/main/connectors/eagle' },
+            { target: './src/main/connectors/zotero', from: './src/main/connectors/obsidian' },
+            { target: './src/main/connectors/eagle', from: './src/main/connectors/obsidian' },
             { target: './src/main/lib', from: './src/main/db' },
             { target: './src/main/lib', from: './src/main/index' },
             { target: './src/shared', from: './src/main' },
