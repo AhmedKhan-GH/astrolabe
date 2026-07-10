@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import {
   DB_CHANNEL,
   INDEX_BROWSE_CHANNEL,
+  INDEX_DOCUMENT_CHANNEL,
   INDEX_LINKS_CHANNEL,
   INDEX_NAV_CHANNEL,
   INDEX_PAGE_ANNOTATIONS_CHANNEL,
@@ -25,6 +26,7 @@ import type { Meta, NewMeta } from '../main/db/schema'
 import type {
   BrowsePage,
   BrowseRequest,
+  DocumentDetail,
   IndexStats,
   NavData,
   PageAnnotations,
@@ -83,6 +85,8 @@ const api = {
       ipcRenderer.invoke(INDEX_PAGE_ANNOTATIONS_CHANNEL, { documentId }),
     links: (documentId: number): Promise<DocumentLinks> =>
       ipcRenderer.invoke(INDEX_LINKS_CHANNEL, { documentId }),
+    document: (documentId: number): Promise<DocumentDetail | null> =>
+      ipcRenderer.invoke(INDEX_DOCUMENT_CHANNEL, { documentId }),
     sync: (): Promise<SyncReport[]> => ipcRenderer.invoke(INDEX_SYNC_CHANNEL),
     rebuild: (): Promise<SyncReport[]> => ipcRenderer.invoke(INDEX_REBUILD_CHANNEL),
     sources: (): Promise<SourceSummary[]> => ipcRenderer.invoke(INDEX_SOURCES_CHANNEL),

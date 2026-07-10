@@ -403,6 +403,79 @@ describe('pageAnnotations (per-page heat over all instances of a document)', () 
   })
 })
 
+describe('documentDetail (the index:document composed payload)', () => {
+  const docIdByTitle = (title: string): number =>
+    handle.db.select().from(s.documents).where(eq(s.documents.title, title)).get()!.id
+  const pos = (pageIndex: number): string => JSON.stringify({ position: { pageIndex } })
+
+  // A hash-joined zotero+eagle pdf (presence 'both'), with tags + annotations on two pages.
+  // VC + backlink are seeded per-test (VC tables + links survive wipeDerived's document wipe
+  // differently, so keep the composed-shape case self-contained).
+  beforeEach(() => {
+    handle.db.delete(s.virtualCollectionMembers).run()
+    handle.db.delete(s.virtualCollections).run()
+    upsert.upsertDocument({
+      sourceKey: 'zotero', externalKey: 'ZD', uri: 'zotero://ZD', title: 'Detail Doc',
+      kind: 'pdf', contentSha256: 'hdetail', modifiedAt: 800, tags: ['ml', 'key'],
+      annotations: [
+        { externalKey: 'd1', type: 'highlight', modifiedAt: 1, positionJson: pos(0) },
+        { externalKey: 'd2', type: 'highlight', modifiedAt: 1, positionJson: pos(0) },
+        { externalKey: 'd3', type: 'note', modifiedAt: 1, positionJson: pos(3) },
+      ],
+    })
+    upsert.upsertDocument({
+      sourceKey: 'eagle', externalKey: 'ED', uri: 'eagle://ED', title: 'Detail Doc',
+      kind: 'pdf', contentSha256: 'hdetail', modifiedAt: 800,
+    })
+  })
+
+  it('composes core + instances + tags + VCs + annotations + backlinks + presence in one call', () => {
+    const id = docIdByTitle('Detail Doc')
+    const vcId = handle.db.insert(s.virtualCollections).values({ slug: 'reading', name: 'Reading' }).returning().get().id
+    handle.db.insert(s.virtualCollectionMembers).values({ vcId, documentId: id }).run()
+    // A backlink: an obsidian note whose link row resolves TO Detail Doc.
+    const ref = upsert.upsertDocument({
+      sourceKey: 'obsidian', externalKey: 'ref.md', uri: 'obsidian://ref', title: 'Referring Note',
+      kind: 'note', modifiedAt: 900,
+    })
+    handle.db.insert(s.links).values({ sourceInstanceId: ref.instanceId, targetName: 'Detail Doc', targetDocumentId: id }).run()
+
+    expect(queries.documentDetail(id)).toEqual({
+      documentId: id,
+      title: 'Detail Doc',
+      kind: 'pdf',
+      modifiedAt: 800,
+      tags: ['ml', 'key'],
+      instances: [
+        { instanceId: expect.any(Number), sourceKey: 'zotero', uri: 'zotero://ZD', filePath: null, openPdfUri: null },
+        { instanceId: expect.any(Number), sourceKey: 'eagle', uri: 'eagle://ED', filePath: null, openPdfUri: null },
+      ],
+      virtualCollections: [{ slug: 'reading', name: 'Reading' }],
+      annotations: { total: 3, pages: [{ pageIndex: 0, count: 2 }, { pageIndex: 3, count: 1 }] },
+      presence: 'both',
+      backlinks: [{ documentId: ref.documentId, title: 'Referring Note', kind: 'note', instanceId: ref.instanceId }],
+    })
+  })
+
+  it('returns null for an unknown documentId', () => {
+    expect(queries.documentDetail(999999)).toBeNull()
+  })
+
+  it('presence variants: zotero-only, eagle-only, and none (obsidian note)', () => {
+    expect(queries.documentDetail(docIdByTitle('Alpha Paper'))!.presence).toBe('zotero-only')
+    expect(queries.documentDetail(docIdByTitle('Beta Image'))!.presence).toBe('eagle-only')
+    expect(queries.documentDetail(docIdByTitle('Gamma Note'))!.presence).toBe('none')
+  })
+
+  it('a plain document yields empty VCs / annotations / backlinks', () => {
+    const detail = queries.documentDetail(docIdByTitle('Root Note'))!
+    expect(detail.virtualCollections).toEqual([])
+    expect(detail.annotations).toEqual({ total: 0, pages: [] })
+    expect(detail.backlinks).toEqual([])
+    expect(detail.presence).toBe('none')
+  })
+})
+
 describe('FilterSet schema', () => {
   it('empty FilterSet is unfiltered (browse-all)', () => {
     expect(queries.browse({}).total).toBe(5)

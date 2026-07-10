@@ -84,6 +84,35 @@ describe('SearchResult — canvas affordance', () => {
   })
 })
 
+describe('SearchResult — hub affordance', () => {
+  it('shows an info affordance and fires onOpenHub with the hit when wired', () => {
+    const onOpenHub = vi.fn()
+    render(
+      <SearchResult hit={hit} onOpenUri={vi.fn()} onOpenFile={vi.fn()} onReveal={vi.fn()} onOpenHub={onOpenHub} />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /document details:/i }))
+    expect(onOpenHub).toHaveBeenCalledWith(hit)
+  })
+
+  it('the info affordance is present for a note hit too (separate from the title button)', () => {
+    render(
+      <SearchResult
+        hit={{ ...base, kind: 'note' }}
+        onOpenUri={vi.fn()}
+        onOpenFile={vi.fn()}
+        onReveal={vi.fn()}
+        onOpenHub={vi.fn()}
+      />,
+    )
+    expect(screen.getByRole('button', { name: /document details:/i })).toBeTruthy()
+  })
+
+  it('without onOpenHub there is no info affordance', () => {
+    render(<SearchResult hit={hit} onOpenUri={vi.fn()} onOpenFile={vi.fn()} onReveal={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: /document details:/i })).toBeNull()
+  })
+})
+
 describe('SearchResult — note affordance', () => {
   const noteHit: ResultData = {
     ...base,

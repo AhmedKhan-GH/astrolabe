@@ -15,6 +15,7 @@ import { connectors } from './connectors/registry'
 import {
   DB_CHANNEL,
   INDEX_BROWSE_CHANNEL,
+  INDEX_DOCUMENT_CHANNEL,
   INDEX_LINKS_CHANNEL,
   INDEX_NAV_CHANNEL,
   INDEX_PAGE_ANNOTATIONS_CHANNEL,
@@ -33,6 +34,7 @@ import {
   VIEWS_DELETE_CHANNEL,
   VIEWS_LIST_CHANNEL,
   VIEWS_SAVE_CHANNEL,
+  documentRequestSchema,
   linksRequestSchema,
   requestAccessSchema,
   systemOpenSchema,
@@ -148,6 +150,12 @@ app.whenReady().then(() => {
     ipcMain.handle(INDEX_LINKS_CHANNEL, (_event, raw: unknown) => {
       const req = linksRequestSchema.parse(raw)
       return documentLinks(handle.db, req.documentId)
+    })
+    // Document Hub: one document's full composed detail (docs/2026-07-10 §Step 2). Null passes
+    // through to the renderer (which shows an error line) for an id the index does not know.
+    ipcMain.handle(INDEX_DOCUMENT_CHANNEL, (_event, raw: unknown) => {
+      const req = documentRequestSchema.parse(raw)
+      return queries.documentDetail(req.documentId)
     })
     registerAstroProtocol(() => handle.db, join(currentDir, '../renderer'))
     // Saved-view CRUD (validation is at the module boundary via zod, like the query handlers).

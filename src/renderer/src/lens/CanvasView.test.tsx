@@ -58,6 +58,16 @@ describe('CanvasView header', () => {
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(onClose).toHaveBeenCalledOnce()
   })
+
+  it('fires onOpenDetails from the ⓘ affordance when wired; hidden otherwise', () => {
+    const onOpenDetails = vi.fn()
+    setup({ onOpenDetails })
+    fireEvent.click(screen.getByRole('button', { name: /document details/i }))
+    expect(onOpenDetails).toHaveBeenCalledOnce()
+    cleanup()
+    setup()
+    expect(screen.queryByRole('button', { name: /document details/i })).toBeNull()
+  })
 })
 
 describe('CanvasView page cells', () => {

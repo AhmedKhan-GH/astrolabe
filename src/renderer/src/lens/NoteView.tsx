@@ -30,6 +30,7 @@ export function NoteView({
   error,
   onNavigate,
   onOpenUri,
+  onOpenDetails,
   onClose,
 }: {
   title: string
@@ -42,6 +43,8 @@ export function NoteView({
   error?: string
   onNavigate: (target: NoteNavTarget) => void
   onOpenUri: (uri: string) => void
+  /** Cross-link to the Document Hub for this note (panel swap); hidden when unwired. */
+  onOpenDetails?: () => void
   onClose: () => void
 }) {
   useEffect(() => {
@@ -156,6 +159,16 @@ export function NoteView({
               className="rounded border border-violet-800 bg-violet-950 px-2 py-1 text-xs text-violet-300 hover:bg-violet-900"
             >
               open in Obsidian ↗
+            </button>
+          )}
+          {onOpenDetails && (
+            <button
+              aria-label="document details"
+              title="Document details"
+              onClick={onOpenDetails}
+              className="rounded border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800"
+            >
+              ⓘ
             </button>
           )}
           <button

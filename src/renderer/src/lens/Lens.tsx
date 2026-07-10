@@ -18,11 +18,13 @@ import {
 import { toStoredFilter, resolveStoredFilter, selectionFromFilterSet } from './viewRefs'
 import { CanvasView } from './CanvasView'
 import { NoteView, type NoteNavTarget } from './NoteView'
+import { DocumentHub } from './DocumentHub'
 import { canvasCandidates, type CanvasHostHit } from './canvas'
 import { usePdfDocument } from './pdf/usePdfDocument'
 import { rewriteOpenPdfPage } from './pdf/heat'
 import type {
   BrowseInstance,
+  DocumentDetail,
   DocumentLinks,
   LensSelection,
   NavData,
@@ -69,7 +71,15 @@ function useDebounced<T>(value: T, ms: number): T {
  * fully-testable component (the hook RESULT is a prop) and pdf.js loads only while a
  * canvas is actually open.
  */
-function CanvasHost({ hit, onClose }: { hit: CanvasHostHit; onClose: () => void }) {
+function CanvasHost({
+  hit,
+  onOpenDetails,
+  onClose,
+}: {
+  hit: CanvasHostHit
+  onOpenDetails: () => void
+  onClose: () => void
+}) {
   // File-backed instances zotero-first (canvas.ts). If one fails to render, fall forward to
   // the next candidate — a broken/moved Zotero file shouldn't dead-end a document that Eagle
   // also has on disk.
@@ -105,6 +115,7 @@ function CanvasHost({ hit, onClose }: { hit: CanvasHostHit; onClose: () => void 
       pdf={pdf}
       heat={heat.data ?? null}
       onOpenPage={openPage}
+      onOpenDetails={onOpenDetails}
       onClose={onClose}
     />
   )
@@ -118,10 +129,12 @@ function CanvasHost({ hit, onClose }: { hit: CanvasHostHit; onClose: () => void 
 function NoteHost({
   note,
   onNavigate,
+  onOpenDetails,
   onClose,
 }: {
   note: NoteRef
   onNavigate: (target: NoteNavTarget) => void
+  onOpenDetails: () => void
   onClose: () => void
 }) {
   const md = useQuery({
@@ -147,6 +160,57 @@ function NoteHost({
       error={md.isError ? String(md.error) : undefined}
       onNavigate={onNavigate}
       onOpenUri={(uri) => void window.astrolabe.system.openUri(uri)}
+      onOpenDetails={onOpenDetails}
+      onClose={onClose}
+    />
+  )
+}
+
+/**
+ * Owns the `index:document` fetch for one open document, so DocumentHub stays a pure, fully-
+ * testable component (the detail is a prop). Adapts the hub's parameterless action callbacks to
+ * the shared openCanvas/openNote helpers using the fetched detail; backlink rows navigate to the
+ * source note via openNoteRef. Keyed by documentId in Lens so opening a new hub refetches.
+ */
+function DocumentHost({
+  documentId,
+  onOpenCanvas,
+  onOpenNote,
+  onOpenBacklink,
+  onClose,
+}: {
+  documentId: number
+  onOpenCanvas: (hit: CanvasHostHit) => void
+  onOpenNote: (hit: NoteSource) => void
+  onOpenBacklink: (target: NoteNavTarget) => void
+  onClose: () => void
+}) {
+  const detail = useQuery<DocumentDetail | null>({
+    queryKey: ['document', documentId],
+    queryFn: () => window.astrolabe.index.document(documentId),
+  })
+  const d = detail.data ?? null
+  return (
+    <DocumentHub
+      detail={d}
+      loading={detail.isPending}
+      error={
+        detail.isError
+          ? String(detail.error)
+          : !detail.isPending && detail.data === null
+            ? 'document not found'
+            : undefined
+      }
+      onOpenUri={(uri) => void window.astrolabe.system.openUri(uri)}
+      onOpenFile={(p) => void window.astrolabe.system.openPath(p)}
+      onReveal={(p) => void window.astrolabe.system.reveal(p)}
+      onOpenCanvas={() =>
+        d && onOpenCanvas({ documentId: d.documentId, title: d.title, instances: d.instances })
+      }
+      onOpenNote={() =>
+        d && onOpenNote({ documentId: d.documentId, title: d.title, tags: d.tags, instances: d.instances })
+      }
+      onOpenBacklink={onOpenBacklink}
       onClose={onClose}
     />
   )
@@ -156,24 +220,36 @@ export function Lens() {
   const [q, setQ] = useState('')
   const [selection, setSelection] = useState<LensSelection>(emptySelection())
   const [canvasFor, setCanvasFor] = useState<CanvasHostHit | null>(null)
-  // Canvas, Note, (and future Hub) share one mutually-exclusive panel slot: opening one
-  // closes the other.
+  // Canvas, Note, and Hub share ONE mutually-exclusive panel slot: opening any one nulls the
+  // other two (docs/2026-07-10-implementation-plan-notes-hub-ink §Step 2 — one panel slot).
   const [noteFor, setNoteFor] = useState<NoteRef | null>(null)
+  const [hubFor, setHubFor] = useState<number | null>(null)
   const openCanvas = (hit: CanvasHostHit): void => {
     setNoteFor(null)
+    setHubFor(null)
     setCanvasFor(hit)
   }
   const openNote = (hit: NoteSource): void => {
     const inst = hit.instances.find((i) => i.sourceKey === 'obsidian' && i.filePath !== null)
     if (!inst) return
-    setCanvasFor(null)
-    setNoteFor({
+    openNoteRef({
       documentId: hit.documentId,
       instanceId: inst.instanceId,
       title: hit.title,
       uri: inst.uri,
       tags: hit.tags,
     })
+  }
+  // Navigate straight to a note by reference (a followed wiki-link / backlink, or a hub note).
+  const openNoteRef = (note: NoteRef): void => {
+    setCanvasFor(null)
+    setHubFor(null)
+    setNoteFor(note)
+  }
+  const openHub = (documentId: number): void => {
+    setCanvasFor(null)
+    setNoteFor(null)
+    setHubFor(documentId)
   }
   // The slug of the currently-applied saved view, cleared on any manual edit so the
   // rail highlight never lies about whether the live lens still matches the view.
@@ -483,6 +559,7 @@ export function Lens() {
                     onReveal={(p) => void window.astrolabe.system.reveal(p)}
                     onOpenCanvas={openCanvas}
                     onOpenNote={openNote}
+                    onOpenHub={(hit) => openHub(hit.documentId)}
                   />
                 ))}
               </ul>
@@ -495,6 +572,7 @@ export function Lens() {
               onCreateAndAdd={(documentId, name) => createAndAdd.mutate({ documentId, name })}
               onOpenCanvas={openCanvas}
               onOpenNote={openNote}
+              onOpenHub={(hit) => openHub(hit.documentId)}
               onSync={() => sync.mutate()}
             />
           )}
@@ -502,14 +580,30 @@ export function Lens() {
       </div>
 
       {canvasFor && (
-        <CanvasHost key={canvasFor.documentId} hit={canvasFor} onClose={() => setCanvasFor(null)} />
+        <CanvasHost
+          key={canvasFor.documentId}
+          hit={canvasFor}
+          onOpenDetails={() => openHub(canvasFor.documentId)}
+          onClose={() => setCanvasFor(null)}
+        />
       )}
       {noteFor && (
         <NoteHost
           key={noteFor.instanceId}
           note={noteFor}
-          onNavigate={(target) => setNoteFor(target)}
+          onNavigate={openNoteRef}
+          onOpenDetails={() => openHub(noteFor.documentId)}
           onClose={() => setNoteFor(null)}
+        />
+      )}
+      {hubFor !== null && (
+        <DocumentHost
+          key={hubFor}
+          documentId={hubFor}
+          onOpenCanvas={openCanvas}
+          onOpenNote={openNote}
+          onOpenBacklink={openNoteRef}
+          onClose={() => setHubFor(null)}
         />
       )}
     </div>

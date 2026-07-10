@@ -185,3 +185,28 @@ export interface DocumentLinks {
     instanceId: number
   }[]
 }
+
+/**
+ * The Document Hub payload (`index:document` wire contract) — everything one document shows in
+ * one round-trip: core, per-source instances, tags, virtual-collection memberships (slug+name),
+ * the annotation summary (total + per-page counts), the zotero↔eagle presence, and backlinking
+ * notes. Drives the DocumentHub panel; arrives as a prop so the panel stays pure/testable.
+ */
+export interface DocumentDetail {
+  documentId: number
+  title: string
+  kind: string
+  modifiedAt: number
+  tags: string[]
+  instances: BrowseInstance[]
+  virtualCollections: { slug: string; name: string }[]
+  annotations: { total: number; pages: { pageIndex: number; count: number }[] }
+  /** 'none' = neither a zotero nor an eagle instance exists (e.g. an obsidian-only note). */
+  presence: PresenceValue | 'none'
+  backlinks: {
+    documentId: number
+    title: string
+    kind: string
+    instanceId: number
+  }[]
+}

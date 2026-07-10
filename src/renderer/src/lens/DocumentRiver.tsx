@@ -24,6 +24,7 @@ export function DocumentRiver({
   onCreateAndAdd,
   onOpenCanvas,
   onOpenNote,
+  onOpenHub,
   onSync,
 }: {
   filters: FilterSet
@@ -35,6 +36,7 @@ export function DocumentRiver({
   onCreateAndAdd?: (documentId: number, name: string) => void
   onOpenCanvas?: (hit: BrowseHit) => void
   onOpenNote?: (hit: BrowseHit) => void
+  onOpenHub?: (hit: BrowseHit) => void
   onSync?: () => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -144,6 +146,7 @@ export function DocumentRiver({
                   onCreateAndAdd={onCreateAndAdd}
                   onOpenCanvas={onOpenCanvas}
                   onOpenNote={onOpenNote}
+                  onOpenHub={onOpenHub}
                 />
               </div>
             )
@@ -165,6 +168,7 @@ export function DocumentRow({
   onCreateAndAdd,
   onOpenCanvas,
   onOpenNote,
+  onOpenHub,
 }: {
   hit: BrowseHit
   collections?: VCollectionSummary[]
@@ -175,6 +179,7 @@ export function DocumentRow({
   onCreateAndAdd?: (documentId: number, name: string) => void
   onOpenCanvas?: (hit: BrowseHit) => void
   onOpenNote?: (hit: BrowseHit) => void
+  onOpenHub?: (hit: BrowseHit) => void
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   // The membership affordance appears only when the feature is wired in.
@@ -211,6 +216,16 @@ export function DocumentRow({
           </button>
         ) : (
           <h3 className="min-w-0 flex-1 truncate font-medium text-zinc-100">{hit.title}</h3>
+        )}
+        {onOpenHub && (
+          <button
+            aria-label={`document details: ${hit.title}`}
+            title="Document details"
+            onClick={() => onOpenHub(hit)}
+            className="shrink-0 rounded border border-zinc-700 px-1.5 text-[11px] leading-5 text-zinc-400 hover:bg-zinc-800"
+          >
+            ⓘ
+          </button>
         )}
         {canManage && (
           <button

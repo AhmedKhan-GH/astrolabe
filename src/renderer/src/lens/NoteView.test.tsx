@@ -66,6 +66,16 @@ describe('NoteView chrome', () => {
     expect(screen.queryByRole('button', { name: /open in obsidian/i })).toBeNull()
   })
 
+  it('fires onOpenDetails from the ⓘ affordance when wired; hidden otherwise', () => {
+    const onOpenDetails = vi.fn()
+    setup({ onOpenDetails })
+    fireEvent.click(screen.getByRole('button', { name: /document details/i }))
+    expect(onOpenDetails).toHaveBeenCalledOnce()
+    cleanup()
+    setup()
+    expect(screen.queryByRole('button', { name: /document details/i })).toBeNull()
+  })
+
   it('shows an error state in the panel when the load failed', () => {
     setup({ error: 'HTTP 404', content: '' })
     const dialog = screen.getByRole('dialog', { name: /note view/i })

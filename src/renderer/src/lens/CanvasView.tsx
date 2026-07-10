@@ -32,6 +32,7 @@ export function CanvasView({
   pdf,
   heat,
   onOpenPage,
+  onOpenDetails,
   onClose,
 }: {
   title: string
@@ -39,6 +40,8 @@ export function CanvasView({
   /** Per-page annotation counts; null while the query is in flight (no heat layer yet). */
   heat: PageAnnotations | null
   onOpenPage: (pageIndex: number) => void
+  /** Cross-link to the Document Hub for this document (panel swap); hidden when unwired. */
+  onOpenDetails?: () => void
   onClose: () => void
 }) {
   const [heatOn, setHeatOn] = useState(true)
@@ -141,6 +144,16 @@ export function CanvasView({
           >
             Annotations
           </button>
+          {onOpenDetails && (
+            <button
+              aria-label="document details"
+              title="Document details"
+              onClick={onOpenDetails}
+              className="rounded border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800"
+            >
+              ⓘ
+            </button>
+          )}
           <button
             aria-label="close canvas"
             onClick={onClose}

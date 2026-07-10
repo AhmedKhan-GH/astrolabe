@@ -139,6 +139,36 @@ describe('DocumentRow — note affordance', () => {
   })
 })
 
+describe('DocumentRow — hub affordance', () => {
+  it('shows an info affordance and fires onOpenHub with the hit when wired', () => {
+    const onOpenHub = vi.fn()
+    const h = hit()
+    render(
+      <DocumentRow hit={h} onOpenUri={vi.fn()} onOpenFile={vi.fn()} onReveal={vi.fn()} onOpenHub={onOpenHub} />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /document details:/i }))
+    expect(onOpenHub).toHaveBeenCalledWith(h)
+  })
+
+  it('the info affordance is present for every kind (separate from the title button)', () => {
+    render(
+      <DocumentRow
+        hit={hit({ kind: 'note' })}
+        onOpenUri={vi.fn()}
+        onOpenFile={vi.fn()}
+        onReveal={vi.fn()}
+        onOpenHub={vi.fn()}
+      />,
+    )
+    expect(screen.getByRole('button', { name: /document details:/i })).toBeTruthy()
+  })
+
+  it('without onOpenHub there is no info affordance', () => {
+    render(<DocumentRow hit={hit()} onOpenUri={vi.fn()} onOpenFile={vi.fn()} onReveal={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: /document details:/i })).toBeNull()
+  })
+})
+
 describe('DocumentRow — membership popover', () => {
   const rowProps = (over = {}) => ({
     onOpenUri: vi.fn(),

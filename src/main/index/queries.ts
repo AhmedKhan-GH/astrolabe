@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { Db } from '../db'
 import * as s from '../db/schema'
 import { buildCollectionTree, buildFolderTree, type NavNode } from './nav-tree'
+import { documentLinks, type BackLink } from './links'
 
 /**
  * Read path over the index (runway step 3; grows in step 6, reused verbatim by the
@@ -111,6 +112,33 @@ export interface SearchHit {
     openPdfUri: string | null
   }[]
   virtualCollections: string[]
+}
+
+/**
+ * The Document Hub payload (docs/2026-07-10-implementation-plan-notes-hub-ink §Step 2): one
+ * document's full detail composed from the existing helpers in a single round-trip — core,
+ * per-source instances (from `hydrate`), tags, virtual-collection memberships (slugs joined to
+ * names), the annotation summary (total + the `pageAnnotations` per-page counts), backlinking
+ * notes (from `documentLinks`), and the zotero↔eagle presence derived from the instances.
+ */
+export interface DocumentDetail {
+  documentId: number
+  title: string
+  kind: string
+  modifiedAt: number
+  tags: string[]
+  instances: {
+    instanceId: number
+    sourceKey: string
+    uri: string
+    filePath: string | null
+    openPdfUri: string | null
+  }[]
+  virtualCollections: { slug: string; name: string }[]
+  annotations: { total: number; pages: { pageIndex: number; count: number }[] }
+  /** 'none' = neither a zotero nor an eagle instance exists (e.g. an obsidian-only note). */
+  presence: PresenceValue | 'none'
+  backlinks: BackLink[]
 }
 
 /** A drizzle IN-list body: `?, ?, …` bound one placeholder per value (goes inside `IN (...)`). */
@@ -451,7 +479,53 @@ export function createIndexQueries(db: Db) {
     return { pages }
   }
 
-  return { search, browse, nav, sourceSummaries, indexStats, pageAnnotations }
+  /**
+   * The Document Hub payload (docs/2026-07-10-implementation-plan-notes-hub-ink §Step 2). Composes
+   * the existing read helpers in one call: `hydrate` for instances + tags, a vc join for
+   * membership names, `pageAnnotations` for per-page heat, `documentLinks` for backlinks, and the
+   * instances' source keys for the presence facet. Returns null when the document does not exist.
+   */
+  function documentDetail(documentId: number): DocumentDetail | null {
+    const doc = db.select().from(s.documents).where(eq(s.documents.id, documentId)).get()
+    if (!doc) return null
+    const { tags, instances } = hydrate(documentId)
+    // Slugs joined to names — hydrate carries slugs only; the hub labels the chips.
+    const virtualCollections = db
+      .select({ slug: s.virtualCollections.slug, name: s.virtualCollections.name })
+      .from(s.virtualCollections)
+      .innerJoin(s.virtualCollectionMembers, eq(s.virtualCollectionMembers.vcId, s.virtualCollections.id))
+      .where(eq(s.virtualCollectionMembers.documentId, documentId))
+      .orderBy(s.virtualCollections.slug)
+      .all()
+    const pages = pageAnnotations({ documentId }).pages
+    // Total counts every annotation of the document's instances (not just page-anchored ones).
+    const total =
+      db.get<{ c: number }>(
+        sql`SELECT count(*) AS c FROM annotations a
+            JOIN document_instances di ON di.id = a.instance_id
+            WHERE di.document_id = ${documentId}`,
+      )?.c ?? 0
+    // Presence from the already-hydrated instances (same Z/E rule the facet uses).
+    const hasZ = instances.some((i) => i.sourceKey === 'zotero')
+    const hasE = instances.some((i) => i.sourceKey === 'eagle')
+    const presence: DocumentDetail['presence'] =
+      hasZ && hasE ? 'both' : hasZ ? 'zotero-only' : hasE ? 'eagle-only' : 'none'
+    const backlinks = documentLinks(db, documentId).backlinks
+    return {
+      documentId: doc.id,
+      title: doc.title,
+      kind: doc.kind,
+      modifiedAt: doc.modifiedAt,
+      tags,
+      instances,
+      virtualCollections,
+      annotations: { total, pages },
+      presence,
+      backlinks,
+    }
+  }
+
+  return { search, browse, nav, sourceSummaries, indexStats, pageAnnotations, documentDetail }
 }
 
 export interface IndexStats {

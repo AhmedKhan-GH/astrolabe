@@ -26,6 +26,7 @@ export function SearchResult({
   onReveal,
   onOpenCanvas,
   onOpenNote,
+  onOpenHub,
 }: {
   hit: ResultData
   onOpenUri: (uri: string) => void
@@ -33,6 +34,7 @@ export function SearchResult({
   onReveal: (path: string) => void
   onOpenCanvas?: (hit: ResultData) => void
   onOpenNote?: (hit: ResultData) => void
+  onOpenHub?: (hit: ResultData) => void
 }) {
   const filePath = hit.instances.find((i) => i.filePath)?.filePath ?? null
   // Same rule as the river (DocumentRiver `canCanvas`): the Canvas streams bytes, so it needs
@@ -66,7 +68,17 @@ export function SearchResult({
             {hit.title}
           </button>
         ) : (
-          <h3 className="truncate font-medium text-zinc-100">{hit.title}</h3>
+          <h3 className="min-w-0 flex-1 truncate font-medium text-zinc-100">{hit.title}</h3>
+        )}
+        {onOpenHub && (
+          <button
+            aria-label={`document details: ${hit.title}`}
+            title="Document details"
+            onClick={() => onOpenHub(hit)}
+            className="shrink-0 rounded border border-zinc-700 px-1.5 text-[11px] leading-5 text-zinc-400 hover:bg-zinc-800"
+          >
+            ⓘ
+          </button>
         )}
       </div>
       {hit.snippet && (
