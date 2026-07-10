@@ -30,14 +30,28 @@ export function Lens() {
 
   const sync = useMutation({
     mutationFn: () => window.astrolabe.index.sync(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['search'] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['search'] })
+      void queryClient.invalidateQueries({ queryKey: ['sources'] })
+    },
   })
   const rebuild = useMutation({
     mutationFn: () => window.astrolabe.index.rebuild(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['search'] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['search'] })
+      void queryClient.invalidateQueries({ queryKey: ['sources'] })
+    },
   })
 
-  const reports = sync.data ?? rebuild.data
+  // Always-on totals (index-wide) — a no-change incremental sync must never read
+  // as an empty index (the "0 docs" confusion this replaces).
+  const sources = useQuery({
+    queryKey: ['sources'],
+    queryFn: () => window.astrolabe.index.sources(),
+  })
+  const lastRun = sync.data ?? rebuild.data
+  const upsertedBy = (key: string) =>
+    lastRun?.find((r) => r.sourceKey === key)?.documentsUpserted ?? null
 
   return (
     <div className="mx-auto flex h-screen max-w-3xl flex-col gap-3 p-4">
@@ -63,17 +77,20 @@ export function Lens() {
         </div>
       </header>
 
-      {reports && (
-        <div className="flex flex-wrap gap-2 text-[11px] text-zinc-500">
-          {reports.map((r) => (
-            <span
-              key={r.sourceKey}
-              className={r.ok ? 'text-emerald-400/80' : 'text-amber-400/80'}
-            >
-              {r.sourceKey}:{' '}
-              {r.ok ? `${r.documentsUpserted} docs, ${r.annotationsUpserted} annotations` : 'unavailable'}
-            </span>
-          ))}
+      {sources.data && (
+        <div className="flex flex-wrap gap-3 text-[11px] text-zinc-500">
+          {sources.data.map((src) => {
+            const fresh = upsertedBy(src.key)
+            const ok = src.status === 'ok'
+            return (
+              <span key={src.key} className={ok ? 'text-emerald-400/80' : 'text-amber-400/80'}>
+                {src.key}: {ok ? `${src.documentCount} docs in index` : 'unavailable'}
+                {fresh != null && ok && (
+                  <span className="text-zinc-500"> (+{fresh} new)</span>
+                )}
+              </span>
+            )
+          })}
         </div>
       )}
 

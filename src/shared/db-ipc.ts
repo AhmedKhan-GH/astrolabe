@@ -14,6 +14,7 @@ export const INDEX_REBUILD_CHANNEL = 'index:rebuild'
 const row = z.record(z.string(), z.unknown())
 const id = z.number().int().positive()
 
+export const INDEX_SOURCES_CHANNEL = 'index:sources'
 export const SYSTEM_OPEN_CHANNEL = 'system:open'
 
 /** Deep links may only target the known tools (plus http for future sources). */

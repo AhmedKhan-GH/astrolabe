@@ -13,6 +13,7 @@ import {
   DB_CHANNEL,
   INDEX_REBUILD_CHANNEL,
   INDEX_SEARCH_CHANNEL,
+  INDEX_SOURCES_CHANNEL,
   INDEX_SYNC_CHANNEL,
   SYSTEM_OPEN_CHANNEL,
   systemOpenSchema,
@@ -82,6 +83,7 @@ app.whenReady().then(() => {
     ipcMain.handle(INDEX_SEARCH_CHANNEL, (_event, req: unknown) => queries.search(req))
     ipcMain.handle(INDEX_SYNC_CHANNEL, () => syncApi.syncAll())
     ipcMain.handle(INDEX_REBUILD_CHANNEL, () => syncApi.rebuild())
+    ipcMain.handle(INDEX_SOURCES_CHANNEL, () => queries.sourceSummaries())
     ipcMain.handle(SYSTEM_OPEN_CHANNEL, async (_event, raw: unknown) => {
       const req = systemOpenSchema.parse(raw) // scheme allowlist enforced in the schema
       if (req.kind === 'uri') await shell.openExternal(req.value)

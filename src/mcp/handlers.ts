@@ -1,8 +1,10 @@
-import { eq, sql } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import * as s from '../main/db/schema'
-import { createIndexQueries, type SearchHit } from '../main/index/queries'
+import { createIndexQueries, type SearchHit, type SourceSummary } from '../main/index/queries'
 import type { Db } from './db'
+
+export type { SourceSummary }
 
 /**
  * The MCP tool logic (runway step 7). Pure functions over the read-only index —
@@ -42,13 +44,6 @@ export interface AnnotationDetail {
   openPdfUri: string | null
   sourceKey: string
   uri: string
-}
-
-export interface SourceSummary {
-  key: string
-  status: string
-  lastSyncAt: number | null
-  documentCount: number
 }
 
 function openPdfUriOf(positionJson: string | null): string | null {
@@ -131,22 +126,8 @@ export function createHandlers(db: Db) {
   }
 
   function listSources(): SourceSummary[] {
-    const sources = db.select().from(s.sources).all()
-    return sources.map((src) => {
-      const counted = db
-        .select({
-          count: sql<number>`count(distinct ${s.documentInstances.documentId})`,
-        })
-        .from(s.documentInstances)
-        .where(eq(s.documentInstances.sourceId, src.id))
-        .get()
-      return {
-        key: src.key,
-        status: src.status,
-        lastSyncAt: src.lastSyncAt,
-        documentCount: counted?.count ?? 0,
-      }
-    })
+    // Shared with the lens status strip (src/main/index/queries.ts).
+    return queries.sourceSummaries()
   }
 
   return { searchLibrary, getDocument, getAnnotations, listSources }

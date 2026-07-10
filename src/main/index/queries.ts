@@ -64,7 +64,34 @@ export function createIndexQueries(db: Db) {
     })
   }
 
-  return { search }
+  /** Per-source status + document totals (drives the lens status strip and the
+   *  MCP `list_sources` tool). Totals are index-wide, not per-sync-run — a
+   *  no-change incremental sync must not read as an empty index. */
+  function sourceSummaries(): SourceSummary[] {
+    const sources = db.select().from(s.sources).all()
+    return sources.map((src) => {
+      const counted = db
+        .select({ count: sql<number>`count(distinct ${s.documentInstances.documentId})` })
+        .from(s.documentInstances)
+        .where(eq(s.documentInstances.sourceId, src.id))
+        .get()
+      return {
+        key: src.key,
+        status: src.status,
+        lastSyncAt: src.lastSyncAt,
+        documentCount: counted?.count ?? 0,
+      }
+    })
+  }
+
+  return { search, sourceSummaries }
+}
+
+export interface SourceSummary {
+  key: string
+  status: string
+  lastSyncAt: number | null
+  documentCount: number
 }
 
 export type IndexQueries = ReturnType<typeof createIndexQueries>
