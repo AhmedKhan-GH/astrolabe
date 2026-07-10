@@ -1,0 +1,318 @@
+[
+  {
+    "key": "ZL98NX6Y",
+    "version": 2882,
+    "meta": {
+      "creatorSummary": "Joshi et al.",
+      "parsedDate": "2025",
+      "numChildren": 1
+    },
+    "data": {
+      "key": "ZL98NX6Y",
+      "version": 2882,
+      "itemType": "journalArticle",
+      "title": "Linking Electrocardiogram and Echocardiogram: Comparing Classical Machine Learning and Deep Learning Neural Networks for the Detection of Regional Wall Motion Abnormalities",
+      "abstractNote": "Historically, electrocardiogram (ECG) datasets have been created based on physicians\u2019 interpretation of the ECG, which may introduce human biases and errors. Nightingale Open Science provides an open-source ECG dataset linking to an imaging marker, regional wall motion abnormality (RWMA), that is primarily associated with myocardial ischemia or infarction. RWMA refers to an area of the heart muscle that does not contract properly and can be identified on an imaging modality such as an echocardiogram or cardiac magnetic resonance imaging (MRI). Our study aimed to predict RWMA using both classical machine learning (ML) methods and a one-dimensional convolutional neural network (1D CNN) model on the 12-lead ECG data from 3,750 unique patients provided by the Nightingale Open Science platform. Of the 3,750 patients, 341 (9.1%) were diagnosed with positive RWMA on their echocardiogram within a year of the ECG. After filtering out patients with missing data, we identified 313 patients with positive RWMA label and randomly undersampled 313 from the remaining patients to keep the data balanced. We repeated the experiments with five random selections of the 313 patients without RWMA to ensure the robustness of the models. Our results indicate that the optimized 1D CNN model achieved an area under the receiver operating characteristic curve (AUROC) of 73.40% (1D CNN) versus 63.58% (Random Forest), an area under the precision-recall curve (AUPRC) of 72.45% (1D CNN) versus 72.64% (Random Forest), and accuracy of 71.15% (1D CNN) versus 63.58% (Random Forest). The Random Forest model revealed that QT duration and maximal amplitude differential of ST elevation or depression as the key features associated with RWMA. This study demonstrated that CNN models and classical ML methods offer complementary advantages. Additionally, we compared the performance, training time and model complexity of 1D CNN model with the latest foundation model, HuBERT-ECG. This is a preliminary step for further elucidation of the relationship between ECG and echocardiogram. Future studies are needed to determine the optimal CNN architecture that balances the target classifier performance and computational efficiency for ease of deployment with larger datasets.",
+      "date": "2025",
+      "DOI": "10.1109/ACCESS.2025.3592693",
+      "url": "https://ieeexplore.ieee.org/document/11096598/",
+      "accessDate": "2026-04-01T07:58:37Z",
+      "shortTitle": "Linking Electrocardiogram and Echocardiogram",
+      "language": "en",
+      "libraryCatalog": "DOI.org (Crossref)",
+      "rights": "https://creativecommons.org/licenses/by/4.0/legalcode",
+      "volume": "13",
+      "pages": "134519-134528",
+      "publicationTitle": "IEEE Access",
+      "ISSN": "2169-3536",
+      "journalAbbreviation": "IEEE Access",
+      "creators": [
+        {
+          "firstName": "Shantanu M.",
+          "lastName": "Joshi",
+          "creatorType": "author"
+        },
+        {
+          "firstName": "Hana R.",
+          "lastName": "Shaik",
+          "creatorType": "author"
+        },
+        {
+          "firstName": "Shivam",
+          "lastName": "Rai Sharma",
+          "creatorType": "author"
+        },
+        {
+          "firstName": "Philip",
+          "lastName": "Strong",
+          "creatorType": "author"
+        },
+        {
+          "firstName": "Uma",
+          "lastName": "Srivatsa",
+          "creatorType": "author"
+        },
+        {
+          "firstName": "Imo",
+          "lastName": "Ebong",
+          "creatorType": "author"
+        },
+        {
+          "firstName": "Hyoyoung",
+          "lastName": "Jeong",
+          "creatorType": "author"
+        },
+        {
+          "firstName": "Chen-Nee",
+          "lastName": "Chuah",
+          "creatorType": "author"
+        },
+        {
+          "firstName": "Lihong",
+          "lastName": "Mo",
+          "creatorType": "author"
+        }
+      ],
+      "tags": [
+        {
+          "tag": "model"
+        },
+        {
+          "tag": "printed"
+        }
+      ],
+      "collections": [
+        "ZV7DG2X6",
+        "SWPTENWV",
+        "U33CVINM"
+      ],
+      "relations": {},
+      "dateAdded": "2026-05-23T22:26:28Z",
+      "dateModified": "2026-05-23T22:26:28Z"
+    }
+  },
+  {
+    "key": "LLWXS3LB",
+    "version": 2911,
+    "meta": {
+      "numChildren": 0
+    },
+    "data": {
+      "key": "LLWXS3LB",
+      "version": 2911,
+      "itemType": "attachment",
+      "title": "PDF",
+      "parentItem": "ZL98NX6Y",
+      "linkMode": "imported_file",
+      "contentType": "application/pdf",
+      "charset": "",
+      "filename": "Joshi et al. - 2025 - Linking Electrocardiogram and Echocardiogram Comparing Classical Machine Learning and Deep Learning.pdf",
+      "mtime": 1779575189018,
+      "md5": "f01e99168edf785438803428d9c0e69d",
+      "tags": [],
+      "relations": {},
+      "dateAdded": "2026-05-23T22:26:29Z",
+      "dateModified": "2026-05-23T22:26:29Z"
+    },
+    "links": {
+      "enclosure": {
+        "href": "file:///Users/ahmed/Zotero/storage/LLWXS3LB/Joshi%20et%20al.%20-%202025%20-%20Linking%20Electrocardiogram%20and%20Echocardiogram%20Comparing%20Classical%20Machine%20Learning%20and%20Deep%20Learning.pdf",
+        "type": "application/pdf",
+        "title": "Joshi et al. - 2025 - Linking Electrocardiogram and Echocardiogram Comparing Classical Machine Learning and Deep Learning.pdf",
+        "length": 1389572
+      }
+    }
+  },
+  {
+    "key": "VSVGJBTT",
+    "version": 3686,
+    "meta": {
+      "numChildren": 0
+    },
+    "data": {
+      "key": "VSVGJBTT",
+      "version": 3686,
+      "itemType": "attachment",
+      "title": "Bishop DeepLearningFoundationConcepts",
+      "linkMode": "imported_file",
+      "contentType": "application/pdf",
+      "charset": "",
+      "filename": "Bishop DeepLearningFoundationConcepts.pdf",
+      "lastRead": 1783601888,
+      "mtime": 1781812040939,
+      "md5": "6d1f851e90bf7847ad9999efadc56d5b",
+      "tags": [],
+      "collections": [],
+      "relations": {},
+      "dateAdded": "2026-06-18T19:47:20Z",
+      "dateModified": "2026-06-18T19:47:20Z"
+    },
+    "links": {
+      "enclosure": {
+        "href": "file:///Users/ahmed/Zotero/storage/VSVGJBTT/Bishop%20DeepLearningFoundationConcepts.pdf",
+        "type": "application/pdf",
+        "title": "Bishop DeepLearningFoundationConcepts.pdf",
+        "length": 29138408
+      }
+    }
+  },
+  {
+    "key": "JVWMW33V",
+    "version": 3667,
+    "meta": {
+      "numChildren": 0
+    },
+    "data": {
+      "key": "JVWMW33V",
+      "version": 3667,
+      "itemType": "annotation",
+      "parentItem": "VSVGJBTT",
+      "annotationType": "highlight",
+      "annotationAuthorName": "",
+      "annotationText": "In our cancer screening example, precision represents an estimate of the probability that a person who has a positive test does indeed have cancer, whereas recall is an estimate of the probability that a person who has cancer is correctly detected by the test. The false positive rate is an estimate of the probability that a person who is normal will be classified as having cancer, whereas the false discovery rate represents the fraction of those testing positive who do not in fact have cancer.",
+      "annotationComment": "",
+      "annotationColor": "#5fb236",
+      "annotationPageLabel": "148",
+      "annotationSortIndex": "00166|000494|00263",
+      "annotationPosition": "{\"pageIndex\":166,\"rects\":[[121.996,447.677,473.005,456.747],[121.996,435.722,473.005,444.792],[121.996,423.767,473.005,432.837],[121.996,411.812,473.005,420.882],[121.996,399.856,473.005,408.926],[121.996,387.901,404.38,396.971]]}",
+      "tags": [],
+      "relations": {},
+      "dateAdded": "2026-07-09T12:36:39Z",
+      "dateModified": "2026-07-09T12:36:39Z"
+    }
+  },
+  {
+    "key": "M93KRWQT",
+    "version": 3663,
+    "meta": {
+      "numChildren": 0
+    },
+    "data": {
+      "key": "M93KRWQT",
+      "version": 3663,
+      "itemType": "annotation",
+      "parentItem": "VSVGJBTT",
+      "annotationType": "highlight",
+      "annotationAuthorName": "",
+      "annotationText": "If we used such a data set to train an adaptive model, we could run into severe difficulties due to the small proportion of those in the cancer class. For instance, a classifier that assigned every point to the normal class would achieve 99.9% accuracy, and it may be difficult to avoid this trivial solution. Also, even a large data set will contain very few examples of skin images corresponding to cancer, and so the learning algorithm will not be exposed to a broad range of examples of such images and hence is not likely to generalize well.",
+      "annotationComment": "",
+      "annotationColor": "#ffd400",
+      "annotationPageLabel": "146",
+      "annotationSortIndex": "00164|000040|00069",
+      "annotationPosition": "{\"pageIndex\":164,\"rects\":[[146.902,641.776,473.003,650.846],[146.902,629.821,473.003,638.891],[146.902,617.865,473.003,626.935],[146.902,605.91,473.003,614.98],[146.902,593.955,473.003,603.025],[146.902,582,473.003,591.07],[146.902,570.045,442.29,579.115]]}",
+      "tags": [],
+      "relations": {},
+      "dateAdded": "2026-07-09T12:33:06Z",
+      "dateModified": "2026-07-09T12:33:06Z"
+    }
+  },
+  {
+    "key": "8QYTD4NN",
+    "version": 2880,
+    "meta": {
+      "creatorSummary": "Surawicz et al.",
+      "parsedDate": "2008",
+      "numChildren": 1
+    },
+    "data": {
+      "key": "8QYTD4NN",
+      "version": 2880,
+      "itemType": "book",
+      "title": "Chou's electrocardiography in clinical practice: adult and pediatric",
+      "abstractNote": "Widely considered the optimal electrocardiography reference for practicing physicians, and consistently rated as the best choice on the subject for board preparation, a source for learning the fundamental principles and clinical applications of ECG. This editon captures the latest knowledge in the field, including expanded and updated discussions of pediatric rhythm problems, pacemakers, stress testing, implantable cardiodefibrillator devices, and much more",
+      "date": "2008",
+      "shortTitle": "Chou's electrocardiography in clinical practice",
+      "language": "en",
+      "libraryCatalog": "BnF ISBN",
+      "callNumber": "616.120 7547",
+      "publisher": "Saunders/Elsevier",
+      "place": "Philadelphia, PA",
+      "ISBN": "978-1-4160-3774-3",
+      "edition": "6th ed",
+      "creators": [
+        {
+          "firstName": "Borys",
+          "lastName": "Surawicz",
+          "creatorType": "author"
+        },
+        {
+          "firstName": "Timothy K.",
+          "lastName": "Knilans",
+          "creatorType": "author"
+        },
+        {
+          "firstName": "Te-Chuan",
+          "lastName": "Chou",
+          "creatorType": "author"
+        }
+      ],
+      "tags": [
+        {
+          "tag": "electrocardiography"
+        },
+        {
+          "tag": "textbook"
+        }
+      ],
+      "collections": [
+        "ZV7DG2X6",
+        "U33CVINM"
+      ],
+      "relations": {},
+      "dateAdded": "2026-05-23T22:26:27Z",
+      "dateModified": "2026-05-23T22:26:27Z"
+    }
+  },
+  {
+    "key": "T9SSDYGS",
+    "version": 2917,
+    "meta": {
+      "numChildren": 0
+    },
+    "data": {
+      "key": "T9SSDYGS",
+      "version": 2917,
+      "itemType": "attachment",
+      "title": "PDF",
+      "parentItem": "8QYTD4NN",
+      "linkMode": "imported_file",
+      "contentType": "application/pdf",
+      "charset": "",
+      "filename": "Surawicz et al. - 2008 - Chou's electrocardiography in clinical practice adult and pediatric.pdf",
+      "mtime": 1779575187304,
+      "md5": "cb476834a38f963a1b45dadb016e9a00",
+      "tags": [],
+      "relations": {},
+      "dateAdded": "2026-05-23T22:26:27Z",
+      "dateModified": "2026-05-23T22:26:27Z"
+    },
+    "links": {
+      "enclosure": {
+        "href": "file:///Users/ahmed/Zotero/storage/T9SSDYGS/Surawicz%20et%20al.%20-%202008%20-%20Chou's%20electrocardiography%20in%20clinical%20practice%20adult%20and%20pediatric.pdf",
+        "type": "application/pdf",
+        "title": "Surawicz et al. - 2008 - Chou's electrocardiography in clinical practice adult and pediatric.pdf",
+        "length": 63503782
+      }
+    }
+  },
+  {
+    "key": "GR3TFQTM",
+    "version": 2687,
+    "meta": {
+      "numChildren": 0
+    },
+    "data": {
+      "key": "GR3TFQTM",
+      "version": 2687,
+      "itemType": "note",
+      "note": "<div data-schema-version=\"9\"><p><span style=\"color: var(--theme-user-msg-text)\"><span style=\"background-color: var(--theme-user-msg-bg)\">name the the top literature reviews of preeclampsia prediction using ML and DL</span></span></p>\n<hr>\n<p><span style=\"color: var(--tw-prose-body)\">I\u2019m pulling together the strongest review papers specifically on machine learning and deep learning for preeclampsia prediction, prioritizing systematic reviews and recent survey-style papers with clear scope and publication details.</span></p>\n<p><span style=\"color: var(--tw-prose-body)\">The field has a few papers that are genuinely review-focused and a larger pile of primary studies dressed up as overviews. I\u2019m narrowing it to the reviews that actually synthesize methods, predictors, and evidence quality.</span></p>\n<p><span style=\"color: var(--interactive-label-tertiary-default)\"><span style=\"background-color: rgba(0, 0, 0, 0)\">Thought for 21s</span></span></p>\n<p><span style=\"color: var(--tw-prose-body)\">The strongest review papers in this niche are these five.</span></p>\n<ol>\n<li>\n<strong><span style=\"color: var(--tw-prose-bold)\">Ranjbar et al., \u201cMachine learning models for predicting preeclampsia: a systematic review.\u201d</span></strong>&nbsp;This is the one I would put at the top. It is a formal systematic review, it focuses tightly on preeclampsia prediction, and it summarizes predictive factors plus model accuracy across the ML literature. It appeared in 2023 in&nbsp;<em>BMJ Open</em>&nbsp;and is also indexed in PubMed and BMC Pregnancy and Childbirth records.&nbsp;\n</li>\n<li>\n<strong><span style=\"color: var(--tw-prose-bold)\">\u00d6zcan and Peker, \u201cPreeclampsia prediction via machine learning: a systematic literature review.\u201d</span></strong>This is one of the clearest broad syntheses of the ML prediction literature. It reviews studies from 2013 onward and points out a real weakness in the field: many papers rely on small, single-center datasets and narrow geographic coverage.&nbsp;\n</li>\n<li>\n<strong><span style=\"color: var(--tw-prose-bold)\">Aljameel et al., \u201cPrediction of Preeclampsia Using Machine Learning and Deep Learning Models: A Review.\u201d</span></strong>&nbsp;This is the most directly relevant paper if you specifically want both&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">ML and DL</span></strong>&nbsp;in the title and scope. It reviews studies published from 2018 to 2022, explicitly discusses deep learning papers, and summarizes commonly used methods such as random forest, SVM, and ANN.&nbsp;\n</li>\n<li>\n<strong><span style=\"color: var(--tw-prose-bold)\">Liu et al., \u201cMachine Learning Prediction Models for Preeclampsia.\u201d</span></strong>&nbsp;This 2026 paper is the newest major evidence synthesis I found, and it is a&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">systematic review and meta-analysis</span></strong>, which gives it extra weight. Its stated goal is to evaluate model performance and clinical application value while dealing with heterogeneity in the literature.&nbsp;\n</li>\n<li>\n<strong><span style=\"color: var(--tw-prose-bold)\">Hennessy et al., \u201cMachine learning, advanced data analysis, and a role in pregnancy care? How can we help improve preeclampsia outcomes?\u201d</span></strong>&nbsp;This is less of a hard-nosed evidence synthesis than the papers above, yet it is still a useful review article because it frames how ML is being used in pregnancy and preeclampsia care, and it is valuable for understanding the clinical translation problem.&nbsp;\n</li>\n</ol>\n<p><span style=\"color: var(--tw-prose-body)\">If you want the cleanest ranking by rigor and usefulness for academic work, I would order them like this:&nbsp;</span><strong><span style=\"color: var(--tw-prose-bold)\">Ranjbar 2023</span></strong>,&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">Liu 2026</span></strong>,&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">\u00d6zcan 2024</span></strong>,&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">Aljameel 2023</span></strong>,&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">Hennessy 2024</span></strong>. That ranking puts systematic reviews and meta-analytic work first, then the best broad surveys, then the more narrative clinical overview.&nbsp;</p>\n<p><span style=\"color: var(--tw-prose-body)\">A blunt truth about this area: there are still very few genuinely high-quality reviews focused specifically on&nbsp;</span><strong><span style=\"color: var(--tw-prose-bold)\">deep learning</span></strong>&nbsp;for preeclampsia prediction. Most of the stronger papers are really&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">ML-first reviews</span></strong>&nbsp;that include some DL studies, rather than deep-learning-centered reviews built on a large mature literature.</p>\n<hr>\n<p><span style=\"color: var(--theme-user-msg-text)\"><span style=\"background-color: var(--theme-user-msg-bg)\">name the top literature reviews of ECG classification using ML and DL</span></span></p>\n<hr>\n<p><span style=\"color: var(--tw-prose-body)\">I\u2019m filtering for actual review papers on ECG classification with machine learning and deep learning, and I\u2019m weighting systematic reviews and surveys that are heavily used in the field.</span></p>\n<p><span style=\"color: var(--interactive-label-tertiary-default)\"><span style=\"background-color: rgba(0, 0, 0, 0)\">Thought for 6s</span></span></p>\n<p><span style=\"color: var(--tw-prose-body)\">The top review papers on ECG classification using machine learning and deep learning are these.</span></p>\n<p><strong><span style=\"color: var(--tw-prose-bold)\">1. Xiao et al., \u201cDeep Learning-Based ECG Arrhythmia Classification: A Systematic Review.\u201d</span></strong>&nbsp;This is one of the strongest and most useful reviews in the area. It is tightly focused on ECG arrhythmia classification, reviews 368 studies, and organizes the field by databases, preprocessing, model families, evaluation setups, metrics, and code availability. That makes it one of the clearest map-of-the-field papers for DL-based ECG classification.&nbsp;</p>\n<p><strong><span style=\"color: var(--tw-prose-bold)\">2. Ebrahimi et al., \u201cA review on deep learning methods for ECG arrhythmia classification.\u201d</span></strong>&nbsp;This is an earlier landmark survey and still one of the most cited broad reviews in the subject. It is valuable because it pulled together the early wave of deep learning work on ECG classification and helped define the common architectures and workflow patterns used afterward.&nbsp;</p>\n<p><strong><span style=\"color: var(--tw-prose-bold)\">3. Prakash et al., \u201cAdvances in machine and deep learning for ECG beat classification: a systematic review.\u201d</span></strong>&nbsp;This is one of the best choices when you specifically want both&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">ML and DL</span></strong>&nbsp;in scope rather than a DL-only paper. It is a recent systematic review centered on ECG beat classification and emphasizes current trends, dataset limitations, and the need for standardized, clinically usable pipelines.&nbsp;</p>\n<p><strong><span style=\"color: var(--tw-prose-bold)\">4. Petmezas et al., \u201cState-of-the-Art Deep Learning Methods on Electrocardiogram Data: Systematic Review.\u201d</span></strong>&nbsp;This review is broader than arrhythmia classification alone, since it covers multiple ECG clinical tasks, yet it is still one of the stronger synthesis papers for understanding how deep learning methods are used on ECG data at scale. It is useful when you want ECG classification placed inside the larger ECG-analysis landscape.&nbsp;</p>\n<p><strong><span style=\"color: var(--tw-prose-bold)\">5. Ansari et al., \u201cDeep learning for ECG Arrhythmia detection and classification: an overview of progress for period 2017\u20132023.\u201d</span></strong>&nbsp;This is a substantial survey focused on arrhythmia detection and classification, with emphasis on architectures and technical trends across the modern DL period. It is especially useful for readers trying to understand how CNN, RNN, hybrid, and transformer-style approaches evolved in the literature.&nbsp;</p>\n<p><span style=\"color: var(--tw-prose-body)\">If the goal is a blunt ranking by usefulness for research, I would put them in this order:&nbsp;</span><strong><span style=\"color: var(--tw-prose-bold)\">Xiao 2023</span></strong>,&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">Prakash 2025</span></strong>,&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">Ebrahimi 2020</span></strong>,&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">Petmezas 2022</span></strong>,&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">Ansari 2023</span></strong>. That ranking gives priority to reviews that are systematic, directly centered on ECG classification, and broad enough to synthesize datasets, preprocessing, architectures, and evaluation quality in one place.&nbsp;</p>\n<p><span style=\"color: var(--tw-prose-body)\">A hard truth about this literature is that many papers labeled as \u201cECG classification reviews\u201d are actually narrow arrhythmia-review papers, and many of the stronger ones are&nbsp;</span><strong><span style=\"color: var(--tw-prose-bold)\">deep-learning-heavy</span></strong>&nbsp;rather than balanced treatments of both classical machine learning and deep learning. The Prakash 2025 review stands out precisely because it more clearly spans both ML and DL.&nbsp;</p>\n<hr>\n<p><span style=\"color: var(--theme-user-msg-text)\"><span style=\"background-color: var(--theme-user-msg-bg)\">what about ones specifically regarding transformers</span></span></p>\n<hr>\n<p><span style=\"color: var(--tw-prose-body)\">I found a key pattern: there are very few reviews focused only on transformers for ECG classification. The strongest material is one dedicated transformer survey plus a handful of broader ECG-review papers that include transformer sections and taxonomy.</span></p>\n<p><span style=\"color: var(--interactive-label-tertiary-default)\"><span style=\"background-color: rgba(0, 0, 0, 0)\">Thought for 8s</span></span></p>\n<p><span style=\"color: var(--tw-prose-body)\">For ECG classification specifically regarding transformers, the field is still thin on pure review papers. The strongest dedicated review is this one.</span></p>\n<p><strong><span style=\"color: var(--tw-prose-bold)\">1. Ansari et al., \u201cA survey of transformers and large language models for ECG signal processing and interpretation.\u201d</span></strong>&nbsp;This is the clearest top pick for transformer-focused ECG review literature. It is a 2025 survey in&nbsp;<em>Artificial Intelligence Review</em>&nbsp;that explicitly covers transformer architectures for ECG tasks, including diagnosis and classification, and it compares transformer and LLM approaches across categories while discussing embedding design, architectural limits, and transparency issues.&nbsp;</p>\n<p><span style=\"color: var(--tw-prose-body)\">After that, the best papers are broader ECG review articles that include transformer-based classification as a substantial part of the map rather than the sole focus.</span></p>\n<p><strong><span style=\"color: var(--tw-prose-bold)\">2. Gupta et al., \u201cA comprehensive review on efficient artificial intelligence approaches for electrocardiogram-based cardiac rhythm classification.\u201d</span></strong>&nbsp;This 2024 review is one of the better broad syntheses for rhythm classification, and it explicitly discusses current state-of-the-art AI models plus upcoming modeling methods relevant to real-time deployment. It is useful for transformer work because it places transformer-style methods inside the practical ECG classification pipeline rather than treating them as isolated model novelties.&nbsp;</p>\n<p><strong><span style=\"color: var(--tw-prose-bold)\">3. Xiao et al., \u201cDeep Learning-Based ECG Arrhythmia Classification: A Systematic Review.\u201d</span></strong>&nbsp;This is still one of the strongest overall ECG-classification reviews. Its main value for transformer-focused reading is that it gives a rigorous systematic framework for datasets, preprocessing, task setups, metrics, and model families, which lets you situate transformer papers inside the larger arrhythmia-classification literature.&nbsp;</p>\n<p><strong><span style=\"color: var(--tw-prose-bold)\">4. Velandia et al., \u201cSystematic Review of Artificial Intelligence and Electrocardiography for Detecting and Predicting Cardiovascular Diseases.\u201d</span></strong>&nbsp;This 2025 systematic review is wider than classification alone, yet it is useful because it synthesizes recent AI methods for ECG analysis across cardiovascular tasks. For a transformer reader, it helps show how classification papers sit inside the broader diagnostic ecosystem and where transformer-based models are entering the literature.&nbsp;</p>\n<p><strong><span style=\"color: var(--tw-prose-bold)\">5. Wu et al., \u201cDeep learning and electrocardiography: systematic review of applications in cardiovascular disease diagnosis.\u201d</span></strong>&nbsp;This 2025 systematic review is again broader than arrhythmia classification, though still valuable because it surveys recent deep-learning ECG applications across cardiovascular diagnosis. It is useful for transformer-specific work when you want a broader clinical and technical synthesis rather than a paper limited to rhythm labels.&nbsp;</p>\n<p><span style=\"color: var(--tw-prose-body)\">The blunt answer is that&nbsp;</span><strong><span style=\"color: var(--tw-prose-bold)\">there is really only one major review centered on transformers for ECG tasks</span></strong>that stands out right now:&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">Ansari 2025</span></strong>. The rest of the useful literature is mostly broader ECG AI or DL review work that contains transformer subsections, references, or taxonomy rather than being transformer-only surveys.&nbsp;</p>\n<p><span style=\"color: var(--tw-prose-body)\">If you want the strongest ranking for this exact niche, I would order them as:&nbsp;</span><strong><span style=\"color: var(--tw-prose-bold)\">Ansari 2025</span></strong>,&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">Gupta 2024</span></strong>,&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">Xiao 2023</span></strong>,&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">Velandia 2025</span></strong>,&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">Wu 2025</span></strong>. That ranking reflects how directly each paper helps with transformer-based ECG classification rather than ECG AI in general.&nbsp;</p>\n<hr>\n<p><span style=\"color: var(--theme-user-msg-text)\"><span style=\"background-color: var(--theme-user-msg-bg)\">name the the top literature reviews of multiclass timeseries classification using ML and DL</span></span></p>\n<hr>\n<p><span style=\"color: var(--tw-prose-body)\">I\u2019m narrowing this to real review papers on multiclass time-series classification, with weight on surveys that cover both classical machine learning and deep learning rather than single-method overviews.</span></p>\n<p><span style=\"color: var(--interactive-label-tertiary-default)\"><span style=\"background-color: rgba(0, 0, 0, 0)\">Thought for 16s</span></span></p>\n<p><span style=\"color: var(--tw-prose-body)\">The top literature reviews for&nbsp;</span><strong><span style=\"color: var(--tw-prose-bold)\">multiclass time-series classification using machine learning and deep learning</span></strong>&nbsp;are these.</p>\n<p><strong><span style=\"color: var(--tw-prose-bold)\">1. Fawaz et al., \u201cDeep learning for time series classification: a review.\u201d</span></strong>&nbsp;This is still the anchor review in the field. It is the most widely recognized survey focused directly on time-series classification, and it covers the major deep learning families for TSC while also grounding them against the broader classification landscape. It explicitly includes evaluation on both univariate and multivariate datasets, which matters for real multiclass work.&nbsp;</p>\n<p><strong><span style=\"color: var(--tw-prose-bold)\">2. Mohammadi Foumani et al., \u201cDeep Learning for Time Series Classification and Extrinsic Regression.\u201d</span></strong>&nbsp;This 2024 survey is one of the strongest newer references. It reviews the state of the art in deep learning for time-series classification and is especially useful for current architectures and trends, including multivariate settings. It is one of the best modern follow-ons to Fawaz et al.&nbsp;</p>\n<p><strong><span style=\"color: var(--tw-prose-bold)\">3. Jeong et al., \u201cA holistic survey of deep learning for time series classification.\u201d</span></strong>&nbsp;This 2026 survey is one of the most comprehensive recent classification-centered reviews. It covers the full TSC pipeline and explicitly spans CNNs, RNNs, Transformers, GNNs, hybrid models, self-supervised learning, and interpretability, which makes it a strong current map of multiclass TSC research.&nbsp;</p>\n<p><strong><span style=\"color: var(--tw-prose-bold)\">4. Bagnall et al., \u201cThe great time series classification bake off: a review and experimental evaluation of recent algorithmic advances.\u201d</span></strong>&nbsp;This is an older paper, though it remains foundational for the&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">machine-learning side</span></strong>&nbsp;of time-series classification. It is not a survey in the loose narrative sense; it is a review plus a large experimental comparison of algorithmic families, and it shaped how classical TSC methods are judged. For multiclass TSC, this paper is still one of the core references on non-DL methods.&nbsp;</p>\n<p><strong><span style=\"color: var(--tw-prose-bold)\">5. Wang et al., \u201cA Systematic Review of Time Series Classification Techniques Used in Biomedical Applications.\u201d</span></strong>&nbsp;This review is domain-specific, though it is still valuable because it systematically surveys time-series classification methods in biomedical settings, where multiclass sequence labeling is common. Its key value is that it concentrates on&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">non-deep-learning</span></strong>&nbsp;approaches and gives a clear picture of feature-engineering pipelines plus standard ML classifiers such as SVM and random forest.&nbsp;</p>\n<p><span style=\"color: var(--tw-prose-body)\">If you want the strongest ranking by overall usefulness, I would order them like this:&nbsp;</span><strong><span style=\"color: var(--tw-prose-bold)\">Fawaz et al.</span></strong>,&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">Mohammadi Foumani et al.</span></strong>,&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">Jeong et al.</span></strong>,&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">Bagnall et al.</span></strong>,&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">Wang et al.</span></strong>&nbsp;</p>\n<p><span style=\"color: var(--tw-prose-body)\">A blunt truth about this area is that the literature usually says&nbsp;</span><strong><span style=\"color: var(--tw-prose-bold)\">time-series classification</span></strong>&nbsp;rather than&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">multiclass time-series classification</span></strong>&nbsp;in the title. The major reviews above still cover multiclass settings because benchmark archives and application datasets in TSC routinely include multiple classes, including multivariate datasets.&nbsp;</p>\n<hr>\n<p><span style=\"color: var(--theme-user-msg-text)\"><span style=\"background-color: var(--theme-user-msg-bg)\">what about ones specifically regarding transformers</span></span></p>\n<hr>\n<p><span style=\"color: var(--interactive-label-tertiary-default)\"><span style=\"background-color: rgba(0, 0, 0, 0)\">Thought for 5s</span></span></p>\n<p><span style=\"color: var(--tw-prose-body)\">For transformer-specific reviews on multiclass time-series classification, the strongest papers are mostly&nbsp;</span><strong><span style=\"color: var(--tw-prose-bold)\">broad time-series transformer surveys</span></strong>&nbsp;that include classification as a major task, plus one strong TSC-focused deep-learning survey that explicitly covers transformers.</p>\n<p><span style=\"color: var(--tw-prose-body)\">The top one is&nbsp;</span><strong><span style=\"color: var(--tw-prose-bold)\">Wen et al., \u201cTransformers in Time Series: A Survey.\u201d</span></strong>&nbsp;This is the most established transformer survey in the time-series field. It covers transformer designs across time-series tasks and explicitly includes classification among the core applications, with discussion of task formulations, architectural variants, and benchmark usage. It is also heavily cited, which reflects how central it has become in the literature.&nbsp;</p>\n<p><span style=\"color: var(--tw-prose-body)\">The next strongest review for your exact niche is&nbsp;</span><strong><span style=\"color: var(--tw-prose-bold)\">Jeong et al., \u201cA holistic survey of deep learning for time series classification.\u201d</span></strong>&nbsp;This is not transformer-only, though it is one of the best current reviews for multiclass time-series classification because it explicitly spans CNNs, RNNs, Transformers, GNNs, hybrid models, self-supervised learning, and interpretability inside the TSC setting. That makes it one of the best places to understand transformers in the direct context of classification rather than forecasting or anomaly detection.&nbsp;</p>\n<p><span style=\"color: var(--tw-prose-body)\">Another important newer reference is&nbsp;</span><strong><span style=\"color: var(--tw-prose-bold)\">Wang et al., \u201cDeep Time Series Models: A Comprehensive Survey and Benchmark.\u201d</span></strong>&nbsp;This survey is broader than classification alone, but it reviews deep time-series model architectures from a design perspective and is useful for understanding where transformer models fit across time-series tasks, including classification pipelines. Its value is that it frames transformer-based classifiers as part of the wider deep time-series model ecosystem.&nbsp;</p>\n<p><span style=\"color: var(--tw-prose-body)\">A useful adjacent paper is&nbsp;</span><strong><span style=\"color: var(--tw-prose-bold)\">\u201cA comprehensive review of time series classification\u201d</span></strong>&nbsp;from 2026. Based on the indexed description, it is a classification-centered review and appears to discuss newer architectures including multimodal and modern deep-learning approaches relevant to TSC. It looks promising for transformer-related multiclass classification, though from the search snippet alone I cannot verify its full internal coverage in the same detail as the papers above.&nbsp;</p>\n<p><span style=\"color: var(--tw-prose-body)\">A modern supporting reference is&nbsp;</span><strong><span style=\"color: var(--tw-prose-bold)\">\u201cDeep Learning for Time Series Classification and Extrinsic Regression.\u201d</span></strong>&nbsp;This is not transformer-only, but it is one of the strongest recent deep-learning surveys for TSC and is useful because it surveys the contemporary state of the art in time-series classification, where transformer-based models are now part of the mainstream architecture set.&nbsp;</p>\n<p><span style=\"color: var(--tw-prose-body)\">If I rank them for transformer-focused multiclass TSC, the order is:&nbsp;</span><strong><span style=\"color: var(--tw-prose-bold)\">Wen et al.</span></strong>,&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">Jeong et al.</span></strong>,&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">Wang et al.</span></strong>,&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">the 2026 comprehensive TSC review</span></strong>,&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">Mohammadi Foumani et al.</span></strong>&nbsp;</p>\n<p><span style=\"color: var(--tw-prose-body)\">The blunt reality is that there are still very few review papers devoted only to&nbsp;</span><strong><span style=\"color: var(--tw-prose-bold)\">transformers for time-series classification</span></strong>. The literature is dominated by broader&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">time-series transformer surveys</span></strong>&nbsp;and broader&nbsp;<strong><span style=\"color: var(--tw-prose-bold)\">deep-learning-for-TSC surveys</span></strong>, with classification treated as one major task inside a larger map of time-series learning.&nbsp;</p>\n<p></p>\n</div>",
+      "tags": [],
+      "collections": [
+        "ZV7DG2X6"
+      ],
+      "relations": {},
+      "dateAdded": "2026-05-23T22:26:04Z",
+      "dateModified": "2026-05-23T22:26:04Z"
+    }
+  }
+]
