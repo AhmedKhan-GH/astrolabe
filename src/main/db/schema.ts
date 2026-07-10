@@ -150,6 +150,32 @@ export const virtualCollectionMembers = sqliteTable(
   ],
 )
 
+/**
+ * Human wiki-link edges (docs/2026-07-10 notes wave §Links). One row per (obsidian instance,
+ * link target). `targetName` is the raw wiki-link text (before `|`/`#`); `targetDocumentId` is
+ * the resolved document, recomputed wholesale each pass by `resolveLinks` — SET NULL when the
+ * target is renamed/removed/ambiguous. Rows are owned by the SOURCE instance (CASCADE), so a
+ * note leaving the index drops its outlinks.
+ */
+export const links = sqliteTable(
+  'links',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    sourceInstanceId: integer('source_instance_id')
+      .notNull()
+      .references(() => documentInstances.id, { onDelete: 'cascade' }),
+    targetName: text('target_name').notNull(),
+    targetDocumentId: integer('target_document_id').references(() => documents.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (t) => [
+    unique('links_source_target_uq').on(t.sourceInstanceId, t.targetName),
+    index('links_target_document_idx').on(t.targetDocumentId),
+  ],
+)
+export type Link = typeof links.$inferSelect
+
 /** Zotero highlights/notes (and later any source's annotations), page-anchored. */
 export const annotations = sqliteTable(
   'annotations',

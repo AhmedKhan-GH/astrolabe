@@ -17,10 +17,13 @@ import {
 } from './selection'
 import { toStoredFilter, resolveStoredFilter, selectionFromFilterSet } from './viewRefs'
 import { CanvasView } from './CanvasView'
+import { NoteView, type NoteNavTarget } from './NoteView'
 import { canvasCandidates, type CanvasHostHit } from './canvas'
 import { usePdfDocument } from './pdf/usePdfDocument'
 import { rewriteOpenPdfPage } from './pdf/heat'
 import type {
+  BrowseInstance,
+  DocumentLinks,
   LensSelection,
   NavData,
   NavNode,
@@ -28,6 +31,22 @@ import type {
   SavedView,
   VCollectionSummary,
 } from './types'
+
+const EMPTY_LINKS: DocumentLinks = { outlinks: [], backlinks: [] }
+
+/** A note the NoteHost opens; uri/tags are absent for notes reached by following a link. */
+interface NoteRef extends NoteNavTarget {
+  uri?: string
+  tags?: string[]
+}
+
+/** The minimal hit shape openNote needs — satisfied by a BrowseHit and a search ResultData. */
+interface NoteSource {
+  documentId: number
+  title: string
+  tags: string[]
+  instances: BrowseInstance[]
+}
 
 const EMPTY_NAV: NavData = { kinds: [], sources: [], tags: [], virtualCollections: [], presence: [] }
 
@@ -91,10 +110,71 @@ function CanvasHost({ hit, onClose }: { hit: CanvasHostHit; onClose: () => void 
   )
 }
 
+/**
+ * Owns the markdown fetch (`astro://doc/<instanceId>`) + links query for one open note, so
+ * NoteView stays a pure, fully-testable component. Keyed by instanceId in Lens, so following
+ * a wiki link / backlink remounts it with fresh queries for the navigated-to note.
+ */
+function NoteHost({
+  note,
+  onNavigate,
+  onClose,
+}: {
+  note: NoteRef
+  onNavigate: (target: NoteNavTarget) => void
+  onClose: () => void
+}) {
+  const md = useQuery({
+    queryKey: ['noteMd', note.instanceId],
+    queryFn: async () => {
+      const r = await fetch(`astro://doc/${note.instanceId}`)
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      return r.text()
+    },
+  })
+  const links = useQuery<DocumentLinks>({
+    queryKey: ['links', note.documentId],
+    queryFn: () => window.astrolabe.index.links(note.documentId),
+  })
+  return (
+    <NoteView
+      title={note.title}
+      content={md.data ?? ''}
+      tags={note.tags}
+      uri={note.uri}
+      links={links.data ?? EMPTY_LINKS}
+      loading={md.isPending}
+      error={md.isError ? String(md.error) : undefined}
+      onNavigate={onNavigate}
+      onOpenUri={(uri) => void window.astrolabe.system.openUri(uri)}
+      onClose={onClose}
+    />
+  )
+}
+
 export function Lens() {
   const [q, setQ] = useState('')
   const [selection, setSelection] = useState<LensSelection>(emptySelection())
   const [canvasFor, setCanvasFor] = useState<CanvasHostHit | null>(null)
+  // Canvas, Note, (and future Hub) share one mutually-exclusive panel slot: opening one
+  // closes the other.
+  const [noteFor, setNoteFor] = useState<NoteRef | null>(null)
+  const openCanvas = (hit: CanvasHostHit): void => {
+    setNoteFor(null)
+    setCanvasFor(hit)
+  }
+  const openNote = (hit: NoteSource): void => {
+    const inst = hit.instances.find((i) => i.sourceKey === 'obsidian' && i.filePath !== null)
+    if (!inst) return
+    setCanvasFor(null)
+    setNoteFor({
+      documentId: hit.documentId,
+      instanceId: inst.instanceId,
+      title: hit.title,
+      uri: inst.uri,
+      tags: hit.tags,
+    })
+  }
   // The slug of the currently-applied saved view, cleared on any manual edit so the
   // rail highlight never lies about whether the live lens still matches the view.
   const [appliedViewSlug, setAppliedViewSlug] = useState<string | null>(null)
@@ -401,7 +481,8 @@ export function Lens() {
                     onOpenUri={(uri) => void window.astrolabe.system.openUri(uri)}
                     onOpenFile={(p) => void window.astrolabe.system.openPath(p)}
                     onReveal={(p) => void window.astrolabe.system.reveal(p)}
-                    onOpenCanvas={setCanvasFor}
+                    onOpenCanvas={openCanvas}
+                    onOpenNote={openNote}
                   />
                 ))}
               </ul>
@@ -412,7 +493,8 @@ export function Lens() {
               collections={vcollections.data ?? []}
               onToggleMembership={onToggleMembership}
               onCreateAndAdd={(documentId, name) => createAndAdd.mutate({ documentId, name })}
-              onOpenCanvas={setCanvasFor}
+              onOpenCanvas={openCanvas}
+              onOpenNote={openNote}
               onSync={() => sync.mutate()}
             />
           )}
@@ -421,6 +503,14 @@ export function Lens() {
 
       {canvasFor && (
         <CanvasHost key={canvasFor.documentId} hit={canvasFor} onClose={() => setCanvasFor(null)} />
+      )}
+      {noteFor && (
+        <NoteHost
+          key={noteFor.instanceId}
+          note={noteFor}
+          onNavigate={(target) => setNoteFor(target)}
+          onClose={() => setNoteFor(null)}
+        />
       )}
     </div>
   )

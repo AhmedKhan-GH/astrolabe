@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import {
   DB_CHANNEL,
   INDEX_BROWSE_CHANNEL,
+  INDEX_LINKS_CHANNEL,
   INDEX_NAV_CHANNEL,
   INDEX_PAGE_ANNOTATIONS_CHANNEL,
   INDEX_REBUILD_CHANNEL,
@@ -32,6 +33,7 @@ import type {
   SourceSummary,
 } from '../main/index/queries'
 import type { SyncReport } from '../main/index/sync'
+import type { DocumentLinks } from '../main/index/links'
 import type { AccessProbeResult } from '../main/system/access'
 import type { SourceKey } from '../main/connectors/types'
 import type { SavedView, SaveViewRequest } from '../main/lib/views'
@@ -79,6 +81,8 @@ const api = {
     nav: (): Promise<NavData> => ipcRenderer.invoke(INDEX_NAV_CHANNEL),
     pageAnnotations: (documentId: number): Promise<PageAnnotations> =>
       ipcRenderer.invoke(INDEX_PAGE_ANNOTATIONS_CHANNEL, { documentId }),
+    links: (documentId: number): Promise<DocumentLinks> =>
+      ipcRenderer.invoke(INDEX_LINKS_CHANNEL, { documentId }),
     sync: (): Promise<SyncReport[]> => ipcRenderer.invoke(INDEX_SYNC_CHANNEL),
     rebuild: (): Promise<SyncReport[]> => ipcRenderer.invoke(INDEX_REBUILD_CHANNEL),
     sources: (): Promise<SourceSummary[]> => ipcRenderer.invoke(INDEX_SOURCES_CHANNEL),

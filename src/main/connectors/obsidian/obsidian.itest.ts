@@ -3,7 +3,9 @@ import { cpSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
+import { and, asc, eq } from 'drizzle-orm'
 import { openDb, type DbHandle } from '../../db'
+import * as s from '../../db/schema'
 import { createUpsertApi, type UpsertApi } from '../../index/upsert'
 import { createIndexQueries, type IndexQueries } from '../../index/queries'
 import type { SyncContext } from '../types'
@@ -72,16 +74,49 @@ describe('obsidian scan — notes land as documents', () => {
     expect(queries.search({ q: 'deleted' })).toHaveLength(0)
   })
 
-  it('exposes note kind + obsidian:// provenance uri (vault name + %2F path)', async () => {
+  it('exposes note kind + obsidian://open?path= provenance uri (encoded absolute path)', async () => {
     await createObsidianConnector({ vaultPath }).scan(ctx(null))
 
     const hits = queries.search({ q: 'Reading List' }) // wikilinks.md frontmatter title
     expect(hits).toHaveLength(1)
     expect(hits[0]?.kind).toBe('note')
-    expect(hits[0]?.instances[0]?.uri).toBe('obsidian://open?vault=MyVault&file=wikilinks')
+    // The path= form (encoded ABSOLUTE file path) — verified working against the live vault;
+    // per Obsidian's URI docs `path` overrides vault+file (the old vault=+file= form broke on
+    // nested notes).
+    expect(hits[0]?.instances[0]?.uri).toBe(
+      `obsidian://open?path=${encodeURIComponent(join(vaultPath, 'wikilinks.md'))}`,
+    )
 
     const nested = queries.search({ q: 'recursive vault walking' })
-    expect(nested[0]?.instances[0]?.uri).toBe('obsidian://open?vault=MyVault&file=projects%2Fnested-note')
+    expect(nested[0]?.instances[0]?.uri).toBe(
+      `obsidian://open?path=${encodeURIComponent(join(vaultPath, 'projects/nested-note.md'))}`,
+    )
+  })
+
+  it('emits link rows for every wiki-link target, deduped, in note order (ORDER BY id)', async () => {
+    await createObsidianConnector({ vaultPath }).scan(ctx(null))
+
+    const src = handle.db.select().from(s.sources).where(eq(s.sources.key, 'obsidian')).get()!
+    const instance = handle.db
+      .select()
+      .from(s.documentInstances)
+      .where(and(eq(s.documentInstances.sourceId, src.id), eq(s.documentInstances.externalKey, 'wikilinks.md')))
+      .get()!
+    const rows = handle.db
+      .select({ targetName: s.links.targetName, targetDocumentId: s.links.targetDocumentId })
+      .from(s.links)
+      .where(eq(s.links.sourceInstanceId, instance.id))
+      .orderBy(asc(s.links.id))
+      .all()
+    // wikilinks.md: alias + heading refs strip to the bare target; the ![[embed]] counts; the
+    // second [[Deep Learning]] mention does not duplicate. Rows land unresolved (NULL) — the
+    // resolveLinks re-pass is the resolver, not the connector.
+    expect(rows).toEqual([
+      { targetName: 'Deep Learning', targetDocumentId: null },
+      { targetName: 'Attention Is All You Need', targetDocumentId: null },
+      { targetName: 'Neural Networks', targetDocumentId: null },
+      { targetName: 'architecture-diagram.png', targetDocumentId: null },
+    ])
   })
 
   it('makes note BODY searchable via FTS (the annotation→body deviation)', async () => {
@@ -131,7 +166,9 @@ describe('obsidian scan — incremental watermark', () => {
 
     // Still exactly one note document for that path (no duplicate instance).
     expect(rewritten[0]?.instances).toHaveLength(1)
-    expect(rewritten[0]?.instances[0]?.uri).toBe('obsidian://open?vault=MyVault&file=no-frontmatter')
+    expect(rewritten[0]?.instances[0]?.uri).toBe(
+      `obsidian://open?path=${encodeURIComponent(join(vaultPath, 'no-frontmatter.md'))}`,
+    )
   })
 })
 

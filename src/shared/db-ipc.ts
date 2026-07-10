@@ -18,9 +18,16 @@ export const INDEX_NAV_CHANNEL = 'index:nav'
 // counts for one document — a join + json_extract aggregation, so a named channel too. The
 // request schema lives with the query module (queries.ts), like search/browse.
 export const INDEX_PAGE_ANNOTATIONS_CHANNEL = 'index:page-annotations'
+// Notes wave (docs/2026-07-10 notes wave §Links): one document's wiki-link neighborhood —
+// outlinks + backlinks in one round-trip. A join over the links table, so a named channel.
+export const INDEX_LINKS_CHANNEL = 'index:links'
 
 const row = z.record(z.string(), z.unknown())
 const id = z.number().int().positive()
+
+/** index:links request: the document whose outlinks + backlinks are wanted. */
+export const linksRequestSchema = z.object({ documentId: id })
+export type LinksRequest = z.infer<typeof linksRequestSchema>
 
 export const INDEX_SOURCES_CHANNEL = 'index:sources'
 export const INDEX_STATS_CHANNEL = 'index:stats'

@@ -71,16 +71,15 @@ function buildDocument(args: {
   raw: string
   relPath: string
   filePath: string
-  vaultName: string
   mtime: number
 }): DocumentInput {
-  const { raw, relPath, filePath, vaultName, mtime } = args
+  const { raw, relPath, filePath, mtime } = args
   const parsed = parseNote(raw)
 
-  // obsidian://open wants the vault name and the vault-relative path WITHOUT the .md
-  // extension, URL-encoded (encodeURIComponent turns '/' into %2F, which Obsidian accepts).
-  const relNoMd = relPath.replace(/\.md$/i, '')
-  const uri = `obsidian://open?vault=${encodeURIComponent(vaultName)}&file=${encodeURIComponent(relNoMd)}`
+  // obsidian://open with `path=<absolute file path>`: the absolute-path form overrides
+  // vault+file per Obsidian's URI docs and is verified working against the live vault (the
+  // earlier `vault=`+`file=`+`%2F` form did not open nested notes reliably).
+  const uri = `obsidian://open?path=${encodeURIComponent(filePath)}`
 
   const title = parsed.title ?? basename(relPath).replace(/\.md$/i, '')
   const body = parsed.body.slice(0, BODY_LIMIT)
@@ -95,6 +94,9 @@ function buildDocument(args: {
     metaJson: JSON.stringify({ wikiLinks: parsed.wikiLinks, frontmatterKeys: parsed.frontmatterKeys }),
     modifiedAt: mtime,
     tags: parsed.tags,
+    // Wiki-link targets are now materialized as link edges (persisted by upsert, resolved by
+    // resolveLinks). metaJson keeps its copy unchanged for provenance/debugging.
+    links: parsed.wikiLinks,
     // The note body rides the annotation → FTS body pipeline (spec deviation).
     annotations:
       body.length > 0 ? [{ externalKey: `${relPath}#body`, type: 'note', text: body, modifiedAt: mtime }] : undefined,
@@ -120,7 +122,6 @@ export function createObsidianConnector(options: ObsidianConnectorOptions = {}):
       // Contract: a throwing scan is the degrade signal for one source.
       throw new Error(`obsidian vault path missing or not found: ${vaultPath ?? '<unset>'}`)
     }
-    const vaultName = basename(vaultPath)
     const cursorNum =
       ctx.cursor != null && Number.isFinite(Number(ctx.cursor)) ? Number(ctx.cursor) : null
 
@@ -136,7 +137,7 @@ export function createObsidianConnector(options: ObsidianConnectorOptions = {}):
 
       const relPath = relative(vaultPath, filePath).split(sep).join('/')
       const raw = readFileSync(filePath, 'utf8')
-      const doc = buildDocument({ raw, relPath, filePath, vaultName, mtime })
+      const doc = buildDocument({ raw, relPath, filePath, mtime })
       ctx.upsert.upsertDocument(doc)
       documentsUpserted++
       annotationsUpserted += doc.annotations?.length ?? 0

@@ -8,12 +8,14 @@ import { createDbDispatcher } from './db/dispatcher'
 import { createUpsertApi } from './index/upsert'
 import { createIndexQueries } from './index/queries'
 import { createSyncApi } from './index/sync'
+import { documentLinks, resolveLinks } from './index/links'
 import { createViewsApi } from './lib/views'
 import { createVCollectionsApi, syncVirtualCollections } from './lib/vcollections'
 import { connectors } from './connectors/registry'
 import {
   DB_CHANNEL,
   INDEX_BROWSE_CHANNEL,
+  INDEX_LINKS_CHANNEL,
   INDEX_NAV_CHANNEL,
   INDEX_PAGE_ANNOTATIONS_CHANNEL,
   INDEX_REBUILD_CHANNEL,
@@ -31,6 +33,7 @@ import {
   VIEWS_DELETE_CHANNEL,
   VIEWS_LIST_CHANNEL,
   VIEWS_SAVE_CHANNEL,
+  linksRequestSchema,
   requestAccessSchema,
   systemOpenSchema,
 } from '../shared/db-ipc'
@@ -112,19 +115,24 @@ app.whenReady().then(() => {
     const vcollectionsApi = createVCollectionsApi(collectionsDir, handle.db)
     // Bring the mirror current from the files at boot (it is derived — the files are truth).
     syncVirtualCollections(handle.db, collectionsDir)
+    // Wiki-link resolution re-pass at boot too: link targets are derived (a prior run may have
+    // ended mid-sync, or the resolution rules may have changed since the rows were written).
+    resolveLinks(handle.db)
     ipcMain.handle(DB_CHANNEL, (_event, req: unknown) => dispatch(req))
     ipcMain.handle(INDEX_SEARCH_CHANNEL, (_event, req: unknown) => queries.search(req))
     // A sync/rebuild changes which documents (and content hashes) exist, so re-resolve the
-    // virtual-collection mirror against the fresh index afterward (at the handler site, per spec —
-    // sync.ts stays unaware of collections).
+    // virtual-collection mirror AND the wiki-link targets against the fresh index afterward (at
+    // the handler site, per spec — sync.ts stays unaware of collections and links).
     ipcMain.handle(INDEX_SYNC_CHANNEL, async () => {
       const report = await syncApi.syncAll()
       syncVirtualCollections(handle.db, collectionsDir)
+      resolveLinks(handle.db)
       return report
     })
     ipcMain.handle(INDEX_REBUILD_CHANNEL, async () => {
       const report = await syncApi.rebuild()
       syncVirtualCollections(handle.db, collectionsDir)
+      resolveLinks(handle.db)
       return report
     })
     ipcMain.handle(INDEX_SOURCES_CHANNEL, () => queries.sourceSummaries())
@@ -136,6 +144,11 @@ app.whenReady().then(() => {
     // astro:// server (doc host allowlisted by the index — the renderer names instance
     // ids, never paths; app host serves the packaged renderer bundle).
     ipcMain.handle(INDEX_PAGE_ANNOTATIONS_CHANNEL, (_event, req: unknown) => queries.pageAnnotations(req))
+    // Notes wave: one document's outlinks + backlinks (docs/2026-07-10 notes wave §Links).
+    ipcMain.handle(INDEX_LINKS_CHANNEL, (_event, raw: unknown) => {
+      const req = linksRequestSchema.parse(raw)
+      return documentLinks(handle.db, req.documentId)
+    })
     registerAstroProtocol(() => handle.db, join(currentDir, '../renderer'))
     // Saved-view CRUD (validation is at the module boundary via zod, like the query handlers).
     ipcMain.handle(VIEWS_LIST_CHANNEL, () => viewsApi.list())

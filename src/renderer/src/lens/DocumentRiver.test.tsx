@@ -93,6 +93,52 @@ describe('DocumentRow — canvas affordance', () => {
   })
 })
 
+describe('DocumentRow — note affordance', () => {
+  const noteHit = (over: Partial<BrowseHit> = {}): BrowseHit =>
+    hit({
+      kind: 'note',
+      instances: [
+        { instanceId: 21, sourceKey: 'obsidian', uri: 'obsidian://open?path=%2Fv%2Fn.md', filePath: '/v/n.md', openPdfUri: null },
+      ],
+      ...over,
+    })
+
+  it('title-click opens the note for an obsidian file-backed note when wired', () => {
+    const onOpenNote = vi.fn()
+    const h = noteHit()
+    render(
+      <DocumentRow hit={h} onOpenUri={vi.fn()} onOpenFile={vi.fn()} onReveal={vi.fn()} onOpenNote={onOpenNote} />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /open note/i }))
+    expect(onOpenNote).toHaveBeenCalledWith(h)
+  })
+
+  it('a pdf hit gets no note affordance', () => {
+    render(
+      <DocumentRow hit={hit()} onOpenUri={vi.fn()} onOpenFile={vi.fn()} onReveal={vi.fn()} onOpenNote={vi.fn()} />,
+    )
+    expect(screen.queryByRole('button', { name: /open note/i })).toBeNull()
+  })
+
+  it('a note with no obsidian file-backed instance gets no note affordance', () => {
+    render(
+      <DocumentRow
+        hit={hit({ kind: 'note' })} // default fixture is zotero/eagle, no obsidian file
+        onOpenUri={vi.fn()}
+        onOpenFile={vi.fn()}
+        onReveal={vi.fn()}
+        onOpenNote={vi.fn()}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: /open note/i })).toBeNull()
+  })
+
+  it('without onOpenNote the title stays plain text (no button)', () => {
+    render(<DocumentRow hit={noteHit()} onOpenUri={vi.fn()} onOpenFile={vi.fn()} onReveal={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: /open note/i })).toBeNull()
+  })
+})
+
 describe('DocumentRow — membership popover', () => {
   const rowProps = (over = {}) => ({
     onOpenUri: vi.fn(),

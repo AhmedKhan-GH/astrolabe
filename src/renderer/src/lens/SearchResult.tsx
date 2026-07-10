@@ -25,17 +25,24 @@ export function SearchResult({
   onOpenFile,
   onReveal,
   onOpenCanvas,
+  onOpenNote,
 }: {
   hit: ResultData
   onOpenUri: (uri: string) => void
   onOpenFile: (path: string) => void
   onReveal: (path: string) => void
   onOpenCanvas?: (hit: ResultData) => void
+  onOpenNote?: (hit: ResultData) => void
 }) {
   const filePath = hit.instances.find((i) => i.filePath)?.filePath ?? null
   // Same rule as the river (DocumentRiver `canCanvas`): the Canvas streams bytes, so it needs
   // a pdf kind + a file on disk, and the affordance appears only when the handler is wired.
   const canCanvas = Boolean(onOpenCanvas) && hit.kind === 'pdf' && filePath !== null
+  // Mirror of DocumentRow `canNote`: NoteView reads a file-backed obsidian note by instanceId.
+  const canNote =
+    Boolean(onOpenNote) &&
+    hit.kind === 'note' &&
+    hit.instances.some((i) => i.sourceKey === 'obsidian' && i.filePath !== null)
   return (
     <li className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
       <div className="flex items-baseline gap-2">
@@ -45,6 +52,15 @@ export function SearchResult({
             aria-label={`open canvas: ${hit.title}`}
             title="Open canvas — all pages at a glance"
             onClick={() => onOpenCanvas?.(hit)}
+            className="min-w-0 flex-1 truncate text-left font-medium text-zinc-100 hover:text-white hover:underline"
+          >
+            {hit.title}
+          </button>
+        ) : canNote ? (
+          <button
+            aria-label={`open note: ${hit.title}`}
+            title="Open note view"
+            onClick={() => onOpenNote?.(hit)}
             className="min-w-0 flex-1 truncate text-left font-medium text-zinc-100 hover:text-white hover:underline"
           >
             {hit.title}

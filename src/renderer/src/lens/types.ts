@@ -162,3 +162,26 @@ export interface BrowsePage {
   total: number
   hits: BrowseHit[]
 }
+
+/**
+ * The wiki-link graph for one document (`index:links` wire contract). Outlinks are the
+ * `[[target]]` references this note makes — each resolved to an indexed document when the
+ * target exists in the vault (documentId/instanceId/title/kind non-null), else left null
+ * (a "not in vault" link). Backlinks are the notes that link TO this document (always
+ * resolved — they exist because they were indexed). Drives NoteView's live links + backlinks.
+ */
+export interface DocumentLinks {
+  outlinks: {
+    targetName: string
+    documentId: number | null
+    title: string | null
+    kind: string | null
+    instanceId: number | null
+  }[]
+  backlinks: {
+    documentId: number
+    title: string
+    kind: string
+    instanceId: number
+  }[]
+}
