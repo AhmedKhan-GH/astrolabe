@@ -90,7 +90,11 @@ lands rather than shipping placeholder specs.
   semantic (à la Polaris's `recordSignIn` — a logging failure must never break the flow it observes);
   none exists yet, so it stays config-level until a flow needs it.
 
-*Commit:* `feat: pino structured logging (main process)`.
+*Commit:* `feat: pino structured logging (main process)`. **Status: landed (2026-07-09).**
+As-built: dev = pino-pretty + file via worker-thread transports; packaged = in-process
+`pino.multistream` (JSON stdout + file) since transport workers can't resolve targets inside asar.
+File sink at `userData/logs/main.log` (`…/Application Support/astrolabe/logs/`). `moduleLogger(mod)`
+is the child-logger convention.
 
 ---
 

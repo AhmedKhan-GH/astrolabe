@@ -1,9 +1,11 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { moduleLogger } from './lib/logger'
 
 // ESM main process — derive the directory the built file lives in (out/main/).
 const currentDir = dirname(fileURLToPath(import.meta.url))
+const log = moduleLogger('main')
 
 /**
  * Create the single application window with the secure defaults recorded in
@@ -53,6 +55,10 @@ function createWindow(): void {
 // Boot order: app-ready → window. (The DB → IPC steps join this chain in Phase 0/1,
 // ahead of window creation, per docs/07.)
 app.whenReady().then(() => {
+  log.info(
+    { electron: process.versions.electron, packaged: app.isPackaged },
+    'app ready — creating window',
+  )
   createWindow()
 
   // macOS: re-create a window when the dock icon is clicked and none are open.

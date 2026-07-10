@@ -14,8 +14,10 @@ produce per-device installers (each built on its own native machine, unsigned fo
 harness has landed** (INFRASTRUCTURE-SPEC Pillar 1): Vitest (no placeholder specs — first real unit
 tests arrive with the first Tier-A logic) and a four-assertion Playwright-for-Electron launch smoke
 (`pnpm test:e2e`), which caught and fixed its first real bug on first run (root-absolute
-public-asset paths 404ing under `file://` in the built app). Next action: Pino logging (Pillar 2),
-then SQLite/Drizzle + typed IPC (Pillar 3).
+public-asset paths 404ing under `file://` in the built app). **Pino logging is in** (Pillar 2 —
+`moduleLogger('…')` children; JSON file sink at `userData/logs/main.log`; pretty stdout dev-only).
+Next action: SQLite/Drizzle + typed IPC (Pillar 3), per the
+[runway spec](specs/2026-07-09-runway-to-library-lens.md).
 
 ## Scaffold sequence
 
