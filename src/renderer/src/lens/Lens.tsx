@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SearchResult, type ResultData } from './SearchResult'
+import { SourceBadge } from './SourceBadge'
+import { NavRail } from './NavRail'
+import { DocumentRiver } from './DocumentRiver'
+import { applySelection } from './selection'
+import type { LensSelection, NavData } from './types'
 
 /**
- * Library Lens v0 (runway step 6): one search box over every connected source,
- * results with per-source jump-outs. Filters rail + Views land with the design
- * pass; this is the daily-driver skeleton.
+ * Library Navigator (Lens v1): a left nav rail (structure + tags + kinds) over a
+ * center pane that is either the recency river (q empty) or FTS hits (q typed).
+ * Navigation and search compose — both respect the active LensSelection.
  */
 function useDebounced<T>(value: T, ms: number): T {
   const [debounced, setDebounced] = useState(value)
@@ -18,14 +23,22 @@ function useDebounced<T>(value: T, ms: number): T {
 
 export function Lens() {
   const [q, setQ] = useState('')
+  const [selection, setSelection] = useState<LensSelection>({})
   const debouncedQ = useDebounced(q, 200)
   const queryClient = useQueryClient()
+  const handleSelect = (partial: Partial<LensSelection>) =>
+    setSelection((s) => applySelection(s, partial))
 
   const search = useQuery<ResultData[]>({
-    queryKey: ['search', debouncedQ],
-    queryFn: () => window.astrolabe.index.search(debouncedQ),
+    queryKey: ['search', debouncedQ, selection],
+    queryFn: () => window.astrolabe.index.search(debouncedQ, undefined, selection),
     enabled: debouncedQ.trim().length > 0,
     placeholderData: (prev) => prev,
+  })
+
+  const nav = useQuery<NavData>({
+    queryKey: ['nav'],
+    queryFn: () => window.astrolabe.index.nav(),
   })
 
   const sync = useMutation({
@@ -47,6 +60,17 @@ export function Lens() {
     queryKey: ['sources'],
     queryFn: () => window.astrolabe.index.sources(),
   })
+  // Grant-access probe: an fs read from the app's main process summons the
+  // native macOS consent dialog (the call holds until the user answers). On a
+  // grant, sync immediately so the source lights up without another click.
+  const grant = useMutation({
+    mutationFn: (sourceKey: string) =>
+      window.astrolabe.system.requestAccess(sourceKey as Parameters<typeof window.astrolabe.system.requestAccess>[0]),
+    onSuccess: (result) => {
+      if (result.granted) sync.mutate()
+    },
+  })
+
   const lastRun = sync.data ?? rebuild.data
   const upsertedBy = (key: string) =>
     lastRun?.find((r) => r.sourceKey === key)?.documentsUpserted ?? null
@@ -55,10 +79,12 @@ export function Lens() {
     void queryClient.invalidateQueries({ queryKey: ['search'] })
     void queryClient.invalidateQueries({ queryKey: ['sources'] })
     void queryClient.invalidateQueries({ queryKey: ['stats'] })
+    void queryClient.invalidateQueries({ queryKey: ['browse'] })
+    void queryClient.invalidateQueries({ queryKey: ['nav'] })
   }
 
   return (
-    <div className="mx-auto flex h-screen max-w-3xl flex-col gap-3 p-4">
+    <div className="mx-auto flex h-screen w-full max-w-6xl flex-col gap-3 p-4">
       <header className="flex items-center gap-2">
         <h1 className="text-lg font-semibold tracking-tight text-zinc-100">Astrolabe</h1>
         <span className="text-xs text-zinc-500">library lens</span>
@@ -90,45 +116,82 @@ export function Lens() {
               ? 'index unavailable'
               : 'counting…'}
         </span>
-        {(sources.data ?? []).map((src) => {
-          const fresh = upsertedBy(src.key)
-          const ok = src.status === 'ok'
-          return (
-            <span key={src.key} className={ok ? 'text-emerald-400/80' : 'text-amber-400/80'}>
-              {src.key}: {ok ? `${src.documentCount.toLocaleString()} in index` : 'unavailable'}
-              {fresh != null && ok && <span className="text-zinc-500"> (+{fresh} new)</span>}
-            </span>
-          )
-        })}
+        {(sources.data ?? []).map((src) => (
+          <SourceBadge
+            key={src.key}
+            src={src}
+            fresh={upsertedBy(src.key)}
+            granting={grant.isPending}
+            onGrant={(sourceKey) => grant.mutate(sourceKey)}
+          />
+        ))}
       </div>
 
-      <input
-        autoFocus
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="Search your library — titles, annotations, tags…"
-        className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:border-zinc-500"
-      />
+      {/* FDA fallback: macOS provides no API to prompt for Full Disk Access, so a
+          hard denial deep-links the Settings pane and we tell the user what to do. */}
+      {grant.data?.settingsOpened && (
+        <p className="text-[11px] text-amber-400/80">
+          macOS blocked the request — System Settings was opened: add Astrolabe under Privacy &
+          Security → Full Disk Access, then hit “Sync now”.
+        </p>
+      )}
+      {grant.data?.granted && (
+        <p className="text-[11px] text-emerald-400/80">
+          access granted — syncing. Tip: run “Rebuild index” to hash existing files and light up
+          cross-source joins.
+        </p>
+      )}
 
-      <main className="min-h-0 flex-1 overflow-y-auto">
-        {search.isError && (
-          <p className="text-sm text-red-400">search failed: {String(search.error)}</p>
-        )}
-        {debouncedQ && search.data?.length === 0 && !search.isFetching && (
-          <p className="text-sm text-zinc-600">no matches — try “Sync now” first</p>
-        )}
-        <ul className="flex flex-col gap-2">
-          {(search.data ?? []).map((hit) => (
-            <SearchResult
-              key={hit.documentId}
-              hit={hit}
-              onOpenUri={(uri) => void window.astrolabe.system.openUri(uri)}
-              onOpenFile={(p) => void window.astrolabe.system.openPath(p)}
-              onReveal={(p) => void window.astrolabe.system.reveal(p)}
-            />
-          ))}
-        </ul>
-      </main>
+      <div className="flex min-h-0 flex-1 gap-4">
+        <div
+          className={`w-60 shrink-0 ${nav.isFetching || nav.isError ? 'opacity-60' : ''}`}
+        >
+          {nav.data ? (
+            <NavRail nav={nav.data} selection={selection} onSelect={handleSelect} />
+          ) : (
+            <aside className="h-full border-r border-zinc-800 pr-3 text-xs text-zinc-600">
+              {nav.isError ? 'navigation unavailable' : 'loading navigation…'}
+            </aside>
+          )}
+        </div>
+
+        <div className="flex min-h-0 flex-1 flex-col gap-3">
+          {nav.isError && (
+            <p className="text-sm text-red-400">navigation failed: {String(nav.error)}</p>
+          )}
+          <input
+            autoFocus
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search your library — titles, annotations, tags…"
+            className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:border-zinc-500"
+          />
+
+          {debouncedQ.trim().length > 0 ? (
+            <main className="min-h-0 flex-1 overflow-y-auto">
+              {search.isError && (
+                <p className="text-sm text-red-400">search failed: {String(search.error)}</p>
+              )}
+              {search.data?.length === 0 && !search.isFetching && (
+                <p className="text-sm text-zinc-600">no matches — try “Sync now” first</p>
+              )}
+              <ul className="flex flex-col gap-2">
+                {(search.data ?? []).map((hit) => (
+                  <SearchResult
+                    key={hit.documentId}
+                    hit={hit}
+                    onOpenUri={(uri) => void window.astrolabe.system.openUri(uri)}
+                    onOpenFile={(p) => void window.astrolabe.system.openPath(p)}
+                    onReveal={(p) => void window.astrolabe.system.reveal(p)}
+                  />
+                ))}
+              </ul>
+            </main>
+          ) : (
+            <DocumentRiver selection={selection} onSync={() => sync.mutate()} />
+          )}
+        </div>
+      </div>
     </div>
   )
 }

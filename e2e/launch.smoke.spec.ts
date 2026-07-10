@@ -44,8 +44,9 @@ test('window opens and the lens renders', async () => {
   await expect(root).toBeVisible()
   expect(await root.locator(':scope > *').count()).toBeGreaterThan(0)
   await expect(window.getByPlaceholder(/search your library/i)).toBeVisible()
-  await expect(window.getByText('Sync now')).toBeVisible()
-  await expect(window.getByText('Rebuild index')).toBeVisible()
+  // Scoped to the header: the river's empty state also says "Sync now" (navigator v1).
+  await expect(window.getByRole('banner').getByRole('button', { name: 'Sync now' })).toBeVisible()
+  await expect(window.getByRole('banner').getByRole('button', { name: 'Rebuild index' })).toBeVisible()
 })
 
 test('preload bridge exposes exactly its allowlist', async () => {

@@ -79,6 +79,16 @@ export function createEagleConnector(client: EagleClient = createEagleClient()):
     async resolve(uri: string) {
       return { uri }
     },
+
+    /** The library dir is the protected surface (file hashing reads it directly);
+     *  contract: never throws — Eagle not running degrades to null. */
+    async accessProbePath() {
+      try {
+        return (await client.libraryInfo()).path
+      } catch {
+        return null
+      }
+    },
   }
 }
 

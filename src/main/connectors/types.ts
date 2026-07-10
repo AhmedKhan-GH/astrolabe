@@ -39,4 +39,10 @@ export interface Connector {
   resolve(uri: string): Promise<ResolveResult>
   /** Optional file watching (Obsidian). Returns unwatch. */
   watch?(onChange: () => void): () => void
+  /**
+   * The on-disk root this connector reads (vault / Eagle library), for the
+   * in-app permission probe (system/access.ts). Null when unconfigured or the
+   * source has no protected disk surface. Never throws.
+   */
+  accessProbePath?(): Promise<string | null>
 }

@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import type { Db } from '../db'
 import * as s from '../db/schema'
 import { createUpsertApi, type UpsertApi } from './upsert'
+import { classifyScanError } from './sync-status'
 import type { Connector } from '../connectors/types'
 import { moduleLogger } from '../lib/logger'
 
@@ -47,8 +48,11 @@ export function createSyncApi(db: Db, registry: Connector[], upsert: UpsertApi =
         annotationsUpserted: result.annotationsUpserted,
       }
     } catch (err) {
-      db.update(s.sources).set({ status: 'unavailable' }).where(eq(s.sources.id, source.id)).run()
-      log.error({ source: connector.key, err }, 'scan failed — source degraded')
+      // EPERM/EACCES (macOS TCC blocking an iCloud path) reads as 'denied' —
+      // fixable by granting access — not a generic 'unavailable'.
+      const status = classifyScanError(err)
+      db.update(s.sources).set({ status }).where(eq(s.sources.id, source.id)).run()
+      log.error({ source: connector.key, status, err }, 'scan failed — source degraded')
       return { sourceKey: connector.key, ok: false, available: true, error: String(err) }
     }
   }

@@ -1,16 +1,29 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import {
   DB_CHANNEL,
+  INDEX_BROWSE_CHANNEL,
+  INDEX_NAV_CHANNEL,
   INDEX_REBUILD_CHANNEL,
   INDEX_SOURCES_CHANNEL,
   INDEX_STATS_CHANNEL,
   INDEX_SEARCH_CHANNEL,
   INDEX_SYNC_CHANNEL,
   SYSTEM_OPEN_CHANNEL,
+  SYSTEM_REQUEST_ACCESS_CHANNEL,
 } from '../shared/db-ipc'
 import type { Meta, NewMeta } from '../main/db/schema'
-import type { IndexStats, SearchHit, SourceSummary } from '../main/index/queries'
+import type {
+  BrowsePage,
+  BrowseRequest,
+  IndexStats,
+  NavData,
+  SearchHit,
+  SearchRequest,
+  SourceSummary,
+} from '../main/index/queries'
 import type { SyncReport } from '../main/index/sync'
+import type { AccessProbeResult } from '../main/system/access'
+import type { SourceKey } from '../main/connectors/types'
 
 /**
  * The single, explicit IPC surface exposed to the renderer — an allowlist, never a
@@ -43,8 +56,15 @@ const api = {
     meta: createTableClient<Meta, NewMeta>('meta'),
   },
   index: {
-    search: (q: string, limit?: number): Promise<SearchHit[]> =>
-      ipcRenderer.invoke(INDEX_SEARCH_CHANNEL, { q, ...(limit ? { limit } : {}) }),
+    search: (
+      q: string,
+      limit?: number,
+      filters?: Omit<Partial<SearchRequest>, 'q' | 'limit'>,
+    ): Promise<SearchHit[]> =>
+      ipcRenderer.invoke(INDEX_SEARCH_CHANNEL, { q, ...(limit ? { limit } : {}), ...filters }),
+    browse: (req: Partial<BrowseRequest>): Promise<BrowsePage> =>
+      ipcRenderer.invoke(INDEX_BROWSE_CHANNEL, req),
+    nav: (): Promise<NavData> => ipcRenderer.invoke(INDEX_NAV_CHANNEL),
     sync: (): Promise<SyncReport[]> => ipcRenderer.invoke(INDEX_SYNC_CHANNEL),
     rebuild: (): Promise<SyncReport[]> => ipcRenderer.invoke(INDEX_REBUILD_CHANNEL),
     sources: (): Promise<SourceSummary[]> => ipcRenderer.invoke(INDEX_SOURCES_CHANNEL),
@@ -57,6 +77,8 @@ const api = {
       ipcRenderer.invoke(SYSTEM_OPEN_CHANNEL, { kind: 'path', value }),
     reveal: (value: string): Promise<boolean> =>
       ipcRenderer.invoke(SYSTEM_OPEN_CHANNEL, { kind: 'reveal', value }),
+    requestAccess: (sourceKey: SourceKey): Promise<AccessProbeResult> =>
+      ipcRenderer.invoke(SYSTEM_REQUEST_ACCESS_CHANNEL, { sourceKey }),
   },
 } as const
 

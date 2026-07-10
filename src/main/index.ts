@@ -11,14 +11,19 @@ import { createSyncApi } from './index/sync'
 import { connectors } from './connectors/registry'
 import {
   DB_CHANNEL,
+  INDEX_BROWSE_CHANNEL,
+  INDEX_NAV_CHANNEL,
   INDEX_REBUILD_CHANNEL,
   INDEX_SEARCH_CHANNEL,
   INDEX_SOURCES_CHANNEL,
   INDEX_STATS_CHANNEL,
   INDEX_SYNC_CHANNEL,
   SYSTEM_OPEN_CHANNEL,
+  SYSTEM_REQUEST_ACCESS_CHANNEL,
+  requestAccessSchema,
   systemOpenSchema,
 } from '../shared/db-ipc'
+import { createAccessApi, FULL_DISK_ACCESS_SETTINGS_URI } from './system/access'
 
 // ESM main process — derive the directory the built file lives in (out/main/).
 const currentDir = dirname(fileURLToPath(import.meta.url))
@@ -86,6 +91,19 @@ app.whenReady().then(() => {
     ipcMain.handle(INDEX_REBUILD_CHANNEL, () => syncApi.rebuild())
     ipcMain.handle(INDEX_SOURCES_CHANNEL, () => queries.sourceSummaries())
     ipcMain.handle(INDEX_STATS_CHANNEL, () => queries.indexStats())
+    // Library Navigator read paths (docs/2026-07-10): the recency river + nav rail.
+    ipcMain.handle(INDEX_BROWSE_CHANNEL, (_event, req: unknown) => queries.browse(req))
+    ipcMain.handle(INDEX_NAV_CHANNEL, () => queries.nav())
+    // Grant-access probe: an fs read from THIS process summons the native macOS
+    // consent dialog; a hard TCC denial falls back to the Full Disk Access pane
+    // (which no app can prompt for programmatically — deep-link only).
+    const accessApi = createAccessApi(connectors, {
+      openSettings: () => shell.openExternal(FULL_DISK_ACCESS_SETTINGS_URI),
+    })
+    ipcMain.handle(SYSTEM_REQUEST_ACCESS_CHANNEL, (_event, raw: unknown) => {
+      const req = requestAccessSchema.parse(raw)
+      return accessApi.requestAccess(req.sourceKey)
+    })
     ipcMain.handle(SYSTEM_OPEN_CHANNEL, async (_event, raw: unknown) => {
       const req = systemOpenSchema.parse(raw) // scheme allowlist enforced in the schema
       if (req.kind === 'uri') await shell.openExternal(req.value)

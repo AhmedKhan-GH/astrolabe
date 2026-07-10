@@ -186,7 +186,12 @@ export function createObsidianConnector(options: ObsidianConnectorOptions = {}):
     }
   }
 
-  return { key: 'obsidian', checkAvailable, scan, resolve, watch }
+  /** The vault dir is the protected surface (iCloud-Drive vaults are TCC-blocked). */
+  async function accessProbePath(): Promise<string | null> {
+    return resolveVault()
+  }
+
+  return { key: 'obsidian', checkAvailable, scan, resolve, watch, accessProbePath }
 }
 
 /** Default instance the registry wires in (runway step 8). */
