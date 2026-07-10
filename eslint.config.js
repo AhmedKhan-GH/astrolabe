@@ -20,8 +20,15 @@ export default defineConfig([
     },
   },
   {
-    // Electron main & preload and the build config run in Node, not the browser.
-    files: ['src/main/**/*.ts', 'src/preload/**/*.ts', 'electron.vite.config.ts'],
+    // Electron main & preload, tests, and build/test configs run in Node, not the browser.
+    files: [
+      'src/main/**/*.ts',
+      'src/preload/**/*.ts',
+      'e2e/**/*.ts',
+      'electron.vite.config.ts',
+      'playwright.config.ts',
+      'vitest.config.ts',
+    ],
     extends: [js.configs.recommended, tseslint.configs.recommended],
     languageOptions: {
       globals: globals.node,

@@ -67,7 +67,12 @@ No test-config theater (iteration 2 had coverage tooling and zero real tests).
 colocated with source. CI runs typecheck + lint + unit on push; E2E and the packaged-app smoke join
 at Phase 2 (see database pillar).
 
-*Commit:* `test: vitest + playwright-for-electron harness + launch smoke`.
+*Commit:* `test: vitest + playwright-for-electron harness + launch smoke`. **Status: landed
+(2026-07-09).** The smoke's clean-boot assertion caught its first real defect on first run — the
+template's root-absolute `/favicon.svg` / `/icons.svg` references 404 under `file://` in the built
+app (fixed to relative paths). Deviation from plan: no jsdom project yet — it enters with the first
+component test (build on consumption); unit tier runs `passWithNoTests` until the first Tier-A logic
+lands rather than shipping placeholder specs.
 
 ---
 

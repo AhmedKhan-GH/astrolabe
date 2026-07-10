@@ -19,5 +19,12 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src/main", "src/preload", "electron.vite.config.ts"]
+  "include": [
+    "src/main",
+    "src/preload",
+    "e2e",
+    "electron.vite.config.ts",
+    "playwright.config.ts",
+    "vitest.config.ts"
+  ]
 }

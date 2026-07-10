@@ -10,8 +10,12 @@ the founding docs, then the engineering-principles + ADR set, followed. The **El
 landed** (see "Scaffold sequence" below): the renderer moved into `src/renderer/`, `src/main/` and
 `src/preload/` were added, and `pnpm dev`/`pnpm build`/`pnpm start` run a real, verified-booting
 desktop app on electron-vite. Cross-platform packaging is also wired: `pnpm package:{mac,win,linux}`
-produce per-device installers (each built on its own native machine, unsigned for now). Next action:
-the Playwright-for-Electron launch smoke test (Phase 0).
+produce per-device installers (each built on its own native machine, unsigned for now). The **test
+harness has landed** (INFRASTRUCTURE-SPEC Pillar 1): Vitest (no placeholder specs — first real unit
+tests arrive with the first Tier-A logic) and a four-assertion Playwright-for-Electron launch smoke
+(`pnpm test:e2e`), which caught and fixed its first real bug on first run (root-absolute
+public-asset paths 404ing under `file://` in the built app). Next action: Pino logging (Pillar 2),
+then SQLite/Drizzle + typed IPC (Pillar 3).
 
 ## Scaffold sequence
 
