@@ -15,9 +15,9 @@ import {
   toFilterSet,
 } from './selection'
 import { toStoredFilter, resolveStoredFilter, selectionFromFilterSet } from './viewRefs'
-import type { LensSelection, NavData, NavNode, SavedView } from './types'
+import type { LensSelection, NavData, NavNode, SavedView, VCollectionSummary } from './types'
 
-const EMPTY_NAV: NavData = { kinds: [], sources: [], tags: [] }
+const EMPTY_NAV: NavData = { kinds: [], sources: [], tags: [], virtualCollections: [] }
 
 /**
  * Library Navigator (Lens v1): a left nav rail (structure + tags + kinds) over a
@@ -95,6 +95,59 @@ export function Lens() {
     mutationFn: (slug: string) => window.astrolabe.views.remove(slug),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['views'] }),
   })
+
+  // Virtual collections — source-independent M:N groupings (first-party user data).
+  // The dedicated list carries counts + unresolvedCount, driving the rail section, the
+  // river membership popover, and FilterBar chip labels.
+  const vcollections = useQuery<VCollectionSummary[]>({
+    queryKey: ['vcollections'],
+    queryFn: () => window.astrolabe.collections.list(),
+  })
+  // Membership changes both the counts (nav + vcollections) and the row chips (browse).
+  const invalidateVCollections = () => {
+    void queryClient.invalidateQueries({ queryKey: ['vcollections'] })
+    void queryClient.invalidateQueries({ queryKey: ['nav'] })
+    void queryClient.invalidateQueries({ queryKey: ['browse'] })
+  }
+  const createCollection = useMutation({
+    mutationFn: (name: string) => window.astrolabe.collections.create(name),
+    onSuccess: invalidateVCollections,
+  })
+  const deleteCollection = useMutation({
+    mutationFn: (slug: string) => window.astrolabe.collections.remove(slug),
+    onSuccess: invalidateVCollections,
+  })
+  const addMembers = useMutation({
+    mutationFn: ({ slug, documentIds }: { slug: string; documentIds: number[] }) =>
+      window.astrolabe.collections.addMembers(slug, documentIds),
+    onSuccess: invalidateVCollections,
+  })
+  const removeMembers = useMutation({
+    mutationFn: ({ slug, documentIds }: { slug: string; documentIds: number[] }) =>
+      window.astrolabe.collections.removeMembers(slug, documentIds),
+    onSuccess: invalidateVCollections,
+  })
+  // Create-then-add is a two-call composite (the river popover's footer input).
+  const createAndAdd = useMutation({
+    mutationFn: async ({ documentId, name }: { documentId: number; name: string }) => {
+      const created = await window.astrolabe.collections.create(name)
+      await window.astrolabe.collections.addMembers(created.slug, [documentId])
+      return created
+    },
+    onSuccess: invalidateVCollections,
+  })
+
+  const onToggleMembership = (documentId: number, slug: string, nextChecked: boolean): void => {
+    if (nextChecked) addMembers.mutate({ slug, documentIds: [documentId] })
+    else removeMembers.mutate({ slug, documentIds: [documentId] })
+  }
+
+  // slug → display name for FilterBar chips (the vcollections list is the name source).
+  const vcollectionNames = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const c of vcollections.data ?? []) map.set(c.slug, c.name)
+    return map
+  }, [vcollections.data])
 
   // Applying a view replaces q + selection wholesale; unresolvable collection refs
   // are dropped so the FilterBar shows exactly what took effect (honest stale-ref surface).
@@ -229,12 +282,15 @@ export function Lens() {
               selection={selection}
               views={views.data ?? []}
               appliedViewSlug={appliedViewSlug}
+              collections={vcollections.data ?? []}
               onToggleKind={onToggleKind}
               onToggleScope={onToggleScope}
               onCycleTag={onCycleTag}
               onSetTagMatch={onSetTagMatch}
               onApplyView={applyView}
               onDeleteView={(slug) => deleteView.mutate(slug)}
+              onCreateCollection={(name) => createCollection.mutate(name)}
+              onDeleteCollection={(slug) => deleteCollection.mutate(slug)}
             />
           ) : (
             <aside className="h-full border-r border-zinc-800 pr-3 text-xs text-zinc-600">
@@ -250,6 +306,7 @@ export function Lens() {
           <FilterBar
             selection={selection}
             collectionNames={collectionNames}
+            vcollectionNames={vcollectionNames}
             canSave={q.trim().length > 0}
             onToggleScope={onToggleScope}
             onToggleKind={onToggleKind}
@@ -286,7 +343,13 @@ export function Lens() {
               </ul>
             </main>
           ) : (
-            <DocumentRiver filters={filterSet} onSync={() => sync.mutate()} />
+            <DocumentRiver
+              filters={filterSet}
+              collections={vcollections.data ?? []}
+              onToggleMembership={onToggleMembership}
+              onCreateAndAdd={(documentId, name) => createAndAdd.mutate({ documentId, name })}
+              onSync={() => sync.mutate()}
+            />
           )}
         </div>
       </div>

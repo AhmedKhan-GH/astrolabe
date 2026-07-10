@@ -1,8 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import type { BrowseHit, BrowsePage, FilterSet } from './types'
+import type { BrowseHit, BrowsePage, FilterSet, VCollectionSummary } from './types'
 import { shouldFetchNextPage } from './pagination'
 
 const PAGE = 100
@@ -16,15 +16,21 @@ const SOURCE_BADGE: Record<string, string> = {
 /** Recency river: browse the whole (filtered) index, newest-modified first. */
 export function DocumentRiver({
   filters,
+  collections,
   onOpenUri = (uri) => void window.astrolabe.system.openUri(uri),
   onOpenFile = (p) => void window.astrolabe.system.openPath(p),
   onReveal = (p) => void window.astrolabe.system.reveal(p),
+  onToggleMembership,
+  onCreateAndAdd,
   onSync,
 }: {
   filters: FilterSet
+  collections?: VCollectionSummary[]
   onOpenUri?: (uri: string) => void
   onOpenFile?: (path: string) => void
   onReveal?: (path: string) => void
+  onToggleMembership?: (documentId: number, slug: string, nextChecked: boolean) => void
+  onCreateAndAdd?: (documentId: number, name: string) => void
   onSync?: () => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -124,7 +130,15 @@ export function DocumentRiver({
                 ref={virtualizer.measureElement}
                 style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${vi.start}px)` }}
               >
-                <DocumentRow hit={h} onOpenUri={onOpenUri} onOpenFile={onOpenFile} onReveal={onReveal} />
+                <DocumentRow
+                  hit={h}
+                  collections={collections}
+                  onOpenUri={onOpenUri}
+                  onOpenFile={onOpenFile}
+                  onReveal={onReveal}
+                  onToggleMembership={onToggleMembership}
+                  onCreateAndAdd={onCreateAndAdd}
+                />
               </div>
             )
           })}
@@ -137,25 +151,56 @@ export function DocumentRiver({
 /** One row in the river (exported so it is component-testable without the virtualizer). */
 export function DocumentRow({
   hit,
+  collections,
   onOpenUri,
   onOpenFile,
   onReveal,
+  onToggleMembership,
+  onCreateAndAdd,
 }: {
   hit: BrowseHit
+  collections?: VCollectionSummary[]
   onOpenUri: (uri: string) => void
   onOpenFile: (path: string) => void
   onReveal: (path: string) => void
+  onToggleMembership?: (documentId: number, slug: string, nextChecked: boolean) => void
+  onCreateAndAdd?: (documentId: number, name: string) => void
 }) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  // The membership affordance appears only when the feature is wired in.
+  const canManage = Boolean(onToggleMembership || onCreateAndAdd)
   const filePath = hit.instances.find((i) => i.filePath)?.filePath ?? null
   return (
-    <div className="mb-2 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
+    <div className="group relative mb-2 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
       <div className="flex items-baseline gap-2">
         <span className="text-[10px] uppercase tracking-wider text-zinc-500">{hit.kind}</span>
         <h3 className="min-w-0 flex-1 truncate font-medium text-zinc-100">{hit.title}</h3>
+        {canManage && (
+          <button
+            aria-label="add to collection"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((o) => !o)}
+            className={clsx(
+              'shrink-0 rounded border border-zinc-700 px-1.5 text-[11px] leading-5 text-zinc-400 hover:bg-zinc-800',
+              menuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+            )}
+          >
+            ＋
+          </button>
+        )}
         <span className="shrink-0 text-[11px] text-zinc-500" title={new Date(hit.modifiedAt).toLocaleString()}>
           {relativeTime(hit.modifiedAt)}
         </span>
       </div>
+      {canManage && menuOpen && (
+        <MembershipPopover
+          hit={hit}
+          collections={collections ?? []}
+          onToggleMembership={onToggleMembership}
+          onCreateAndAdd={onCreateAndAdd}
+          onClose={() => setMenuOpen(false)}
+        />
+      )}
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         {hit.instances.map((inst) => (
           <button
@@ -193,6 +238,100 @@ export function DocumentRow({
         ))}
       </div>
     </div>
+  )
+}
+
+/**
+ * Virtual-collection membership popover — absolutely positioned within the row (no
+ * portal library). A checkbox per collection (checked = the row already belongs);
+ * toggling fires add/remove for this document. A footer input creates a new
+ * collection and adds the document in one shot. Closes on outside click / Escape.
+ */
+function MembershipPopover({
+  hit,
+  collections,
+  onToggleMembership,
+  onCreateAndAdd,
+  onClose,
+}: {
+  hit: BrowseHit
+  collections: VCollectionSummary[]
+  onToggleMembership?: (documentId: number, slug: string, nextChecked: boolean) => void
+  onCreateAndAdd?: (documentId: number, name: string) => void
+  onClose: () => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const onDown = (e: MouseEvent): void => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+    }
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [onClose])
+
+  return (
+    <div
+      ref={ref}
+      role="dialog"
+      aria-label="collections"
+      className="absolute right-2 top-9 z-10 w-52 rounded-lg border border-zinc-700 bg-zinc-900 p-2 shadow-xl"
+    >
+      <div className="flex max-h-48 flex-col gap-0.5 overflow-y-auto">
+        {collections.map((c) => {
+          const checked = hit.virtualCollections.includes(c.slug)
+          return (
+            <label
+              key={c.slug}
+              className="flex items-center gap-2 rounded px-1 py-0.5 text-xs text-zinc-300 hover:bg-zinc-800"
+            >
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={(e) => onToggleMembership?.(hit.documentId, c.slug, e.target.checked)}
+                className="accent-emerald-600"
+              />
+              <span className="truncate">{c.name}</span>
+            </label>
+          )
+        })}
+        {collections.length === 0 && (
+          <p className="px-1 py-0.5 text-[11px] text-zinc-600">No collections yet.</p>
+        )}
+      </div>
+      {onCreateAndAdd && (
+        <PopoverCreate onCreate={(name) => onCreateAndAdd(hit.documentId, name)} />
+      )}
+    </div>
+  )
+}
+
+/** Footer "New collection" input — Enter creates-and-adds; a blank name is a no-op. */
+function PopoverCreate({ onCreate }: { onCreate: (name: string) => void }) {
+  const [name, setName] = useState('')
+  const commit = (): void => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    onCreate(trimmed)
+    setName('')
+  }
+  return (
+    <input
+      aria-label="new collection name"
+      value={name}
+      onChange={(e) => setName(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') commit()
+      }}
+      placeholder="New collection…"
+      className="mt-1.5 w-full rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-100 placeholder-zinc-600 outline-none focus:border-zinc-500"
+    />
   )
 }
 

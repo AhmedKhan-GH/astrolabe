@@ -72,6 +72,27 @@ describe('FilterBar', () => {
     screen.getByRole('button', { name: /clear all/i }).click()
     expect(h.onClearAll).toHaveBeenCalled()
   })
+
+  it('shows a virtual-collection chip labelled via lookup, falling back to the slug', () => {
+    render(
+      <FilterBar
+        selection={{ ...emptySelection(), virtualCollections: ['to-read', 'faves'] }}
+        {...handlers()}
+        vcollectionNames={new Map([['to-read', 'To Read']])}
+      />,
+    )
+    expect(screen.getByText('To Read')).toBeTruthy()
+    expect(screen.getByText('faves')).toBeTruthy()
+  })
+
+  it('removing a virtual-collection chip toggles that scope value off', () => {
+    const h = handlers()
+    render(
+      <FilterBar selection={{ ...emptySelection(), virtualCollections: ['to-read'] }} {...h} />,
+    )
+    screen.getByRole('button', { name: /remove to-read/i }).click()
+    expect(h.onToggleScope).toHaveBeenCalledWith('virtualCollections', 'to-read')
+  })
 })
 
 describe('FilterBar — save view', () => {

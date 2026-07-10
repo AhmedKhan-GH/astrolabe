@@ -6,11 +6,19 @@ import type { LensSelection, FilterSet, SourceKey, DocumentKind } from './types'
  * fold into tagsAll/tagsAny/tagsNone at the wire boundary (`toFilterSet`).
  */
 
-type ScopeDim = 'sourceKeys' | 'collectionIds' | 'folderPrefixes'
+export type ScopeDim = 'sourceKeys' | 'collectionIds' | 'folderPrefixes' | 'virtualCollections'
 type ScopeValue = SourceKey | number | string
 
 export function emptySelection(): LensSelection {
-  return { sourceKeys: [], collectionIds: [], folderPrefixes: [], kinds: [], tags: [], tagMatch: 'all' }
+  return {
+    sourceKeys: [],
+    collectionIds: [],
+    folderPrefixes: [],
+    virtualCollections: [],
+    kinds: [],
+    tags: [],
+    tagMatch: 'all',
+  }
 }
 
 /** Toggle set membership in one scope dimension; other dimensions are untouched. */
@@ -52,6 +60,7 @@ export function isEmpty(sel: LensSelection): boolean {
     sel.sourceKeys.length === 0 &&
     sel.collectionIds.length === 0 &&
     sel.folderPrefixes.length === 0 &&
+    sel.virtualCollections.length === 0 &&
     sel.kinds.length === 0 &&
     sel.tags.length === 0
   )
@@ -65,6 +74,7 @@ export function toFilterSet(sel: LensSelection): FilterSet {
   if (sel.sourceKeys.length) fs.sourceKeys = sel.sourceKeys
   if (sel.collectionIds.length) fs.collectionIds = sel.collectionIds
   if (sel.folderPrefixes.length) fs.folderPrefixes = sel.folderPrefixes
+  if (sel.virtualCollections.length) fs.virtualCollections = sel.virtualCollections
   if (sel.kinds.length) fs.kinds = sel.kinds
   if (required.length) {
     if (sel.tagMatch === 'all') fs.tagsAll = required

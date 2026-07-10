@@ -119,6 +119,37 @@ export const documentCollections = sqliteTable(
   (t) => [unique('document_collections_uq').on(t.documentId, t.collectionId)],
 )
 
+/**
+ * Virtual collections (docs/2026-07-10-lens-virtual-collections-spec) — the derived MIRROR of
+ * the user-owned files at `<workspace>/.astrolabe/collections/<slug>.json`. Files are truth;
+ * these tables exist only so SQL (counts, facet filtering, browse/search scope) can join against
+ * membership. Rebuilt wholesale from the files by `syncVirtualCollections`.
+ */
+export const virtualCollections = sqliteTable('virtual_collections', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  slug: text('slug').notNull().unique(),
+  name: text('name').notNull(),
+})
+
+/** M:N membership. `documentId` cascades: a document leaving the index drops its memberships;
+ *  a hash-first ref in the file re-materialises the row on the next re-mirror. */
+export const virtualCollectionMembers = sqliteTable(
+  'virtual_collection_members',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    vcId: integer('vc_id')
+      .notNull()
+      .references(() => virtualCollections.id, { onDelete: 'cascade' }),
+    documentId: integer('document_id')
+      .notNull()
+      .references(() => documents.id, { onDelete: 'cascade' }),
+  },
+  (t) => [
+    unique('vc_members_uq').on(t.vcId, t.documentId),
+    index('vc_members_document_idx').on(t.documentId),
+  ],
+)
+
 /** Zotero highlights/notes (and later any source's annotations), page-anchored. */
 export const annotations = sqliteTable(
   'annotations',

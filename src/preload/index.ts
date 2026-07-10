@@ -10,6 +10,11 @@ import {
   INDEX_SYNC_CHANNEL,
   SYSTEM_OPEN_CHANNEL,
   SYSTEM_REQUEST_ACCESS_CHANNEL,
+  VCOLLECTIONS_ADD_MEMBERS_CHANNEL,
+  VCOLLECTIONS_CREATE_CHANNEL,
+  VCOLLECTIONS_DELETE_CHANNEL,
+  VCOLLECTIONS_LIST_CHANNEL,
+  VCOLLECTIONS_REMOVE_MEMBERS_CHANNEL,
   VIEWS_DELETE_CHANNEL,
   VIEWS_LIST_CHANNEL,
   VIEWS_SAVE_CHANNEL,
@@ -28,6 +33,7 @@ import type { SyncReport } from '../main/index/sync'
 import type { AccessProbeResult } from '../main/system/access'
 import type { SourceKey } from '../main/connectors/types'
 import type { SavedView, SaveViewRequest } from '../main/lib/views'
+import type { VCollectionSummary } from '../main/lib/vcollections'
 
 /**
  * The single, explicit IPC surface exposed to the renderer — an allowlist, never a
@@ -79,6 +85,17 @@ const api = {
     save: (req: SaveViewRequest): Promise<SavedView> => ipcRenderer.invoke(VIEWS_SAVE_CHANNEL, req),
     remove: (slug: string): Promise<boolean> =>
       ipcRenderer.invoke(VIEWS_DELETE_CHANNEL, { slug }),
+  },
+  collections: {
+    list: (): Promise<VCollectionSummary[]> => ipcRenderer.invoke(VCOLLECTIONS_LIST_CHANNEL),
+    create: (name: string): Promise<VCollectionSummary> =>
+      ipcRenderer.invoke(VCOLLECTIONS_CREATE_CHANNEL, { name }),
+    remove: (slug: string): Promise<boolean> =>
+      ipcRenderer.invoke(VCOLLECTIONS_DELETE_CHANNEL, { slug }),
+    addMembers: (slug: string, documentIds: number[]): Promise<VCollectionSummary> =>
+      ipcRenderer.invoke(VCOLLECTIONS_ADD_MEMBERS_CHANNEL, { slug, documentIds }),
+    removeMembers: (slug: string, documentIds: number[]): Promise<VCollectionSummary> =>
+      ipcRenderer.invoke(VCOLLECTIONS_REMOVE_MEMBERS_CHANNEL, { slug, documentIds }),
   },
   system: {
     openUri: (value: string): Promise<boolean> =>

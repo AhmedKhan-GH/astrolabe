@@ -33,6 +33,7 @@ const nav: NavData = {
     { key: 'obsidian', status: 'ok', documentCount: 0, tree: [{ id: 'Notes/', name: 'Notes', count: 0, children: [] }] },
   ],
   tags: [],
+  virtualCollections: [],
 }
 
 describe('toStoredFilter', () => {
@@ -68,6 +69,12 @@ describe('toStoredFilter', () => {
       tagsNone: ['draft'],
     })
     expect('collectionRefs' in stored).toBe(false)
+  })
+
+  it('passes virtualCollection slugs through verbatim (rebuild-stable, never reffed)', () => {
+    const stored = toStoredFilter({ collectionIds: [1], virtualCollections: ['to-read', 'faves'] }, nav)
+    expect(stored.virtualCollections).toEqual(['to-read', 'faves'])
+    expect(stored.collectionRefs).toEqual([{ sourceKey: 'zotero', key: 'ZOT-ROOT' }])
   })
 })
 
@@ -111,6 +118,12 @@ describe('resolveStoredFilter', () => {
       kinds: ['image'],
       tagsAny: ['a', 'b'],
     })
+  })
+
+  it('rehydrates virtualCollection slugs verbatim', () => {
+    expect(resolveStoredFilter({ virtualCollections: ['to-read'] }, nav).virtualCollections).toEqual([
+      'to-read',
+    ])
   })
 
   it('round-trips ids → refs → ids across a (simulated) rebuild', () => {
@@ -157,6 +170,12 @@ describe('selectionFromFilterSet — inverse of toFilterSet', () => {
     expect(sel.tags).toEqual([{ name: 'draft', mode: 'exclude' }])
   })
 
+  it('maps virtualCollections slugs onto the selection', () => {
+    expect(selectionFromFilterSet({ virtualCollections: ['to-read', 'faves'] }).virtualCollections).toEqual(
+      ['to-read', 'faves'],
+    )
+  })
+
   it('empty FilterSet → emptySelection', () => {
     expect(selectionFromFilterSet({})).toEqual(emptySelection())
   })
@@ -175,6 +194,12 @@ describe('selectionFromFilterSet — inverse of toFilterSet', () => {
       s = cycleTag(s, 'stats') // require
       s = setTagMatch(s, 'any')
       s = cycleTag(cycleTag(s, 'draft'), 'draft') // draft → exclude
+      return s
+    })(),
+    (() => {
+      let s = toggleScope(emptySelection(), 'virtualCollections', 'to-read')
+      s = toggleScope(s, 'virtualCollections', 'faves')
+      s = toggleKind(s, 'image')
       return s
     })(),
   ])('round-trips selection → FilterSet → selection', (sel) => {

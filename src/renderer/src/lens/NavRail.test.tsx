@@ -3,7 +3,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, within, fireEvent } from '@testing-library/react'
 import { NavRail } from './NavRail'
 import { emptySelection } from './selection'
-import type { NavData, LensSelection, SavedView } from './types'
+import type { NavData, LensSelection, SavedView, VCollectionSummary } from './types'
 
 afterEach(cleanup)
 
@@ -40,6 +40,7 @@ const nav: NavData = {
     { name: 'physics', count: 30 },
     { name: 'biology', count: 10 },
   ],
+  virtualCollections: [],
 }
 
 const handlers = () => ({
@@ -197,6 +198,95 @@ describe('NavRail — views', () => {
     )
     expect(screen.getByRole('button', { name: /^Photos/ }).getAttribute('aria-pressed')).toBe('true')
     expect(screen.getByRole('button', { name: /^Unread ML/ }).getAttribute('aria-pressed')).toBe('false')
+  })
+})
+
+describe('NavRail — collections', () => {
+  const collections: VCollectionSummary[] = [
+    { slug: 'to-read', name: 'To Read', count: 12, unresolvedCount: 0 },
+    { slug: 'faves', name: 'Faves', count: 3, unresolvedCount: 2 },
+  ]
+
+  it('renders a count-badged row per collection', () => {
+    render(<NavRail nav={nav} selection={emptySelection()} {...handlers()} collections={collections} />)
+    expect(screen.getByRole('heading', { name: /collections/i })).toBeTruthy()
+    const toRead = screen.getByRole('button', { name: /^To Read/ })
+    expect(within(toRead).getByText('12')).toBeTruthy()
+  })
+
+  it('clicking a collection fires onToggleScope(virtualCollections, slug)', () => {
+    const h = handlers()
+    render(<NavRail nav={nav} selection={emptySelection()} {...h} collections={collections} />)
+    screen.getByRole('button', { name: /^To Read/ }).click()
+    expect(h.onToggleScope).toHaveBeenCalledWith('virtualCollections', 'to-read')
+  })
+
+  it('highlights a selected collection', () => {
+    render(
+      <NavRail
+        nav={nav}
+        selection={{ ...emptySelection(), virtualCollections: ['faves'] }}
+        {...handlers()}
+        collections={collections}
+      />,
+    )
+    expect(screen.getByRole('button', { name: /^Faves/ }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: /^To Read/ }).getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('shows the unresolved marker only when non-zero', () => {
+    render(<NavRail nav={nav} selection={emptySelection()} {...handlers()} collections={collections} />)
+    expect(within(screen.getByRole('button', { name: /^Faves/ }).parentElement!).queryByText(/2 unresolved/)).toBeTruthy()
+    expect(
+      within(screen.getByRole('button', { name: /^To Read/ }).parentElement!).queryByText(/unresolved/),
+    ).toBeNull()
+  })
+
+  it('the × on a collection row fires onDeleteCollection with its slug (and does not toggle)', () => {
+    const h = handlers()
+    const onDeleteCollection = vi.fn()
+    render(
+      <NavRail
+        nav={nav}
+        selection={emptySelection()}
+        {...h}
+        collections={collections}
+        onDeleteCollection={onDeleteCollection}
+      />,
+    )
+    screen.getByRole('button', { name: /delete collection Faves/i }).click()
+    expect(onDeleteCollection).toHaveBeenCalledWith('faves')
+    expect(h.onToggleScope).not.toHaveBeenCalled()
+  })
+
+  it('the New collection input fires onCreateCollection with the typed name on Enter', () => {
+    const onCreateCollection = vi.fn()
+    render(
+      <NavRail
+        nav={nav}
+        selection={emptySelection()}
+        {...handlers()}
+        collections={collections}
+        onCreateCollection={onCreateCollection}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /new collection/i }))
+    const input = screen.getByLabelText(/new collection name/i)
+    fireEvent.change(input, { target: { value: 'Later' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(onCreateCollection).toHaveBeenCalledWith('Later')
+  })
+
+  it('renders the section (for the create affordance) even with no collections', () => {
+    render(
+      <NavRail nav={nav} selection={emptySelection()} {...handlers()} onCreateCollection={vi.fn()} />,
+    )
+    expect(screen.getByRole('heading', { name: /collections/i })).toBeTruthy()
+  })
+
+  it('renders no Collections section without collections or a create handler', () => {
+    renderRail()
+    expect(screen.queryByRole('heading', { name: /collections/i })).toBeNull()
   })
 })
 

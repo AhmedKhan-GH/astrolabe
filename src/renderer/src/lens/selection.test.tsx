@@ -19,6 +19,7 @@ describe('emptySelection', () => {
       sourceKeys: [],
       collectionIds: [],
       folderPrefixes: [],
+      virtualCollections: [],
       kinds: [],
       tags: [],
       tagMatch: 'all',
@@ -46,9 +47,18 @@ describe('toggleScope', () => {
     let s = toggleScope(emptySelection(), 'sourceKeys', 'zotero')
     s = toggleScope(s, 'collectionIds', 5)
     s = toggleScope(s, 'folderPrefixes', 'Projects/')
+    s = toggleScope(s, 'virtualCollections', 'to-read')
     expect(s.sourceKeys).toEqual(['zotero'])
     expect(s.collectionIds).toEqual([5])
     expect(s.folderPrefixes).toEqual(['Projects/'])
+    expect(s.virtualCollections).toEqual(['to-read'])
+  })
+
+  it('unions and toggles-off virtual collection slugs like any other scope dim', () => {
+    let s = toggleScope(emptySelection(), 'virtualCollections', 'to-read')
+    s = toggleScope(s, 'virtualCollections', 'faves')
+    expect(s.virtualCollections).toEqual(['to-read', 'faves'])
+    expect(toggleScope(s, 'virtualCollections', 'to-read').virtualCollections).toEqual(['faves'])
   })
 })
 
@@ -107,6 +117,7 @@ describe('clearAll / isEmpty', () => {
     expect(isEmpty(toggleKind(emptySelection(), 'pdf'))).toBe(false)
     expect(isEmpty(cycleTag(emptySelection(), 'ml'))).toBe(false)
     expect(isEmpty(toggleScope(emptySelection(), 'sourceKeys', 'zotero'))).toBe(false)
+    expect(isEmpty(toggleScope(emptySelection(), 'virtualCollections', 'to-read'))).toBe(false)
   })
 
   it('tagMatch alone does not make a selection non-empty', () => {
@@ -123,13 +134,22 @@ describe('toFilterSet', () => {
     let s = toggleScope(emptySelection(), 'sourceKeys', 'zotero')
     s = toggleScope(s, 'collectionIds', 5)
     s = toggleScope(s, 'folderPrefixes', 'Projects/')
+    s = toggleScope(s, 'virtualCollections', 'to-read')
     s = toggleKind(s, 'pdf')
     expect(toFilterSet(s)).toEqual({
       sourceKeys: ['zotero'],
       collectionIds: [5],
       folderPrefixes: ['Projects/'],
+      virtualCollections: ['to-read'],
       kinds: ['pdf'],
     })
+  })
+
+  it('emits virtualCollections slugs, omitting the empty array', () => {
+    expect('virtualCollections' in toFilterSet(emptySelection())).toBe(false)
+    let s = toggleScope(emptySelection(), 'virtualCollections', 'to-read')
+    s = toggleScope(s, 'virtualCollections', 'faves')
+    expect(toFilterSet(s)).toEqual({ virtualCollections: ['to-read', 'faves'] })
   })
 
   it('required tags → tagsAll when tagMatch is "all"', () => {

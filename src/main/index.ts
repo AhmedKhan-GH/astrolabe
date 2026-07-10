@@ -9,6 +9,7 @@ import { createUpsertApi } from './index/upsert'
 import { createIndexQueries } from './index/queries'
 import { createSyncApi } from './index/sync'
 import { createViewsApi } from './lib/views'
+import { createVCollectionsApi, syncVirtualCollections } from './lib/vcollections'
 import { connectors } from './connectors/registry'
 import {
   DB_CHANNEL,
@@ -21,6 +22,11 @@ import {
   INDEX_SYNC_CHANNEL,
   SYSTEM_OPEN_CHANNEL,
   SYSTEM_REQUEST_ACCESS_CHANNEL,
+  VCOLLECTIONS_ADD_MEMBERS_CHANNEL,
+  VCOLLECTIONS_CREATE_CHANNEL,
+  VCOLLECTIONS_DELETE_CHANNEL,
+  VCOLLECTIONS_LIST_CHANNEL,
+  VCOLLECTIONS_REMOVE_MEMBERS_CHANNEL,
   VIEWS_DELETE_CHANNEL,
   VIEWS_LIST_CHANNEL,
   VIEWS_SAVE_CHANNEL,
@@ -92,10 +98,27 @@ app.whenReady().then(() => {
     // Saved views are a user artifact, not index data — one JSON file per view under the
     // workspace, so they survive a rebuild and ride file-sync (docs/2026-07-10-lens-saved-views).
     const viewsApi = createViewsApi(join(ws.astroDir, 'views'))
+    // Virtual collections: user-owned M:N grouping, one JSON file per collection under the
+    // workspace, mirrored into SQLite for facet filtering (docs/2026-07-10-lens-virtual-collections).
+    const collectionsDir = join(ws.astroDir, 'collections')
+    const vcollectionsApi = createVCollectionsApi(collectionsDir, handle.db)
+    // Bring the mirror current from the files at boot (it is derived — the files are truth).
+    syncVirtualCollections(handle.db, collectionsDir)
     ipcMain.handle(DB_CHANNEL, (_event, req: unknown) => dispatch(req))
     ipcMain.handle(INDEX_SEARCH_CHANNEL, (_event, req: unknown) => queries.search(req))
-    ipcMain.handle(INDEX_SYNC_CHANNEL, () => syncApi.syncAll())
-    ipcMain.handle(INDEX_REBUILD_CHANNEL, () => syncApi.rebuild())
+    // A sync/rebuild changes which documents (and content hashes) exist, so re-resolve the
+    // virtual-collection mirror against the fresh index afterward (at the handler site, per spec —
+    // sync.ts stays unaware of collections).
+    ipcMain.handle(INDEX_SYNC_CHANNEL, async () => {
+      const report = await syncApi.syncAll()
+      syncVirtualCollections(handle.db, collectionsDir)
+      return report
+    })
+    ipcMain.handle(INDEX_REBUILD_CHANNEL, async () => {
+      const report = await syncApi.rebuild()
+      syncVirtualCollections(handle.db, collectionsDir)
+      return report
+    })
     ipcMain.handle(INDEX_SOURCES_CHANNEL, () => queries.sourceSummaries())
     ipcMain.handle(INDEX_STATS_CHANNEL, () => queries.indexStats())
     // Library Navigator read paths (docs/2026-07-10): the recency river + nav rail.
@@ -105,6 +128,15 @@ app.whenReady().then(() => {
     ipcMain.handle(VIEWS_LIST_CHANNEL, () => viewsApi.list())
     ipcMain.handle(VIEWS_SAVE_CHANNEL, (_event, raw: unknown) => viewsApi.save(raw))
     ipcMain.handle(VIEWS_DELETE_CHANNEL, (_event, raw: unknown) => viewsApi.remove(raw))
+    // Virtual-collection CRUD + membership (validation at the module boundary via zod). Each
+    // mutation rewrites its file atomically then re-mirrors, so reads stay consistent.
+    ipcMain.handle(VCOLLECTIONS_LIST_CHANNEL, () => vcollectionsApi.list())
+    ipcMain.handle(VCOLLECTIONS_CREATE_CHANNEL, (_event, raw: unknown) => vcollectionsApi.create(raw))
+    ipcMain.handle(VCOLLECTIONS_DELETE_CHANNEL, (_event, raw: unknown) => vcollectionsApi.remove(raw))
+    ipcMain.handle(VCOLLECTIONS_ADD_MEMBERS_CHANNEL, (_event, raw: unknown) => vcollectionsApi.addMembers(raw))
+    ipcMain.handle(VCOLLECTIONS_REMOVE_MEMBERS_CHANNEL, (_event, raw: unknown) =>
+      vcollectionsApi.removeMembers(raw),
+    )
     // Grant-access probe: an fs read from THIS process summons the native macOS
     // consent dialog; a hard TCC denial falls back to the Full Disk Access pane
     // (which no app can prompt for programmatically — deep-link only).

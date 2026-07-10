@@ -71,6 +71,7 @@ describe('browse', () => {
       modifiedAt: 100,
       tags: ['ml'],
       instances: [{ sourceKey: 'zotero', uri: 'zotero://Z1', filePath: null }],
+      virtualCollections: [],
     })
     expect(hit).not.toHaveProperty('snippet')
   })
@@ -212,6 +213,63 @@ describe('search with filters', () => {
     expect(queries.search({ q: 'idea', kinds: ['pdf'] })).toHaveLength(0)
     expect(queries.search({ q: 'idea', sourceKeys: ['obsidian'] })).toHaveLength(2)
     expect(queries.search({ q: 'Note', tagsNone: ['idea'] }).map((h) => h.title)).toEqual(['Root Note'])
+  })
+})
+
+describe('virtual collections (mirror scope + nav + hydration)', () => {
+  const docIdByTitle = (title: string): number =>
+    handle.db.select().from(s.documents).where(eq(s.documents.title, title)).get()!.id
+  const seedVC = (slug: string, name: string, docIds: number[]): void => {
+    const vcId = handle.db.insert(s.virtualCollections).values({ slug, name }).returning().get().id
+    for (const documentId of docIds)
+      handle.db.insert(s.virtualCollectionMembers).values({ vcId, documentId }).run()
+  }
+  // The vc mirror is not touched by wipeDerived (it is rebuilt from files by syncVirtualCollections),
+  // so clear it explicitly between cases after the outer beforeEach has re-seeded the documents.
+  beforeEach(() => {
+    handle.db.delete(s.virtualCollectionMembers).run()
+    handle.db.delete(s.virtualCollections).run()
+  })
+
+  it('browse filters by slug as a fourth scope sub-predicate', () => {
+    seedVC('reading', 'Reading', [docIdByTitle('Alpha Paper'), docIdByTitle('Gamma Note')])
+    expect(titles(queries.browse({ virtualCollections: ['reading'] }))).toEqual(['Gamma Note', 'Alpha Paper'])
+    expect(queries.browse({ virtualCollections: ['reading'] }).total).toBe(2)
+    expect(queries.browse({ virtualCollections: ['nonexistent'] }).total).toBe(0)
+  })
+
+  it('ORs with the other scope dims (source/collection/folder)', () => {
+    seedVC('reading', 'Reading', [docIdByTitle('Alpha Paper'), docIdByTitle('Gamma Note')])
+    // reading (Alpha, Gamma) ∪ eagle source (Beta) — a union, not an intersection.
+    expect(titles(queries.browse({ virtualCollections: ['reading'], sourceKeys: ['eagle'] }))).toEqual([
+      'Gamma Note',
+      'Beta Image',
+      'Alpha Paper',
+    ])
+  })
+
+  it('search narrows FTS hits by slug too', () => {
+    seedVC('reading', 'Reading', [docIdByTitle('Gamma Note')])
+    expect(queries.search({ q: 'Note', virtualCollections: ['reading'] }).map((h) => h.title)).toEqual(['Gamma Note'])
+  })
+
+  it('nav returns name-sorted summaries with distinct member counts (empty at 0)', () => {
+    seedVC('reading', 'Reading', [docIdByTitle('Alpha Paper'), docIdByTitle('Gamma Note')])
+    seedVC('empty', 'Empty', [])
+    expect(queries.nav().virtualCollections).toEqual([
+      { slug: 'empty', name: 'Empty', count: 0 },
+      { slug: 'reading', name: 'Reading', count: 2 },
+    ])
+  })
+
+  it('hydrate carries the slugs a document belongs to (sorted)', () => {
+    const gamma = docIdByTitle('Gamma Note')
+    seedVC('reading', 'Reading', [gamma])
+    seedVC('ideas', 'Ideas', [gamma])
+    const hit = queries.browse({ kinds: ['note'] }).hits.find((h) => h.title === 'Gamma Note')!
+    expect(hit.virtualCollections).toEqual(['ideas', 'reading'])
+    const other = queries.browse({ kinds: ['note'] }).hits.find((h) => h.title === 'Delta Note')!
+    expect(other.virtualCollections).toEqual([])
   })
 })
 

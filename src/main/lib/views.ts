@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { filterSetSchema } from '../index/queries'
 import { deleteViewRequestSchema } from '../../shared/db-ipc'
 import { moduleLogger } from './logger'
+import { slugify as slugifyBase } from './slug'
 
 /**
  * Saved views (docs/2026-07-10-lens-saved-views-spec) — the first first-party artifact: a named
@@ -55,18 +56,9 @@ export interface SavedView extends SavedViewFile {
 export const saveViewRequestSchema = savedViewFileSchema.omit({ schemaVersion: true, createdAt: true })
 export type SaveViewRequest = z.infer<typeof saveViewRequestSchema>
 
-/**
- * Slug = kebab-cased name: lowercase, every run of non-`[a-z0-9]` collapsed to a single dash,
- * leading/trailing dashes trimmed. Guard the empty result (all-punctuation or non-ascii names)
- * with a `view` fallback so we never write a dotfile-ish `.json` with no basename.
- */
-export function slugify(name: string): string {
-  const slug = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-  return slug || 'view'
-}
+/** Views' slug is the shared `slugify` bound to a `view` empty-guard fallback. Re-exported so
+ *  this module's surface stays stable after the extraction to `./slug` (spec §Architecture). */
+export const slugify = (name: string): string => slugifyBase(name, 'view')
 
 export interface ViewsApi {
   list: () => SavedView[]

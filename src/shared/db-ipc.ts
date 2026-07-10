@@ -38,6 +38,33 @@ export const VIEWS_DELETE_CHANNEL = 'views:delete'
 export const deleteViewRequestSchema = z.object({ slug: z.string().min(1).max(200) })
 export type DeleteViewRequest = z.infer<typeof deleteViewRequestSchema>
 
+// Virtual collections (docs/2026-07-10-lens-virtual-collections-spec): M:N, source-independent
+// grouping persisted as one JSON file per collection under `<workspace>/.astrolabe/collections/`.
+// list → summaries; create({name}) upserts by slug; delete({slug}); add/remove-members take
+// document ids (main converts ids ↔ refs). Unlike saved views these request schemas are all
+// layer-free (name / slug / document ids — no `filterSetSchema` reach), so they live here beside
+// the channel names rather than dragging drizzle into the preload bundle.
+export const VCOLLECTIONS_LIST_CHANNEL = 'vcollections:list'
+export const VCOLLECTIONS_CREATE_CHANNEL = 'vcollections:create'
+export const VCOLLECTIONS_DELETE_CHANNEL = 'vcollections:delete'
+export const VCOLLECTIONS_ADD_MEMBERS_CHANNEL = 'vcollections:add-members'
+export const VCOLLECTIONS_REMOVE_MEMBERS_CHANNEL = 'vcollections:remove-members'
+
+/** Create request: only the display name; the slug + createdAt are derived server-side. */
+export const createVCollectionRequestSchema = z.object({ name: z.string().min(1).max(120) })
+export type CreateVCollectionRequest = z.infer<typeof createVCollectionRequestSchema>
+
+/** Delete: addressed by slug (the file basename), like a saved view. */
+export const deleteVCollectionRequestSchema = z.object({ slug: z.string().min(1).max(200) })
+export type DeleteVCollectionRequest = z.infer<typeof deleteVCollectionRequestSchema>
+
+/** Add/remove members: the target slug plus the affected document ids (main resolves ids ↔ refs). */
+export const vcollectionMembersRequestSchema = z.object({
+  slug: z.string().min(1).max(200),
+  documentIds: z.array(id).max(10_000),
+})
+export type VCollectionMembersRequest = z.infer<typeof vcollectionMembersRequestSchema>
+
 /** Grant-access probe (macOS TCC): only the known sources are probeable. */
 export const requestAccessSchema = z.object({
   sourceKey: z.enum(['zotero', 'eagle', 'obsidian']),

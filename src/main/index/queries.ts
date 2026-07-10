@@ -18,6 +18,9 @@ export const filterSetSchema = z.object({
   sourceKeys: z.array(z.enum(['zotero', 'eagle', 'obsidian'])).max(3).optional(),
   collectionIds: z.array(z.number().int().positive()).max(100).optional(),
   folderPrefixes: z.array(z.string().max(500)).max(50).optional(), // externalKey LIKE '<p>%', obsidian-scoped
+  // Virtual-collection slugs (docs/2026-07-10-lens-virtual-collections). Rebuild-stable, so a
+  // StoredFilter passes them through verbatim — saved views compose with virtual collections.
+  virtualCollections: z.array(z.string().max(140)).max(50).optional(),
   kinds: z.array(z.enum(['pdf', 'image', 'note', 'other'])).max(4).optional(),
   tagsAll: z.array(z.string().max(200)).max(50).optional(),
   tagsAny: z.array(z.string().max(200)).max(50).optional(),
@@ -47,6 +50,9 @@ export interface BrowseHit {
   modifiedAt: number
   tags: string[]
   instances: { sourceKey: string; uri: string; filePath: string | null }[]
+  // Virtual-collection slugs this document belongs to (from `hydrate`) — drives the river's
+  // membership-popover checked state (docs/2026-07-10-lens-virtual-collections §Wire contract).
+  virtualCollections: string[]
 }
 export interface BrowsePage {
   total: number
@@ -63,6 +69,7 @@ export interface NavData {
   kinds: { kind: string; count: number }[]
   sources: NavSource[]
   tags: { name: string; count: number }[]
+  virtualCollections: { slug: string; name: string; count: number }[]
 }
 
 export interface SearchHit {
@@ -72,6 +79,7 @@ export interface SearchHit {
   snippet: string
   tags: string[]
   instances: { sourceKey: string; uri: string; filePath: string | null }[]
+  virtualCollections: string[]
 }
 
 /** A drizzle IN-list body: `?, ?, …` bound one placeholder per value (goes inside `IN (...)`). */
@@ -114,6 +122,11 @@ export function createIndexQueries(db: Db) {
                     WHERE di.document_id = d.id AND src.key = 'obsidian' AND (${anyPrefix}))`,
       )
     }
+    if (f.virtualCollections?.length)
+      scope.push(
+        sql`EXISTS (SELECT 1 FROM virtual_collection_members vm JOIN virtual_collections vc ON vm.vc_id = vc.id
+                    WHERE vm.document_id = d.id AND vc.slug IN (${inList(f.virtualCollections)}))`,
+      )
     if (scope.length) conds.push(sql`(${sql.join(scope, sql` OR `)})`)
 
     // Kind is one of the selected kinds.
@@ -143,8 +156,9 @@ export function createIndexQueries(db: Db) {
     return conds
   }
 
-  /** A document's tags + per-source provenance — the shared tail of a search/browse hit. */
-  function hydrate(documentId: number): Pick<BrowseHit, 'tags' | 'instances'> {
+  /** A document's tags + per-source provenance + virtual-collection memberships — the shared
+   *  tail of a search/browse hit. */
+  function hydrate(documentId: number): Pick<BrowseHit, 'tags' | 'instances' | 'virtualCollections'> {
     const instances = db
       .select({
         sourceKey: s.sources.key,
@@ -161,7 +175,18 @@ export function createIndexQueries(db: Db) {
       .innerJoin(s.documentTags, eq(s.documentTags.tagId, s.tags.id))
       .where(eq(s.documentTags.documentId, documentId))
       .all()
-    return { tags: tagRows.map((t) => t.name), instances }
+    const vcRows = db
+      .select({ slug: s.virtualCollections.slug })
+      .from(s.virtualCollections)
+      .innerJoin(s.virtualCollectionMembers, eq(s.virtualCollectionMembers.vcId, s.virtualCollections.id))
+      .where(eq(s.virtualCollectionMembers.documentId, documentId))
+      .orderBy(s.virtualCollections.slug)
+      .all()
+    return {
+      tags: tagRows.map((t) => t.name),
+      instances,
+      virtualCollections: vcRows.map((v) => v.slug),
+    }
   }
 
   function search(raw: unknown): SearchHit[] {
@@ -239,7 +264,15 @@ export function createIndexQueries(db: Db) {
             .get()?.c ?? 0
         return { key: src.key, status: src.status, documentCount, tree: sourceTree(src) }
       })
-    return { kinds, sources, tags }
+    // Virtual collections carry their (distinct-document) member count; a LEFT JOIN keeps an
+    // empty collection at count 0. Name-sorted for the rail (spec §Wire contract).
+    const virtualCollections = db.all<{ slug: string; name: string; count: number }>(
+      sql`SELECT vc.slug AS slug, vc.name AS name, count(vm.document_id) AS count
+          FROM virtual_collections vc
+          LEFT JOIN virtual_collection_members vm ON vm.vc_id = vc.id
+          GROUP BY vc.id ORDER BY vc.name ASC`,
+    )
+    return { kinds, sources, tags, virtualCollections }
   }
 
   /** Obsidian browses by folder relpath; zotero/eagle (and any other source) by collections. */

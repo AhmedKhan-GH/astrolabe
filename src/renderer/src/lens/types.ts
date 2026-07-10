@@ -16,6 +16,7 @@ export interface FilterSet {
   sourceKeys?: SourceKey[]
   collectionIds?: number[]
   folderPrefixes?: string[] // obsidian externalKey LIKE '<prefix>%'
+  virtualCollections?: string[] // slugs — a fourth scope sub-predicate (OR with the others)
   kinds?: DocumentKind[]
   tagsAll?: string[] // document has every one
   tagsAny?: string[] // at least one
@@ -31,6 +32,7 @@ export interface LensSelection {
   sourceKeys: SourceKey[]
   collectionIds: number[]
   folderPrefixes: string[]
+  virtualCollections: string[] // slugs — source-independent M:N groupings
   kinds: DocumentKind[]
   tags: { name: string; mode: 'require' | 'exclude' }[]
   tagMatch: 'all' | 'any'
@@ -60,6 +62,8 @@ export interface StoredFilter {
   sourceKeys?: SourceKey[]
   collectionRefs?: { sourceKey: SourceKey; key: string }[]
   folderPrefixes?: string[]
+  // Slugs are rebuild-stable, so virtual collections persist verbatim (no ref mapping).
+  virtualCollections?: string[]
   kinds?: DocumentKind[]
   tagsAll?: string[]
   tagsAny?: string[]
@@ -79,6 +83,23 @@ export interface NavData {
   kinds: { kind: string; count: number }[]
   sources: { key: string; status: string; documentCount: number; tree: NavNode[] }[]
   tags: { name: string; count: number }[]
+  /**
+   * Virtual (source-independent) collections. The wire payload carries slug/name/
+   * count; the renderer mirror may carry `unresolvedCount` (refs in the file that
+   * don't currently resolve to an indexed document) — surfaced when non-zero.
+   */
+  virtualCollections: { slug: string; name: string; count: number; unresolvedCount?: number }[]
+}
+
+/**
+ * A virtual collection as returned by `astrolabe.collections.list()` — the dedicated
+ * query that drives the rail section, the river membership popover, and chip labels.
+ */
+export interface VCollectionSummary {
+  slug: string
+  name: string
+  count: number
+  unresolvedCount: number
 }
 
 /** SearchHit minus snippet, plus modifiedAt. */
@@ -88,6 +109,8 @@ export interface BrowseHit {
   kind: string
   modifiedAt: number
   tags: string[]
+  /** Slugs of the virtual collections this document belongs to — drives the popover's checked state. */
+  virtualCollections: string[]
   instances: { sourceKey: string; uri: string; filePath: string | null }[]
 }
 

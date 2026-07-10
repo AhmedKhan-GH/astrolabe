@@ -1,7 +1,16 @@
 import { useState } from 'react'
 import clsx from 'clsx'
 import { CollectionTree } from './CollectionTree'
-import type { NavData, NavNode, LensSelection, SourceKey, DocumentKind, SavedView } from './types'
+import type { ScopeDim } from './selection'
+import type {
+  NavData,
+  NavNode,
+  LensSelection,
+  SourceKey,
+  DocumentKind,
+  SavedView,
+  VCollectionSummary,
+} from './types'
 
 const TAG_LIMIT = 40
 
@@ -18,26 +27,29 @@ export function NavRail({
   selection,
   views = [],
   appliedViewSlug,
+  collections = [],
   onToggleKind,
   onToggleScope,
   onCycleTag,
   onSetTagMatch,
   onApplyView,
   onDeleteView,
+  onCreateCollection,
+  onDeleteCollection,
 }: {
   nav: NavData
   selection: LensSelection
   views?: SavedView[]
   appliedViewSlug?: string | null
+  collections?: VCollectionSummary[]
   onToggleKind: (kind: DocumentKind) => void
-  onToggleScope: (
-    dim: 'sourceKeys' | 'collectionIds' | 'folderPrefixes',
-    value: SourceKey | number | string,
-  ) => void
+  onToggleScope: (dim: ScopeDim, value: SourceKey | number | string) => void
   onCycleTag: (name: string) => void
   onSetTagMatch: (mode: 'all' | 'any') => void
   onApplyView?: (view: SavedView) => void
   onDeleteView?: (slug: string) => void
+  onCreateCollection?: (name: string) => void
+  onDeleteCollection?: (slug: string) => void
 }) {
   const [tagFilter, setTagFilter] = useState('')
 
@@ -79,6 +91,44 @@ export function NavRail({
               )
             })}
           </div>
+        </Section>
+      )}
+
+      {(collections.length > 0 || onCreateCollection) && (
+        <Section title="Collections">
+          <div className="flex flex-col gap-0.5">
+            {collections.map((c) => {
+              const active = selection.virtualCollections.includes(c.slug)
+              return (
+                <div key={c.slug} className="group flex items-center gap-0.5">
+                  <button
+                    aria-pressed={active}
+                    onClick={() => onToggleScope('virtualCollections', c.slug)}
+                    className={clsx(
+                      'flex min-w-0 flex-1 items-center gap-1.5 rounded px-1.5 py-0.5 text-left text-xs',
+                      active ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-300 hover:bg-zinc-800',
+                    )}
+                  >
+                    <span className="truncate">{c.name}</span>
+                    {c.unresolvedCount > 0 && (
+                      <span className="shrink-0 text-[10px] text-amber-500/80">
+                        {c.unresolvedCount} unresolved
+                      </span>
+                    )}
+                    <span className="ml-auto shrink-0 text-[10px] text-zinc-500">{c.count}</span>
+                  </button>
+                  <button
+                    aria-label={`delete collection ${c.name}`}
+                    onClick={() => onDeleteCollection?.(c.slug)}
+                    className="shrink-0 px-1 text-xs text-zinc-600 opacity-0 hover:text-zinc-200 group-hover:opacity-100"
+                  >
+                    ×
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+          {onCreateCollection && <NewCollection onCreate={onCreateCollection} />}
         </Section>
       )}
 
@@ -184,6 +234,54 @@ export function NavRail({
         </div>
       </Section>
     </nav>
+  )
+}
+
+/**
+ * Inline "New collection…" affordance at the bottom of the Collections section —
+ * a button that swaps to a name input on click (never a native `prompt()`); Enter
+ * creates, Escape/blur cancels. Mirrors the FilterBar "Save view…" input.
+ */
+function NewCollection({ onCreate }: { onCreate: (name: string) => void }) {
+  const [naming, setNaming] = useState(false)
+  const [name, setName] = useState('')
+
+  if (!naming) {
+    return (
+      <button
+        onClick={() => setNaming(true)}
+        className="mt-1 rounded px-1.5 py-0.5 text-left text-xs text-zinc-500 hover:text-zinc-300"
+      >
+        + New collection…
+      </button>
+    )
+  }
+
+  const commit = (): void => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    onCreate(trimmed)
+    setName('')
+    setNaming(false)
+  }
+
+  return (
+    <input
+      autoFocus
+      aria-label="new collection name"
+      value={name}
+      onChange={(e) => setName(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') commit()
+        else if (e.key === 'Escape') {
+          setName('')
+          setNaming(false)
+        }
+      }}
+      onBlur={() => setNaming(false)}
+      placeholder="Name this collection…"
+      className="mt-1 w-full rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-100 placeholder-zinc-600 outline-none focus:border-zinc-500"
+    />
   )
 }
 

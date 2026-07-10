@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import clsx from 'clsx'
 import { isEmpty } from './selection'
+import type { ScopeDim } from './selection'
 import type { LensSelection, SourceKey, DocumentKind } from './types'
 
 /**
@@ -13,6 +14,7 @@ import type { LensSelection, SourceKey, DocumentKind } from './types'
 export function FilterBar({
   selection,
   collectionNames,
+  vcollectionNames,
   canSave,
   onToggleScope,
   onToggleKind,
@@ -22,12 +24,11 @@ export function FilterBar({
 }: {
   selection: LensSelection
   collectionNames?: Map<number, string>
+  /** slug → display name for virtual collection chips (fallback: the slug). */
+  vcollectionNames?: Map<string, string>
   /** True when there is state to save beyond the selection (a non-empty `q`). */
   canSave?: boolean
-  onToggleScope: (
-    dim: 'sourceKeys' | 'collectionIds' | 'folderPrefixes',
-    value: SourceKey | number | string,
-  ) => void
+  onToggleScope: (dim: ScopeDim, value: SourceKey | number | string) => void
   onToggleKind: (kind: DocumentKind) => void
   onRemoveTag: (name: string) => void
   onClearAll: () => void
@@ -53,6 +54,14 @@ export function FilterBar({
           ))}
           {selection.folderPrefixes.map((p) => (
             <Chip key={`fld-${p}`} label={p} onRemove={() => onToggleScope('folderPrefixes', p)} />
+          ))}
+          {selection.virtualCollections.map((slug) => (
+            <Chip
+              key={`vc-${slug}`}
+              label={vcollectionNames?.get(slug) ?? slug}
+              removeName={slug}
+              onRemove={() => onToggleScope('virtualCollections', slug)}
+            />
           ))}
           {selection.kinds.map((k) => (
             <Chip key={`kind-${k}`} label={k} onRemove={() => onToggleKind(k)} />
