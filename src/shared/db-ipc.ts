@@ -7,6 +7,9 @@ import { z } from 'zod'
  * (`index:search`, `index:rebuild`, steps 3/6).
  */
 export const DB_CHANNEL = 'db:query'
+export const INDEX_SEARCH_CHANNEL = 'index:search'
+export const INDEX_SYNC_CHANNEL = 'index:sync'
+export const INDEX_REBUILD_CHANNEL = 'index:rebuild'
 
 const row = z.record(z.string(), z.unknown())
 const id = z.number().int().positive()

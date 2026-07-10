@@ -5,7 +5,16 @@ import { moduleLogger } from './lib/logger'
 import { ensureWorkspace } from './lib/workspace'
 import { openDb } from './db'
 import { createDbDispatcher } from './db/dispatcher'
-import { DB_CHANNEL } from '../shared/db-ipc'
+import { createUpsertApi } from './index/upsert'
+import { createIndexQueries } from './index/queries'
+import { createSyncApi } from './index/sync'
+import { connectors } from './connectors/registry'
+import {
+  DB_CHANNEL,
+  INDEX_REBUILD_CHANNEL,
+  INDEX_SEARCH_CHANNEL,
+  INDEX_SYNC_CHANNEL,
+} from '../shared/db-ipc'
 
 // ESM main process — derive the directory the built file lives in (out/main/).
 const currentDir = dirname(fileURLToPath(import.meta.url))
@@ -64,7 +73,13 @@ app.whenReady().then(() => {
     const ws = ensureWorkspace()
     const handle = openDb(ws.dbPath)
     const dispatch = createDbDispatcher(handle.db)
+    const upsert = createUpsertApi(handle.db)
+    const queries = createIndexQueries(handle.db)
+    const syncApi = createSyncApi(handle.db, connectors, upsert)
     ipcMain.handle(DB_CHANNEL, (_event, req: unknown) => dispatch(req))
+    ipcMain.handle(INDEX_SEARCH_CHANNEL, (_event, req: unknown) => queries.search(req))
+    ipcMain.handle(INDEX_SYNC_CHANNEL, () => syncApi.syncAll())
+    ipcMain.handle(INDEX_REBUILD_CHANNEL, () => syncApi.rebuild())
     log.info(
       { workspace: ws.root, workspaceId: ws.manifest.workspaceId, packaged: app.isPackaged },
       'workspace + db + ipc ready — creating window',

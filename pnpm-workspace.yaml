@@ -8,3 +8,5 @@ allowBuilds:
   electron-winstaller: false
   # native DB — prebuild fetch at install; electron-ABI rebuild via postinstall install-app-deps
   better-sqlite3: true
+  # import-x's native resolver
+  unrs-resolver: true

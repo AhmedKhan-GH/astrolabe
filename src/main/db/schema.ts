@@ -1,20 +1,142 @@
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { index, integer, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core'
 
 /**
- * Index schema. Convention: every table carries an integer autoincrement `id`
- * primary key — the generic table-client dispatch depends on it (docs/10 §9:
- * stable ids, explicit modeling).
- *
- * Step 2 ships only `meta` — real workspace bookkeeping (schema version markers,
- * sync bookkeeping), NOT a demo table (the iteration-2 users/records scar).
- * Domain tables (documents, instances, tags, collections, annotations) land in
- * step 3 with the connector contract.
+ * Index schema v1 (runway step 3; docs/03 Layer 3–4). Everything here is DERIVED
+ * and rebuildable from the systems of record (ADR-0005) — no user data lives only
+ * here. Convention: integer autoincrement `id` on every table (generic dispatch
+ * + stable ids, docs/10 §9). Timestamps are epoch ms.
  */
+
+/** Real workspace bookkeeping (schema probes, sync markers). Not a demo table. */
 export const meta = sqliteTable('meta', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   key: text('key').notNull().unique(),
   value: text('value').notNull(),
 })
-
 export type Meta = typeof meta.$inferSelect
 export type NewMeta = typeof meta.$inferInsert
+
+/** One row per connector; status + incremental cursor. */
+export const sources = sqliteTable('sources', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  key: text('key').notNull().unique(), // 'zotero' | 'eagle' | 'obsidian'
+  status: text('status', { enum: ['ok', 'unavailable', 'disabled'] })
+    .notNull()
+    .default('ok'),
+  syncCursor: text('sync_cursor'),
+  lastSyncAt: integer('last_sync_at'),
+})
+export type Source = typeof sources.$inferSelect
+
+/**
+ * The cross-source entity. `contentSha256` is the join key that merges the same
+ * file held in two tools into ONE document (the Zotero↔Eagle pain-killer).
+ */
+export const documents = sqliteTable(
+  'documents',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    contentSha256: text('content_sha256').unique(),
+    title: text('title').notNull(),
+    kind: text('kind', { enum: ['pdf', 'image', 'note', 'other'] }).notNull(),
+    createdAt: integer('created_at').notNull(),
+    modifiedAt: integer('modified_at').notNull(),
+  },
+  (t) => [index('documents_title_idx').on(t.title)],
+)
+export type Document = typeof documents.$inferSelect
+
+/** A document as one source sees it: the join to reality (provenance URI, file path). */
+export const documentInstances = sqliteTable(
+  'document_instances',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    documentId: integer('document_id')
+      .notNull()
+      .references(() => documents.id, { onDelete: 'cascade' }),
+    sourceId: integer('source_id')
+      .notNull()
+      .references(() => sources.id, { onDelete: 'cascade' }),
+    externalKey: text('external_key').notNull(), // zotero item key / eagle id / vault relpath
+    uri: text('uri').notNull(), // zotero://… | eagle://… | obsidian://…
+    filePath: text('file_path'),
+    metaJson: text('meta_json'),
+  },
+  (t) => [
+    unique('instances_source_external_uq').on(t.sourceId, t.externalKey),
+    index('instances_document_idx').on(t.documentId),
+  ],
+)
+export type DocumentInstance = typeof documentInstances.$inferSelect
+
+export const tags = sqliteTable('tags', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull().unique(),
+})
+
+export const documentTags = sqliteTable(
+  'document_tags',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    documentId: integer('document_id')
+      .notNull()
+      .references(() => documents.id, { onDelete: 'cascade' }),
+    tagId: integer('tag_id')
+      .notNull()
+      .references(() => tags.id, { onDelete: 'cascade' }),
+  },
+  (t) => [unique('document_tags_uq').on(t.documentId, t.tagId)],
+)
+
+/** Source-owned collection/folder trees (Zotero collections, Eagle folders). */
+export const collections = sqliteTable(
+  'collections',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    sourceId: integer('source_id')
+      .notNull()
+      .references(() => sources.id, { onDelete: 'cascade' }),
+    externalKey: text('external_key').notNull(),
+    name: text('name').notNull(),
+    parentId: integer('parent_id'),
+  },
+  (t) => [unique('collections_source_external_uq').on(t.sourceId, t.externalKey)],
+)
+
+export const documentCollections = sqliteTable(
+  'document_collections',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    documentId: integer('document_id')
+      .notNull()
+      .references(() => documents.id, { onDelete: 'cascade' }),
+    collectionId: integer('collection_id')
+      .notNull()
+      .references(() => collections.id, { onDelete: 'cascade' }),
+  },
+  (t) => [unique('document_collections_uq').on(t.documentId, t.collectionId)],
+)
+
+/** Zotero highlights/notes (and later any source's annotations), page-anchored. */
+export const annotations = sqliteTable(
+  'annotations',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    instanceId: integer('instance_id')
+      .notNull()
+      .references(() => documentInstances.id, { onDelete: 'cascade' }),
+    externalKey: text('external_key').notNull(),
+    type: text('type').notNull(), // highlight | note | ink | image
+    text: text('text'),
+    comment: text('comment'),
+    pageLabel: text('page_label'),
+    color: text('color'),
+    positionJson: text('position_json'),
+    modifiedAt: integer('modified_at').notNull(),
+  },
+  (t) => [
+    unique('annotations_instance_external_uq').on(t.instanceId, t.externalKey),
+    index('annotations_instance_idx').on(t.instanceId),
+  ],
+)
+export type Annotation = typeof annotations.$inferSelect

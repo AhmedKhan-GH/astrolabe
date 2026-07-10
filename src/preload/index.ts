@@ -1,6 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { DB_CHANNEL } from '../shared/db-ipc'
+import {
+  DB_CHANNEL,
+  INDEX_REBUILD_CHANNEL,
+  INDEX_SEARCH_CHANNEL,
+  INDEX_SYNC_CHANNEL,
+} from '../shared/db-ipc'
 import type { Meta, NewMeta } from '../main/db/schema'
+import type { SearchHit } from '../main/index/queries'
+import type { SyncReport } from '../main/index/sync'
 
 /**
  * The single, explicit IPC surface exposed to the renderer — an allowlist, never a
@@ -31,6 +38,12 @@ const api = {
   },
   db: {
     meta: createTableClient<Meta, NewMeta>('meta'),
+  },
+  index: {
+    search: (q: string, limit?: number): Promise<SearchHit[]> =>
+      ipcRenderer.invoke(INDEX_SEARCH_CHANNEL, { q, ...(limit ? { limit } : {}) }),
+    sync: (): Promise<SyncReport[]> => ipcRenderer.invoke(INDEX_SYNC_CHANNEL),
+    rebuild: (): Promise<SyncReport[]> => ipcRenderer.invoke(INDEX_REBUILD_CHANNEL),
   },
 } as const
 
