@@ -47,6 +47,9 @@ Set `website` to the `zotero://select/items/<key>` URI so the Eagle item links b
 ## Context notes
 
 - The app's Zotero connector today is read-only against the local API (`/api/users/0/…`,
-  keyless); `/deleted` is 404 locally, so removals only reconcile on full rebuild.
+  keyless). `/deleted` is 404 locally and the `since` delta excludes trashed items, so removals
+  are reconciled incrementally by DIFFING the live key set: each scan enumerates non-trashed
+  top-level keys (`/items/top?format=keys`) and `src/main/index/removals.ts` sweeps stale
+  instances (superseding the earlier rebuild-only reconciliation).
 - zotero-mcp as currently configured (`ZOTERO_LOCAL=true`, no API key) would refuse
   `add_from_file` — its write path is cloud-only. Do not model Astrolabe's write path on it.

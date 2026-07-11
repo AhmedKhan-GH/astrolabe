@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, unlinkSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { eq } from 'drizzle-orm'
@@ -10,6 +10,7 @@ import { createIndexQueries, type IndexQueries } from '../../index/queries'
 import { sha256File } from '../../lib/hash'
 import type { SyncContext } from '../types'
 import { createGoodnotesConnector } from './index'
+import { createSyncApi } from '../../index/sync'
 
 /**
  * Tier A integration: the GoodNotes connector against real SQLite + real migrations +
@@ -141,6 +142,33 @@ describe('goodnotes scan — notebooks land as pdf documents', () => {
       .map((r) => r.key)
       .sort()
     expect(instances).toEqual(['eagle', 'goodnotes'])
+  })
+})
+
+describe('goodnotes scan — removal reconciliation', () => {
+  it('scan returns every backup relpath as allExternalKeys', async () => {
+    writePdf('A.pdf', '%PDF-a', 1_000_000)
+    writePdf('sub/B.pdf', '%PDF-b', 1_000_000)
+    const result = await createGoodnotesConnector({ backupPath }).scan(ctx(null))
+    expect(result.allExternalKeys?.sort()).toEqual(['A.pdf', 'sub/B.pdf'])
+  })
+
+  it('a removed backup PDF is SWEPT on the next sync', async () => {
+    writePdf('Keep.pdf', '%PDF-keep', 1_000_000)
+    writePdf('Remove.pdf', '%PDF-remove', 1_000_000)
+    const conn = createGoodnotesConnector({ backupPath })
+    const sync = createSyncApi(handle.db, [conn], upsert)
+    await sync.syncOne(conn)
+    expect(queries.browse({ kinds: ['pdf'] }).total).toBe(2)
+
+    // Delete one backup PDF, re-sync — allExternalKeys omits it → its instance is swept.
+    unlinkSync(join(backupPath, 'Remove.pdf'))
+    const report = await sync.syncOne(conn)
+
+    expect(report.documentsRemoved).toBe(1)
+    const pdfs = queries.browse({ kinds: ['pdf'] })
+    expect(pdfs.total).toBe(1)
+    expect(pdfs.hits[0]?.title).toBe('Keep')
   })
 })
 

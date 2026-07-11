@@ -21,6 +21,14 @@ export interface ScanResult {
   cursor: string | null
   documentsUpserted: number
   annotationsUpserted: number
+  /**
+   * The COMPLETE set of externalKeys currently existing at the source, independent of any
+   * watermark/version skip — the ground truth for removal reconciliation (index/removals.ts).
+   * ABSENT (`undefined`) = the connector can't cheaply enumerate its full key set, so sync
+   * performs NO sweep for this run (the safe default — never delete on partial knowledge). A
+   * successful scan returning an empty array is a legitimately empty source (sweep everything).
+   */
+  allExternalKeys?: string[]
 }
 
 export interface ResolveResult {

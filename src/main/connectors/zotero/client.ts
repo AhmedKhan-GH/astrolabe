@@ -12,10 +12,12 @@ import { z } from 'zod'
  *  - Incremental: `?since=<version>` WORKS and filters correctly (since=1000 → 389
  *    results, since=3667 → 1, since=<libraryVersion> → 0). `Last-Modified-Version`
  *    response header carries the current library version — used as the cursor.
- *  - Deleted items: `/deleted?since=` returns 404 ("No endpoint found") on the local
- *    API — NOT available. Removals are only reconciled by a full "Rebuild index"
- *    (ADR-0005); incremental scans cannot observe deletions here. Documented so the
- *    lead knows the limitation.
+ *  - Deleted items: `/deleted?since=` returns 404 ("No endpoint found") on the local API —
+ *    NOT available. AND the `since` delta excludes trashed items (verified 2026-07-11), so a
+ *    trash operation is invisible to incremental JSON walks. Removal reconciliation instead
+ *    diffs the live key set: `fetchAllTopLevelKeys` enumerates NON-TRASHED top-level item keys
+ *    via `/items/top?format=keys` (text/plain, newline-delimited, paginated by Total-Results +
+ *    start; trash excluded by default). This supersedes the earlier Rebuild-only limitation.
  *  - Attachments: all local attachments are linkMode `imported_file`; the file lives
  *    at <dataDir>/storage/<KEY>/<filename> (path resolution lives in mapping.ts).
  */
@@ -110,6 +112,17 @@ export function createZoteroClient(options: ZoteroClientOptions = {}) {
     }
   }
 
+  async function getText(path: string, timeoutMs: number): Promise<{ body: string; headers: Headers }> {
+    const { signal, done } = withTimeout(timeoutMs)
+    try {
+      const res = await doFetch(`${baseUrl}${path}`, { signal })
+      if (!res.ok) throw new Error(`zotero api ${path} → ${res.status}`)
+      return { body: await res.text(), headers: res.headers }
+    } finally {
+      done()
+    }
+  }
+
   /** 1s probe; never throws (Connector contract). */
   async function checkAvailable(): Promise<boolean> {
     try {
@@ -159,6 +172,31 @@ export function createZoteroClient(options: ZoteroClientOptions = {}) {
     return { changed: page.totalResults, libraryVersion: page.libraryVersion }
   }
 
+  /**
+   * Every NON-TRASHED top-level item key — the ground truth for removal reconciliation
+   * (index/removals.ts). Uses `/items/top?format=keys` (verified live 2026-07-11, X-Zotero-Version
+   * 9.0.4): text/plain, newline-delimited keys, paginated via `Total-Results` + `start`, trashed
+   * items EXCLUDED by default (that exclusion is what makes a Zotero trash count as a deletion).
+   * `/top` matches the connector's document identity — externalKey is the top-level item key, and
+   * standalone attachments (their own key) are top-level too; child attachments/annotations/notes
+   * that `/top` may also list are harmless over-inclusion (the sweep only deletes keys it does NOT
+   * see, so a superset never over-deletes).
+   */
+  async function fetchAllTopLevelKeys(): Promise<string[]> {
+    const out: string[] = []
+    for (let start = 0; ; start += PAGE_LIMIT) {
+      const { body, headers } = await getText(
+        `/items/top?format=keys&limit=${PAGE_LIMIT}&start=${start}`,
+        REQUEST_TIMEOUT_MS,
+      )
+      const page = body.split('\n').map((k) => k.trim()).filter((k) => k.length > 0)
+      out.push(...page)
+      const total = Number(headers.get('Total-Results'))
+      if (!Number.isFinite(total) || out.length >= total || page.length === 0) break
+    }
+    return out
+  }
+
   async function fetchCollections(): Promise<ZoteroCollection[]> {
     const out: ZoteroCollection[] = []
     for (let start = 0; ; start += PAGE_LIMIT) {
@@ -174,7 +212,7 @@ export function createZoteroClient(options: ZoteroClientOptions = {}) {
     return out
   }
 
-  return { checkAvailable, fetchItemsPage, fetchAllItems, countChangedSince, fetchCollections }
+  return { checkAvailable, fetchItemsPage, fetchAllItems, countChangedSince, fetchCollections, fetchAllTopLevelKeys }
 }
 
 export type ZoteroClient = ReturnType<typeof createZoteroClient>

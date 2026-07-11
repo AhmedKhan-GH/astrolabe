@@ -19,7 +19,13 @@ import { mapCollections, mapItemsToDocuments } from './mapping'
  * annotation whose parent attachment is unchanged would not appear in a `since`
  * delta, so a delta-only remap could not resolve its document). The library is
  * small and paginated at 100/page, so a full walk on change is cheap and correct.
- * There is no `/deleted` endpoint locally, so removals reconcile only via Rebuild.
+ *
+ * Removals: the local API has no `/deleted` endpoint, AND a trash operation is invisible to the
+ * `since` delta (verified 2026-07-11 — trashed items are excluded from the delta), so a deletion
+ * can only be detected by DIFFING the source's live key set against the index. Every scan — even
+ * the incremental early-out — therefore enumerates the current NON-TRASHED top-level keys
+ * (`fetchAllTopLevelKeys`, one cheap keys-only call) and returns them as `allExternalKeys`; sync.ts
+ * sweeps stale instances. This supersedes the old "removals reconcile only via Rebuild" limitation.
  */
 
 const log = moduleLogger('connector.zotero')
@@ -41,14 +47,20 @@ export function createZoteroConnector(options: ZoteroConnectorOptions = {}): Con
   async function scan(ctx: SyncContext): Promise<ScanResult> {
     const previousVersion = ctx.cursor != null ? Number(ctx.cursor) : null
 
+    // The live key set for removal reconciliation — fetched on EVERY scan (including the
+    // early-out) because a trash operation never shows up in the `since` delta, so the sweep is
+    // the only path that observes a Zotero deletion.
+    const allExternalKeys = await client.fetchAllTopLevelKeys()
+
     if (previousVersion != null && Number.isFinite(previousVersion)) {
       const { changed, libraryVersion } = await client.countChangedSince(previousVersion)
       if (changed === 0) {
-        log.info({ cursor: ctx.cursor }, 'zotero unchanged since cursor; skipping scan')
+        log.info({ cursor: ctx.cursor }, 'zotero unchanged since cursor; skipping upserts (sweep still runs)')
         return {
           cursor: libraryVersion != null ? String(libraryVersion) : ctx.cursor,
           documentsUpserted: 0,
           annotationsUpserted: 0,
+          allExternalKeys,
         }
       }
       log.info({ changed, cursor: ctx.cursor }, 'zotero changed since cursor; full remap')
@@ -78,6 +90,7 @@ export function createZoteroConnector(options: ZoteroConnectorOptions = {}): Con
       cursor: libraryVersion != null ? String(libraryVersion) : null,
       documentsUpserted,
       annotationsUpserted,
+      allExternalKeys,
     }
   }
 

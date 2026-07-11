@@ -9,6 +9,7 @@ import { sha256File } from '../../lib/hash'
 import type { SyncContext } from '../types'
 import type { EagleClient } from './client'
 import { createEagleConnector } from './index'
+import { createSyncApi } from '../../index/sync'
 
 /**
  * Tier A integration: the Eagle connector against real SQLite + real migrations + real
@@ -144,6 +145,34 @@ describe('eagle scan — THE HASH JOIN (Zotero↔Eagle, the money logic)', () =>
     expect(zHits).toHaveLength(1)
     expect(eHits).toHaveLength(1)
     expect(zHits[0]?.documentId).not.toBe(eHits[0]?.documentId)
+  })
+})
+
+describe('eagle scan — removal reconciliation (allExternalKeys → sweep)', () => {
+  it('scan omits a trashed item from allExternalKeys', async () => {
+    const items = [
+      { id: 'LIVE', name: 'live', ext: 'pdf', tags: [], folders: [], isDeleted: false, modificationTime: 1000 },
+      { id: 'DEAD', name: 'dead', ext: 'pdf', tags: [], folders: [], isDeleted: true, modificationTime: 1000 },
+    ]
+    writeItemFile('LIVE', 'live', 'pdf', 'live bytes')
+    const result = await createEagleConnector(fakeClient([], items)).scan(ctx(null))
+    expect(result.allExternalKeys).toEqual(['LIVE']) // trashed DEAD excluded
+  })
+
+  it('an item that becomes trashed is SWEPT on the next sync (document removed)', async () => {
+    writeItemFile('E1', 'quantumnotes', 'pdf', 'quantum content')
+    const live = [{ id: 'E1', name: 'quantumnotes', ext: 'pdf', tags: [], folders: [], isDeleted: false, modificationTime: 1000 }]
+    const conn1 = createEagleConnector(fakeClient([], live))
+    await createSyncApi(handle.db, [conn1], upsert).syncOne(conn1)
+    expect(queries.search({ q: 'quantumnotes' })).toHaveLength(1)
+
+    // Next sync: the item is now trashed → mapItems drops it → allExternalKeys omits E1 → swept.
+    const trashed = [{ id: 'E1', name: 'quantumnotes', ext: 'pdf', tags: [], folders: [], isDeleted: true, modificationTime: 2000 }]
+    const conn2 = createEagleConnector(fakeClient([], trashed))
+    const report = await createSyncApi(handle.db, [conn2], upsert).syncOne(conn2)
+
+    expect(report.documentsRemoved).toBe(1)
+    expect(queries.search({ q: 'quantumnotes' })).toHaveLength(0)
   })
 })
 

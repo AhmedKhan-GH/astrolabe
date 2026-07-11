@@ -109,12 +109,17 @@ export function createGoodnotesConnector(options: GoodnotesConnectorOptions = {}
     let documentsUpserted = 0
 
     const files = walkPdfs(backupPath)
+    // The walk enumerates every backup PDF, so the complete relpath set (the removal-sweep
+    // ground truth) is free — collected for EVERY file, not just the watermark-changed ones.
+    const allExternalKeys: string[] = []
     for (const filePath of files) {
+      const relPath = relative(backupPath, filePath).split(sep).join('/')
+      allExternalKeys.push(relPath)
+
       const mtime = Math.floor(statSync(filePath).mtimeMs)
       if (mtime > maxMtime) maxMtime = mtime
       if (cursorNum != null && mtime <= cursorNum) continue // watermark: unchanged file
 
-      const relPath = relative(backupPath, filePath).split(sep).join('/')
       const doc = buildDocument({ relPath, filePath, mtime })
       // The hash join: content SHA-256 merges a notebook already held in Eagle/Zotero
       // into one document. A missing/unreadable file degrades to no-join, never a crash.
@@ -125,7 +130,7 @@ export function createGoodnotesConnector(options: GoodnotesConnectorOptions = {}
 
     const cursor = files.length > 0 ? String(maxMtime) : ctx.cursor
     log.info({ backupPath, scanned: files.length, documentsUpserted, cursor }, 'goodnotes scan complete')
-    return { cursor, documentsUpserted, annotationsUpserted: 0 }
+    return { cursor, documentsUpserted, annotationsUpserted: 0, allExternalKeys }
   }
 
   async function resolve(uri: string): Promise<ResolveResult> {

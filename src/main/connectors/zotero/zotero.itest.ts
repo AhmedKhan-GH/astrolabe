@@ -29,6 +29,9 @@ function fakeClient(over: Partial<ZoteroClient> = {}): ZoteroClient {
     fetchAllItems: async () => ({ items: rawItems as never, libraryVersion: 3691 }),
     countChangedSince: async () => ({ changed: rawItems.length, libraryVersion: 3691 }),
     fetchCollections: async () => rawCollections as never,
+    // The live key set for removal reconciliation — every fixture item key (a harmless superset
+    // of the top-level document keys; the sweep only deletes keys NOT present here).
+    fetchAllTopLevelKeys: async () => rawItems.map((it) => it.data.key),
     ...over,
   }
 }

@@ -1,8 +1,9 @@
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import type { Db } from '../db'
 import * as s from '../db/schema'
 import { createUpsertApi, type UpsertApi } from './upsert'
 import { classifyScanError } from './sync-status'
+import { reconcileRemovals, documentIsOrphaned } from './removals'
 import type { Connector } from '../connectors/types'
 import { moduleLogger } from '../lib/logger'
 
@@ -14,6 +15,8 @@ export interface SyncReport {
   available: boolean
   documentsUpserted?: number
   annotationsUpserted?: number
+  /** Documents fully removed (orphaned) by the post-scan removal sweep, when one ran. */
+  documentsRemoved?: number
   error?: string
 }
 
@@ -22,6 +25,29 @@ export interface SyncReport {
  * source (status → unavailable), never the app.
  */
 export function createSyncApi(db: Db, registry: Connector[], upsert: UpsertApi = createUpsertApi(db)) {
+  /**
+   * Diff the source's live key set against the index, delete vanished instances, then settle each
+   * affected document: ORPHANED (no instance left) → delete the document + its FTS row (relational
+   * cascades already took its tags/collections/vc-memberships/inbound-links; search_fts is not a
+   * real FK table, so its row is removed explicitly); SURVIVING → refresh its FTS row so tags and
+   * annotation body stay truthful now that a source's contribution is gone. Returns the count of
+   * documents fully removed.
+   */
+  function sweepRemovals(sourceId: number, allKeys: string[]): number {
+    const affected = reconcileRemovals(db, sourceId, allKeys)
+    let removed = 0
+    for (const documentId of affected) {
+      if (documentIsOrphaned(db, documentId)) {
+        db.delete(s.documents).where(eq(s.documents.id, documentId)).run()
+        db.run(sql`DELETE FROM search_fts WHERE rowid = ${documentId}`)
+        removed++
+      } else {
+        upsert.refreshFtsRow(documentId)
+      }
+    }
+    return removed
+  }
+
   async function syncOne(connector: Connector): Promise<SyncReport> {
     const source = upsert.ensureSource(connector.key)
     const probe = await connector.checkAvailable()
@@ -36,8 +62,19 @@ export function createSyncApi(db: Db, registry: Connector[], upsert: UpsertApi =
         .set({ status: 'ok', syncCursor: result.cursor, lastSyncAt: Date.now() })
         .where(eq(s.sources.id, source.id))
         .run()
+      // Removal reconciliation. ONLY after a SUCCESSFUL scan that enumerated its full key set
+      // (a throwing scan never reaches here, so the degrade contract stays intact; an absent
+      // allExternalKeys means "can't enumerate" → no sweep). Runs BEFORE the handler-site
+      // resolveLinks/syncVirtualCollections re-passes, so those see the post-sweep index.
+      const documentsRemoved =
+        result.allExternalKeys !== undefined ? sweepRemovals(source.id, result.allExternalKeys) : 0
       log.info(
-        { source: connector.key, documents: result.documentsUpserted, annotations: result.annotationsUpserted },
+        {
+          source: connector.key,
+          documents: result.documentsUpserted,
+          annotations: result.annotationsUpserted,
+          documentsRemoved,
+        },
         'scan complete',
       )
       return {
@@ -46,6 +83,7 @@ export function createSyncApi(db: Db, registry: Connector[], upsert: UpsertApi =
         available: true,
         documentsUpserted: result.documentsUpserted,
         annotationsUpserted: result.annotationsUpserted,
+        documentsRemoved,
       }
     } catch (err) {
       // EPERM/EACCES (macOS TCC blocking an iCloud path) reads as 'denied' —

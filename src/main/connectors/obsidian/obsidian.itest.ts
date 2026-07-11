@@ -10,6 +10,7 @@ import { createUpsertApi, type UpsertApi } from '../../index/upsert'
 import { createIndexQueries, type IndexQueries } from '../../index/queries'
 import type { SyncContext } from '../types'
 import { createObsidianConnector } from './index'
+import { createSyncApi } from '../../index/sync'
 
 /**
  * Tier A integration: the Obsidian connector against real SQLite + real migrations +
@@ -169,6 +170,29 @@ describe('obsidian scan — incremental watermark', () => {
     expect(rewritten[0]?.instances[0]?.uri).toBe(
       `obsidian://open?path=${encodeURIComponent(join(vaultPath, 'no-frontmatter.md'))}`,
     )
+  })
+})
+
+describe('obsidian scan — removal reconciliation', () => {
+  it('scan returns every note relpath as allExternalKeys (the sweep ground truth)', async () => {
+    const result = await createObsidianConnector({ vaultPath }).scan(ctx(null))
+    expect(result.allExternalKeys?.sort()).toEqual(
+      ['frontmatter-tags.md', 'inline-tags.md', 'no-frontmatter.md', 'projects/nested-note.md', 'wikilinks.md'],
+    )
+  })
+
+  it('an unlinked (deleted) note is SWEPT on the next sync', async () => {
+    const conn = createObsidianConnector({ vaultPath })
+    const sync = createSyncApi(handle.db, [conn], upsert)
+    await sync.syncOne(conn)
+    expect(queries.search({ q: 'coupling constants' })).toHaveLength(1) // frontmatter-tags.md body
+
+    // Delete the note file, then re-sync — allExternalKeys omits it → its instance is swept.
+    rmSync(join(vaultPath, 'frontmatter-tags.md'))
+    const report = await sync.syncOne(conn)
+
+    expect(report.documentsRemoved).toBe(1)
+    expect(queries.search({ q: 'coupling constants' })).toHaveLength(0)
   })
 })
 

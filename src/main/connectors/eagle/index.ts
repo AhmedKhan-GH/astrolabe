@@ -68,12 +68,17 @@ export function createEagleConnector(client: EagleClient = createEagleClient()):
         documentsUpserted++
       }
 
+      // The full metadata walk already yielded every non-trashed item, so the complete key set
+      // (the removal-sweep ground truth) is free. `mapItems` drops isDeleted rows, so a trashed
+      // Eagle item is correctly absent here → the sweep removes its stale instance.
+      const allExternalKeys = docs.map((d) => d.externalKey)
+
       const cursor = docs.length > 0 ? String(maxMod) : ctx.cursor
       log.info(
         { library: library.path, scanned: docs.length, documentsUpserted, cursor },
         'eagle scan complete',
       )
-      return { cursor, documentsUpserted, annotationsUpserted: 0 }
+      return { cursor, documentsUpserted, annotationsUpserted: 0, allExternalKeys }
     },
 
     async resolve(uri: string) {

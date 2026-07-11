@@ -86,4 +86,8 @@ put it on `window.astrolabe.index.transfer`).
 - Metadata enrichment on promote (DOI lookup etc. — Zotero's own retrieve-metadata does this
   better post-promote; agent-assisted enrichment belongs to the ACP era).
 - Target collection picker; Web-API fallback for cloud-only users (research note documents it).
-- Deletions/moves in either direction — reconciliation of removals stays rebuild-only (v1).
+- Moves in either direction (bulk/selective mirroring beyond a single transfer). Removal
+  reconciliation now runs INCREMENTALLY: a successful scan reports its full key set
+  (`ScanResult.allExternalKeys`) and `src/main/index/removals.ts` sweeps stale instances after
+  each sync — so a Zotero/Eagle deletion flips presence back and reopens the transfer gate on the
+  next sync, no longer rebuild-only.

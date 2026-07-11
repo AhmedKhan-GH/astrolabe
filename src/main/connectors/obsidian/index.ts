@@ -130,12 +130,17 @@ export function createObsidianConnector(options: ObsidianConnectorOptions = {}):
     let annotationsUpserted = 0
 
     const files = walkVault(vaultPath)
+    // The walk already enumerates every .md, so the complete relpath set (the removal-sweep
+    // ground truth) is free — collected for EVERY file, not just the watermark-changed ones.
+    const allExternalKeys: string[] = []
     for (const filePath of files) {
+      const relPath = relative(vaultPath, filePath).split(sep).join('/')
+      allExternalKeys.push(relPath)
+
       const mtime = Math.floor(statSync(filePath).mtimeMs)
       if (mtime > maxMtime) maxMtime = mtime
       if (cursorNum != null && mtime <= cursorNum) continue // watermark: unchanged file
 
-      const relPath = relative(vaultPath, filePath).split(sep).join('/')
       const raw = readFileSync(filePath, 'utf8')
       const doc = buildDocument({ raw, relPath, filePath, mtime })
       ctx.upsert.upsertDocument(doc)
@@ -145,7 +150,7 @@ export function createObsidianConnector(options: ObsidianConnectorOptions = {}):
 
     const cursor = files.length > 0 ? String(maxMtime) : ctx.cursor
     log.info({ vaultPath, scanned: files.length, documentsUpserted, cursor }, 'obsidian scan complete')
-    return { cursor, documentsUpserted, annotationsUpserted }
+    return { cursor, documentsUpserted, annotationsUpserted, allExternalKeys }
   }
 
   async function resolve(uri: string): Promise<ResolveResult> {
