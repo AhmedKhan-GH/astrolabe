@@ -4,16 +4,17 @@ import {
   adapters,
   mcpServerSpawn,
   claudeAgentEntry,
-  codexBundledBinary,
+  codexAgentEntry,
   resolveCodex,
   unpackedPath,
   type WhichFn,
 } from './adapters'
 
 /**
- * Adapter registry unit tests (spec §Testing: availability probe + MCP mount payload). The claude
- * adapter is a bundled dependency so it always resolves through Electron's node; codex depends on
- * a PATH binary, so its availability rides an injected which-probe.
+ * Adapter registry unit tests (spec §Testing: availability probe + MCP mount payload). BOTH v1
+ * adapters are bundled dependencies now, so each resolves through Electron's node against its
+ * package's ESM entry; codex keeps a trivial PATH fallback (a user-managed `codex-acp`) that rides
+ * an injected which-probe.
  */
 
 const claude = adapters.find((a) => a.key === 'claude')!
@@ -42,36 +43,39 @@ describe('adapters registry', () => {
     expect(spawn!.args[0]).toMatch(/claude-agent-acp[\\/]dist[\\/]index\.js$/)
   })
 
-  it('codex resolves to the BUNDLED native binary (works out of the box, even with an empty PATH)', () => {
-    // In this repo the @zed-industries/codex-acp platform package is installed, so the bundled
-    // binary wins regardless of PATH. It must be a real, on-disk native executable.
+  it('codex resolves through Electron node (ELECTRON_RUN_AS_NODE) at the bundled codex-acp entry', () => {
+    // codex-acp is a bundled dependency now (an ESM entry, no native binary), so it resolves out of
+    // the box even with an empty PATH — spawned exactly like claude, via Electron-as-node.
     const spawn = codex.resolve(whichNone)
     expect(spawn).not.toBeNull()
-    expect(spawn!.args).toEqual([])
-    expect(spawn!.env).toEqual({})
-    expect(spawn!.command).toBe(codexBundledBinary())
-    expect(spawn!.command).toMatch(/codex-acp[^/\\]*[/\\]bin[/\\]codex-acp(\.exe)?$/)
-    expect(existsSync(spawn!.command)).toBe(true)
+    expect(spawn!.command).toBe(process.execPath)
+    expect(spawn!.env).toEqual({ ELECTRON_RUN_AS_NODE: '1' })
+    expect(spawn!.args).toEqual([codexAgentEntry()])
+    expect(spawn!.args[0]).toMatch(/codex-acp[\\/]dist[\\/]index\.js$/)
   })
 })
 
-describe('codexBundledBinary', () => {
-  it('resolves the platform-binary package to a real file (dev: no asar, so path is unchanged)', () => {
-    const bin = codexBundledBinary()
-    expect(bin).not.toBeNull()
-    expect(existsSync(bin!)).toBe(true)
+describe('codexAgentEntry', () => {
+  it('resolves the codex-acp ESM entry to a real file (dev: no asar, so path is unchanged)', () => {
+    const entry = codexAgentEntry()
+    expect(existsSync(entry)).toBe(true)
+    expect(entry).toMatch(/codex-acp[\\/]dist[\\/]index\.js$/)
     // Dev tree has no app.asar segment, so no unpacked rewrite happened.
-    expect(bin).not.toContain('app.asar')
+    expect(entry).not.toContain('app.asar')
   })
 })
 
-describe('resolveCodex (bundled-first, PATH fallback)', () => {
-  it('prefers the bundled binary over a PATH match', () => {
-    const spawn = resolveCodex(whichFinds('/usr/local/bin/codex-acp'), () => '/unpacked/codex-acp')
-    expect(spawn).toEqual({ command: '/unpacked/codex-acp', args: [], env: {} })
+describe('resolveCodex (bundled-entry-first, PATH fallback)', () => {
+  it('prefers the bundled entry (Electron-as-node spawn) over a PATH match', () => {
+    const spawn = resolveCodex(whichFinds('/usr/local/bin/codex-acp'), () => '/unpacked/codex-acp/dist/index.js')
+    expect(spawn).toEqual({
+      command: process.execPath,
+      args: ['/unpacked/codex-acp/dist/index.js'],
+      env: { ELECTRON_RUN_AS_NODE: '1' },
+    })
   })
 
-  it('falls back to the PATH-found binary when nothing is bundled', () => {
+  it('falls back to a user-managed codex-acp on PATH when the bundled entry is unresolvable', () => {
     const spawn = resolveCodex(whichFinds('/opt/homebrew/bin/codex-acp'), () => null)
     expect(spawn).toEqual({ command: '/opt/homebrew/bin/codex-acp', args: [], env: {} })
   })

@@ -7,11 +7,14 @@ import { client, ndJsonStream, PROTOCOL_VERSION } from '@agentclientprotocol/sdk
 /**
  * PACKAGED-ADAPTER SMOKE (manual verification for the ACP packaging fix). Spawns each adapter EXACTLY
  * as the installed app would — the PACKAGED Electron binary run as node against the UNPACKED
- * claude-agent-acp ESM entry, and the UNPACKED codex-acp NATIVE binary directly — and drives the ACP
- * `initialize` handshake. This proves the process starts and speaks ACP (i.e. the ESM entry + its
- * whole import closure load from app.asar.unpacked, and the native binary execs) WITHOUT needing a
- * Claude/Codex login, network, or a display. A load failure (MODULE_NOT_FOUND, ESM-from-asar, exec
- * error) shows up here as a failed handshake. Run:
+ * claude-agent-acp AND codex-acp ESM entries — and drives the ACP `initialize` handshake. This proves
+ * each process starts and speaks ACP (i.e. the ESM entry + its whole import closure load from
+ * app.asar.unpacked). For codex, `initialize` also starts the Codex App Server — the native
+ * @openai/codex binary under app.asar.unpacked/node_modules/@openai — so a green codex handshake ALSO
+ * proves that native binary execs. All WITHOUT needing a Claude/Codex login, network, or a display. A
+ * load failure (MODULE_NOT_FOUND, ESM-from-asar, exec error) shows up here as a failed handshake. The
+ * initialize reply carries `agentInfo.version`, which we print as the proof of the version bump
+ * (codex-acp 0.16.0 → 1.1.x, i.e. the newer bundled Codex → current model list). Run:
  *   ELECTRON_RUN_AS_NODE=1 electron node_modules/tsx/dist/cli.mjs scripts/packaged-adapter-smoke.ts
  */
 
@@ -20,7 +23,7 @@ const resources = join(repoRoot, 'dist/mac-arm64/Astrolabe.app/Contents/Resource
 const appBin = join(repoRoot, 'dist/mac-arm64/Astrolabe.app/Contents/MacOS/Astrolabe')
 const unpacked = join(resources, 'app.asar.unpacked')
 const claudeEntry = join(unpacked, 'node_modules/@agentclientprotocol/claude-agent-acp/dist/index.js')
-const codexBinary = join(unpacked, 'node_modules/@zed-industries/codex-acp-darwin-arm64/bin/codex-acp')
+const codexEntry = join(unpacked, 'node_modules/@agentclientprotocol/codex-acp/dist/index.js')
 
 interface Spec {
   label: string
@@ -54,7 +57,9 @@ async function handshake(spec: Spec): Promise<void> {
       }),
       new Promise((_r, rej) => setTimeout(() => rej(new Error('initialize timed out (20s)')), 20_000)),
     ])
-    console.error(`[adapter-smoke] PASS ${spec.label} — initialize replied:`, JSON.stringify(res))
+    const info = (res as { agentInfo?: { name?: string; version?: string } }).agentInfo
+    const versionTag = info?.version ? ` (agent ${info.name ?? '?'} v${info.version})` : ''
+    console.error(`[adapter-smoke] PASS ${spec.label}${versionTag} — initialize replied:`, JSON.stringify(res))
   } catch (err) {
     console.error(`[adapter-smoke] FAIL ${spec.label}:`, String(err))
     if (stderrTail.trim()) console.error(`--- ${spec.label} stderr ---\n${stderrTail.trim()}`)
@@ -76,10 +81,10 @@ async function main(): Promise<void> {
     env: { ELECTRON_RUN_AS_NODE: '1' },
   })
   await handshake({
-    label: 'codex (unpacked native binary, spawned directly)',
-    command: codexBinary,
-    args: [],
-    env: {},
+    label: 'codex (packaged ELECTRON_RUN_AS_NODE + unpacked ESM entry → Codex App Server)',
+    command: appBin,
+    args: [codexEntry],
+    env: { ELECTRON_RUN_AS_NODE: '1' },
   })
   console.error('[adapter-smoke] all adapters started and completed the ACP initialize handshake.')
 }

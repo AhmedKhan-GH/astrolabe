@@ -12,10 +12,11 @@ import type { AcpAgentKey } from '../../shared/db-ipc'
  *  - `claude`  — claude-agent-acp, a bundled dependency, spawned through Electron's own node
  *    (ELECTRON_RUN_AS_NODE) pointing at the package's bin entry. Always available in principle
  *    (it's a dependency), resolved robustly via createRequire so it works in dev AND packaged.
- *  - `codex`   — the `codex-acp` native binary. Bundled: `@zed-industries/codex-acp` ships a
- *    per-platform native executable (unpacked from the asar, spawned directly), so Codex works out
- *    of the box; a user-managed `codex-acp` on PATH is the fallback for a newer self-installed
- *    version.
+ *  - `codex`   — `@agentclientprotocol/codex-acp`, a bundled dependency too (an ESM entry — NOT a
+ *    native binary anymore; it starts the Codex App Server carried by its own `@openai/codex`
+ *    dependency). Spawned EXACTLY like claude: Electron's node against the package's `dist/index.js`,
+ *    resolved robustly via createRequire. A user-managed `codex-acp` on PATH is a trivial fallback
+ *    for a self-installed version.
  *
  * Nothing here imports electron: `process.execPath` is the running node/electron binary, and the
  * one electron-only value (`app.getAppPath()`) is INJECTED into `mcpServerSpawn`. That keeps this
@@ -102,51 +103,28 @@ export function claudeAgentEntry(): string {
   return unpackedPath(require_.resolve('@agentclientprotocol/claude-agent-acp/dist/index.js'))
 }
 
-/** node platform/arch → the @zed-industries/codex-acp platform-binary package (mirrors the npm
- *  package's own shim). Absent entries mean "no bundled binary for this host". */
-const CODEX_BINARY_PKG: Partial<Record<NodeJS.Platform, Partial<Record<string, string>>>> = {
-  darwin: { arm64: 'codex-acp-darwin-arm64', x64: 'codex-acp-darwin-x64' },
-  linux: { arm64: 'codex-acp-linux-arm64', x64: 'codex-acp-linux-x64' },
-  win32: { arm64: 'codex-acp-win32-arm64', x64: 'codex-acp-win32-x64' },
+/**
+ * The @agentclientprotocol/codex-acp bin entry, resolved robustly (dev: node_modules on disk;
+ * packaged: the unpacked node_modules). The twin of `claudeAgentEntry` — codex-acp is now a plain
+ * bundled ESM entry (`dist/index.js`, per its package `bin`), NOT a native binary. It starts the
+ * Codex App Server by spawning its own `@openai/codex` dependency's native binary at runtime, so
+ * that whole closure must be unpacked (electron-builder.yml). Escaped out of the asar: Electron's
+ * node cannot import an ESM entry from inside app.asar. Throws only if the dependency is genuinely
+ * missing — a build error, not a runtime condition.
+ */
+export function codexAgentEntry(): string {
+  return unpackedPath(require_.resolve('@agentclientprotocol/codex-acp/dist/index.js'))
 }
 
 /**
- * The BUNDLED codex-acp native binary for this host, or null if the package/binary is unavailable
- * (e.g. an unsupported platform, or the optionalDependency was not installed). The npm package
- * ships a node shim (`bin/codex-acp.js`) whose sole job is to locate + exec the platform binary via
- * `import.meta.resolve`; we deliberately SKIP the shim — inside the packaged app its resolve would
- * point back into the asar — and resolve the native binary ourselves, then escape it out of the
- * asar (a native executable can never exec from inside app.asar). Spawned directly, no shim, no
- * extra process layer: the binary speaks ACP over stdio itself.
+ * Codex spawn resolution: prefer the BUNDLED codex-acp ESM entry (spawned through Electron's node,
+ * exactly like claude — works out of the box), and fall back to a user-managed `codex-acp` on PATH
+ * (a self-installed version). `entry` is injected (returns the resolved entry, or null when the
+ * dependency is unresolvable) so the bundled-vs-fallback branch is unit-testable.
  */
-export function codexBundledBinary(): string | null {
-  const pkg = CODEX_BINARY_PKG[process.platform]?.[process.arch]
-  if (!pkg) return null
-  let shim: string
-  try {
-    shim = require_.resolve('@zed-industries/codex-acp/bin/codex-acp.js')
-  } catch {
-    return null // package not installed
-  }
-  const binaryName = process.platform === 'win32' ? 'codex-acp.exe' : 'codex-acp'
-  try {
-    // Resolve the platform-binary package relative to the shim (its optionalDependency lives in
-    // the shim package's own subtree under pnpm), then rewrite into app.asar.unpacked.
-    const resolved = createRequire(shim).resolve(`@zed-industries/${pkg}/bin/${binaryName}`)
-    return unpackedPath(resolved)
-  } catch {
-    return null // optional platform dependency not installed
-  }
-}
-
-/**
- * Codex spawn resolution: prefer the BUNDLED native binary (works out of the box), and fall back to
- * a user-managed `codex-acp` on PATH (a newer self-installed version). `bundled` is injected so the
- * bundled-vs-fallback branch is unit-testable without the real package layout.
- */
-export function resolveCodex(which: WhichFn, bundled: () => string | null): AcpSpawn | null {
-  const binary = bundled()
-  if (binary) return { command: binary, args: [], env: {} }
+export function resolveCodex(which: WhichFn, entry: () => string | null): AcpSpawn | null {
+  const e = entry()
+  if (e) return { command: process.execPath, args: [e], env: { ELECTRON_RUN_AS_NODE: '1' } }
   const path = which('codex-acp')
   if (!path) return null
   return { command: path, args: [], env: {} }
@@ -192,7 +170,13 @@ export const adapters: Adapter[] = [
     key: 'codex',
     label: 'Codex',
     resolve(which) {
-      return resolveCodex(which, codexBundledBinary)
+      return resolveCodex(which, () => {
+        try {
+          return codexAgentEntry()
+        } catch {
+          return null // dependency not resolvable — try a user-managed codex-acp on PATH
+        }
+      })
     },
   },
 ]

@@ -32,9 +32,16 @@ extraResources:
 # adapter/MCP spawn target and its ESM import closure must be unpacked. adapters.ts
 # rewrites the resolved `…/app.asar/…` paths to `…/app.asar.unpacked/…` at runtime.
 #   - out/mcp/**                          the bundled stdio MCP server (ESM server.mjs)
-#   - @agentclientprotocol/**             claude-agent-acp bin entry + its ACP sdk (ESM)
+#   - @agentclientprotocol/**             claude-agent-acp + codex-acp bin entries + the ACP sdk (ESM)
 #   - @anthropic-ai/**                    the Claude Agent SDK the adapter imports (ESM)
-#   - @zed-industries/**                  codex-acp shim + the per-platform NATIVE binary
+#   - @openai/**                          codex-acp's Codex App Server: @openai/codex (a node
+#                                         launcher, codex.js) + @openai/codex-<os>-<arch> (the real
+#                                         NATIVE `codex` binary under vendor/). codex-acp spawns
+#                                         `process.execPath codex.js app-server`, which then execs
+#                                         the native binary — so BOTH must live outside the asar.
+#                                         (codex-acp bundles diff/open/vscode-jsonrpc/zod/sdk INTO
+#                                         its dist/index.js; @openai/codex is its only external
+#                                         runtime resolution, traced from `createRequire.resolve`.)
 #
 # The MCP server (server.mjs) runs from app.asar.unpacked as its OWN spawned process, so its
 # runtime require closure must ALSO be unpacked — the unpacked dir cannot resolve into the sibling
@@ -48,7 +55,7 @@ asarUnpack:
   - out/mcp/**
   - node_modules/@agentclientprotocol/**
   - node_modules/@anthropic-ai/**
-  - node_modules/@zed-industries/**
+  - node_modules/@openai/**
   - node_modules/bindings/**
   - node_modules/file-uri-to-path/**
   # The claude adapter's own runtime imports (an unpacked process cannot resolve
