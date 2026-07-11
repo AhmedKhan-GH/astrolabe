@@ -57,11 +57,11 @@ function scriptedAgent(onPrompt?: (client: AgentContext, sessionId: string) => P
   return { app, captured }
 }
 
-function harness(scripted: ScriptedAgent, opts?: { permissionTimeoutMs?: number }) {
+function harness(scripted: ScriptedAgent, opts?: { permissionTimeoutMs?: number; stderr?: () => string }) {
   const events: AcpUpdateEvent[] = []
   const permRequests: AcpPermissionRequestEvent[] = []
   const kill = vi.fn()
-  const channel: AcpChannel = { connect: (app) => app.connect(scripted.app), kill }
+  const channel: AcpChannel = { connect: (app) => app.connect(scripted.app), kill, stderr: opts?.stderr }
   const manager = createAcpManager({
     channelFactory: () => channel,
     mcpServer: () => MCP_SPEC,
@@ -95,6 +95,28 @@ describe('createAcpManager — initialization', () => {
     const req = scripted.captured.newSession as { cwd: string; mcpServers: McpServerStdio[] }
     expect(req.cwd).toBe('/ws')
     expect(req.mcpServers).toEqual([MCP_SPEC])
+  })
+
+  it('appends the adapter child stderr tail to a session/new failure (packaging diagnostics)', async () => {
+    // A scripted agent whose session/new rejects — stands in for the adapter dying / erroring
+    // during session setup, exactly the packaged "Internal error" case.
+    const captured: ScriptedAgent['captured'] = {}
+    const app = agent({ name: 'scripted-fail' })
+      .onRequest('initialize', () => ({ protocolVersion: PROTOCOL_VERSION }))
+      .onRequest('session/new', () => {
+        throw new Error('Internal error')
+      })
+    const scripted: ScriptedAgent = { app, captured }
+    const { manager } = harness(scripted, {
+      stderr: () => 'node:internal/modules/esm/resolve failed for app.asar/out/mcp/server.mjs\n',
+    })
+
+    const res = await manager.newSession('claude')
+    expect('error' in res).toBe(true)
+    const { error } = res as { error: string }
+    expect(error).toContain('Claude failed to start a session')
+    expect(error).toContain('--- adapter stderr ---')
+    expect(error).toContain('esm/resolve failed')
   })
 
   it('agents() reports availability from the adapter probe', () => {
@@ -145,6 +167,24 @@ describe('createAcpManager — prompt turn', () => {
     // Dead: further prompts are refused, and the child was torn down.
     expect(manager.prompt(sessionId, 'again')).toEqual({ error: 'No such session.' })
     expect(kill).toHaveBeenCalled()
+  })
+
+  it('appends the adapter child stderr tail to a failed-turn error (opaque → actionable)', async () => {
+    const scripted = scriptedAgent(async () => {
+      throw new Error('RequestError: Internal error')
+    })
+    const { manager, events } = harness(scripted, {
+      stderr: () => "Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'zod' imported from app.asar/…\n",
+    })
+    const { sessionId } = (await manager.newSession('claude')) as { sessionId: string }
+
+    manager.prompt(sessionId, 'go')
+    await vi.waitFor(() => expect(events.some((e) => e.kind === 'error')).toBe(true))
+
+    const error = events.find((e) => e.kind === 'error') as { reason: string }
+    expect(error.reason).toContain('RequestError: Internal error')
+    expect(error.reason).toContain('--- adapter stderr ---')
+    expect(error.reason).toContain('ERR_MODULE_NOT_FOUND')
   })
 })
 

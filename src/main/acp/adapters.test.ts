@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest'
-import { adapters, mcpServerSpawn, claudeAgentEntry, type WhichFn } from './adapters'
+import { existsSync } from 'node:fs'
+import {
+  adapters,
+  mcpServerSpawn,
+  claudeAgentEntry,
+  codexBundledBinary,
+  resolveCodex,
+  unpackedPath,
+  type WhichFn,
+} from './adapters'
 
 /**
  * Adapter registry unit tests (spec §Testing: availability probe + MCP mount payload). The claude
@@ -33,13 +42,65 @@ describe('adapters registry', () => {
     expect(spawn!.args[0]).toMatch(/claude-agent-acp[\\/]dist[\\/]index\.js$/)
   })
 
-  it('codex is unavailable when the binary is not on PATH', () => {
-    expect(codex.resolve(whichNone)).toBeNull()
+  it('codex resolves to the BUNDLED native binary (works out of the box, even with an empty PATH)', () => {
+    // In this repo the @zed-industries/codex-acp platform package is installed, so the bundled
+    // binary wins regardless of PATH. It must be a real, on-disk native executable.
+    const spawn = codex.resolve(whichNone)
+    expect(spawn).not.toBeNull()
+    expect(spawn!.args).toEqual([])
+    expect(spawn!.env).toEqual({})
+    expect(spawn!.command).toBe(codexBundledBinary())
+    expect(spawn!.command).toMatch(/codex-acp[^/\\]*[/\\]bin[/\\]codex-acp(\.exe)?$/)
+    expect(existsSync(spawn!.command)).toBe(true)
+  })
+})
+
+describe('codexBundledBinary', () => {
+  it('resolves the platform-binary package to a real file (dev: no asar, so path is unchanged)', () => {
+    const bin = codexBundledBinary()
+    expect(bin).not.toBeNull()
+    expect(existsSync(bin!)).toBe(true)
+    // Dev tree has no app.asar segment, so no unpacked rewrite happened.
+    expect(bin).not.toContain('app.asar')
+  })
+})
+
+describe('resolveCodex (bundled-first, PATH fallback)', () => {
+  it('prefers the bundled binary over a PATH match', () => {
+    const spawn = resolveCodex(whichFinds('/usr/local/bin/codex-acp'), () => '/unpacked/codex-acp')
+    expect(spawn).toEqual({ command: '/unpacked/codex-acp', args: [], env: {} })
   })
 
-  it('codex resolves to the PATH-found binary when present', () => {
-    const spawn = codex.resolve(whichFinds('/usr/local/bin/codex-acp'))
-    expect(spawn).toEqual({ command: '/usr/local/bin/codex-acp', args: [], env: {} })
+  it('falls back to the PATH-found binary when nothing is bundled', () => {
+    const spawn = resolveCodex(whichFinds('/opt/homebrew/bin/codex-acp'), () => null)
+    expect(spawn).toEqual({ command: '/opt/homebrew/bin/codex-acp', args: [], env: {} })
+  })
+
+  it('is unavailable when neither bundled nor on PATH', () => {
+    expect(resolveCodex(whichNone, () => null)).toBeNull()
+  })
+})
+
+describe('unpackedPath (asar escape)', () => {
+  it('rewrites an app.asar path segment to app.asar.unpacked (POSIX)', () => {
+    expect(unpackedPath('/App/Contents/Resources/app.asar/out/mcp/server.mjs')).toBe(
+      '/App/Contents/Resources/app.asar.unpacked/out/mcp/server.mjs',
+    )
+  })
+
+  it('rewrites a Windows app.asar path segment', () => {
+    expect(unpackedPath('C:\\r\\app.asar\\node_modules\\x\\bin.exe')).toBe(
+      'C:\\r\\app.asar.unpacked\\node_modules\\x\\bin.exe',
+    )
+  })
+
+  it('is a no-op for a dev path with no asar', () => {
+    expect(unpackedPath('/repo/node_modules/@x/y/dist/index.js')).toBe('/repo/node_modules/@x/y/dist/index.js')
+  })
+
+  it('does not double-rewrite an already-unpacked path', () => {
+    const already = '/App/Resources/app.asar.unpacked/out/mcp/server.mjs'
+    expect(unpackedPath(already)).toBe(already)
   })
 })
 

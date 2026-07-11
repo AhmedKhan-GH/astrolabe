@@ -20,7 +20,14 @@ import type {
   AcpSessionResult,
   AcpUpdateEvent,
 } from '../../shared/db-ipc'
-import { adapters as defaultAdapters, defaultWhich, type Adapter, type AcpSpawn, type WhichFn } from './adapters'
+import {
+  adapters as defaultAdapters,
+  defaultWhich,
+  unpackedPath,
+  type Adapter,
+  type AcpSpawn,
+  type WhichFn,
+} from './adapters'
 import { mapSessionUpdate } from './update-map'
 import type { DialogueStore, DialogueWriter } from './dialogue-store'
 
@@ -40,14 +47,27 @@ import type { DialogueStore, DialogueWriter } from './dialogue-store'
 export interface AcpChannel {
   connect(app: ClientApp): ClientConnection
   kill(): void
+  /** The tail (~last 2KB) of the adapter child's stderr, for turning an opaque "Internal error"
+   *  into an actionable diagnostic. Optional: the scripted test channel has no real process. */
+  stderr?(): string
 }
 export type ChannelFactory = (spawn: AcpSpawn) => AcpChannel
 
-/** Production channel: spawn the adapter over stdio and frame it as newline-delimited JSON. */
+/** Cap on the retained stderr tail surfaced in error messages (spec: last ~2KB). */
+const STDERR_TAIL_BYTES = 2048
+
+/** Production channel: spawn the adapter over stdio and frame it as newline-delimited JSON. The
+ *  child's stderr is both mirrored to main's stderr (live debugging) AND kept as a rolling tail so
+ *  a failed initialize / session-new / turn can surface WHY (the adapter's own error output). */
 export const nodeChannelFactory: ChannelFactory = (spawn) => {
   const child = spawnProc(spawn.command, spawn.args, {
-    stdio: ['pipe', 'pipe', 'inherit'],
+    stdio: ['pipe', 'pipe', 'pipe'],
     env: { ...process.env, ...spawn.env },
+  })
+  let stderrTail = ''
+  child.stderr?.on('data', (chunk: Buffer) => {
+    process.stderr.write(chunk) // keep the prior `inherit` behaviour for live logs
+    stderrTail = (stderrTail + chunk.toString('utf8')).slice(-STDERR_TAIL_BYTES)
   })
   const stream = ndJsonStream(
     Writable.toWeb(child.stdin!) as WritableStream<Uint8Array>,
@@ -62,7 +82,16 @@ export const nodeChannelFactory: ChannelFactory = (spawn) => {
         // already exited — nothing to kill
       }
     },
+    stderr: () => stderrTail,
   }
+}
+
+/** Append an adapter child's captured stderr tail to an error message, when there is any. Turns
+ *  "RequestError: Internal error" into something that names the real failure (a missing entry, an
+ *  ESM-from-asar load error, an auth prompt on stderr, …). */
+function withAdapterStderr(message: string, channel: AcpChannel | undefined): string {
+  const tail = channel?.stderr?.().trim()
+  return tail ? `${message}\n\n--- adapter stderr ---\n${tail}` : message
 }
 
 export interface AcpManagerDeps {
@@ -190,12 +219,13 @@ export function createAcpManager(deps: AcpManagerDeps): AcpManager {
     // prompts reject with 'No such session.') and tear the child down. The pane offers a restart.
     session.closed = true
     sessions.delete(session.acpSessionId)
+    const reason = withAdapterStderr(String(err), session.channel)
     try {
       session.channel.kill()
     } catch {
       // best-effort — the process may already be gone
     }
-    deps.onUpdate({ sessionId: session.acpSessionId, kind: 'error', reason: String(err) })
+    deps.onUpdate({ sessionId: session.acpSessionId, kind: 'error', reason })
   }
 
   function handleDeath(acpSessionId: string): void {
@@ -221,13 +251,13 @@ export function createAcpManager(deps: AcpManagerDeps): AcpManager {
     const spawn = adapter.resolve(which)
     if (!spawn) return { error: `${adapter.label} is not installed.` }
 
-    let channel: AcpChannel
+    let channel: AcpChannel | undefined
     let conn: ClientConnection
     try {
       channel = deps.channelFactory(spawn)
       conn = channel.connect(buildClientApp())
     } catch (err) {
-      return { error: `Failed to start ${adapter.label}: ${String(err)}` }
+      return { error: withAdapterStderr(`Failed to start ${adapter.label}: ${String(err)}`, channel) }
     }
 
     try {
@@ -237,7 +267,9 @@ export function createAcpManager(deps: AcpManagerDeps): AcpManager {
         clientInfo,
       })
       const res = await conn.agent.request('session/new', {
-        cwd: deps.cwd,
+        // Escape the workspace root out of the asar if it ever resolves there (defensive — the
+        // workspace lives in the user's home, but a session cwd must never point inside app.asar).
+        cwd: unpackedPath(deps.cwd),
         mcpServers: [deps.mcpServer()],
       })
       const acpSessionId = res.sessionId
@@ -263,7 +295,7 @@ export function createAcpManager(deps: AcpManagerDeps): AcpManager {
         const cmd = agentKey === 'claude' ? '`claude`' : '`codex login`'
         return { error: `${adapter.label} needs sign-in. Run ${cmd} in a terminal, then retry.` }
       }
-      return { error: `${adapter.label} failed to start a session: ${message}` }
+      return { error: withAdapterStderr(`${adapter.label} failed to start a session: ${message}`, channel) }
     }
   }
 
