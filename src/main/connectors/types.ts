@@ -7,7 +7,7 @@ import type { UpsertApi } from '../index/upsert'
  * eslint-plugin-import-x zones): connectors never import each other; each is
  * independently disableable; a broken connector dims one source, never the app.
  */
-export type SourceKey = 'zotero' | 'eagle' | 'obsidian' | 'goodnotes'
+export type SourceKey = 'zotero' | 'eagle' | 'obsidian'
 
 export interface SyncContext {
   db: Db

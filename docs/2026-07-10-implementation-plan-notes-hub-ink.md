@@ -37,7 +37,13 @@ One panel per document composing ONLY existing index data (no new intelligence):
   keeps opening Canvas/NoteView directly); NoteView backlink rows and Canvas header link here
   too. Hub, Canvas, and NoteView are one mutually-exclusive panel slot.
 
-## Step 3 — GoodNotes ink ingestion (no OCR — deferred with AI scope)
+## Step 3 — GoodNotes ink ingestion — REMOVED 2026-07-11
+
+**Status: removed.** Built and shipped, then removed on 2026-07-11: GoodNotes' only export
+path (Auto-Backup) requires Google Drive / OneDrive / WebDAV — no iCloud target — which the
+user judged too much setup for a consumer app. Ink is Excalidraw-in-the-vault instead (open
+format, already indexed + rendered read-only). The connector is gone from the codebase;
+rebuild from git history if ever reversed. Original plan preserved below for record.
 
 GoodNotes' auto-backup exports notebooks as PDFs to a cloud folder; that folder is the
 ingestion surface. GoodNotes remains the system of record and sole editor of ink.

@@ -27,7 +27,7 @@ export const storedFilterSchema = filterSetSchema.omit({ collectionIds: true }).
   collectionRefs: z
     .array(
       z.object({
-        sourceKey: z.enum(['zotero', 'eagle', 'obsidian', 'goodnotes']),
+        sourceKey: z.enum(['zotero', 'eagle', 'obsidian']),
         key: z.string().max(200),
       }),
     )

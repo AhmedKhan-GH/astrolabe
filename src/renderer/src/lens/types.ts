@@ -4,7 +4,7 @@
  * component tests never reach for the preload seam.
  */
 
-export type SourceKey = 'zotero' | 'eagle' | 'obsidian' | 'goodnotes'
+export type SourceKey = 'zotero' | 'eagle' | 'obsidian'
 export type DocumentKind = 'pdf' | 'image' | 'note' | 'other'
 
 /**

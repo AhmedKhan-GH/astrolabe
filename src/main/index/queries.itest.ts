@@ -483,7 +483,7 @@ describe('FilterSet schema', () => {
 
   it('Zod rejects over-cap arrays', () => {
     expect(() =>
-      queries.browse({ sourceKeys: ['zotero', 'eagle', 'obsidian', 'goodnotes', 'zotero'] }),
+      queries.browse({ sourceKeys: ['zotero', 'eagle', 'obsidian', 'zotero'] }),
     ).toThrow()
     expect(() => queries.browse({ tagsAll: Array.from({ length: 51 }, (_, i) => `t${i}`) })).toThrow()
     expect(() => queries.search({ q: 'x', kinds: ['pdf', 'image', 'note', 'other', 'pdf'] })).toThrow()

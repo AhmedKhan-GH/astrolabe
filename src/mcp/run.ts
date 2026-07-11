@@ -56,7 +56,7 @@ export function createServer(db: Db): McpServer {
     'search_library',
     {
       description:
-        'Full-text search across the whole unified library (Zotero papers, Eagle images, Obsidian/GoodNotes ' +
+        'Full-text search across the whole unified library (Zotero papers, Eagle images, Obsidian ' +
         'notes) including annotation text. Use this to find documents by topic/keyword. The same library ' +
         'filters as browse_library (sourceKeys, kinds, tags*, collectionIds, virtualCollections, presence) ' +
         'can be passed to narrow the query. Returns ranked hits: {documentId, title, kind, snippet, tags, ' +
@@ -74,8 +74,8 @@ export function createServer(db: Db): McpServer {
       description:
         'Browse the library as a recency river (newest-first) WITHOUT a search query — the tool for ' +
         '"what did I add recently?" or "list everything tagged X in Zotero". Accepts the full library ' +
-        'filter set (all optional, AND-combined across dimensions): sourceKeys (zotero|eagle|obsidian|' +
-        'goodnotes), kinds (pdf|image|note|other), tagsAll/tagsAny/tagsNone, collectionIds, folderPrefixes, ' +
+        'filter set (all optional, AND-combined across dimensions): sourceKeys (zotero|eagle|obsidian), ' +
+        'kinds (pdf|image|note|other), tagsAll/tagsAny/tagsNone, collectionIds, folderPrefixes, ' +
         'virtualCollections, presence (both|zotero-only|eagle-only), plus offset and limit (max 50). ' +
         'Returns {total, hits:[{documentId, title, kind, modifiedAt, tags, sources}]} — a COMPACT row; jump ' +
         'to get_document with a documentId for full instances/annotations/links. Call list_overview first ' +
@@ -154,7 +154,7 @@ export function createServer(db: Db): McpServer {
     'list_sources',
     {
       description:
-        'List the connected sources (zotero, eagle, obsidian, goodnotes) with sync status, last sync time, ' +
+        'List the connected sources (zotero, eagle, obsidian) with sync status, last sync time, ' +
         'and how many documents each contributes. Use to understand library coverage or check whether a ' +
         'source synced. For a fuller picture of the library (kinds, tags, virtual collections, presence) ' +
         'call list_overview instead.',

@@ -18,7 +18,6 @@ const manifestSchema = z.object({
   connectors: z
     .object({
       obsidian: z.object({ vaultPath: z.string() }).partial().optional(),
-      goodnotes: z.object({ backupPath: z.string() }).partial().optional(),
     })
     .partial()
     .optional(),

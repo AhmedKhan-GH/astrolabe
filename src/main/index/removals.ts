@@ -5,7 +5,7 @@ import * as s from '../db/schema'
 /**
  * Removal reconciliation (the sweep). Deletions at a source are invisible to the incremental
  * scan paths — Zotero's `since`-delta and full walk both exclude trashed items, Eagle drops
- * `isDeleted` rows, an unlinked Obsidian/GoodNotes file simply stops appearing — so a document
+ * `isDeleted` rows, an unlinked Obsidian file simply stops appearing — so a document
  * that vanished from a source can only be detected by DIFFING the source's currently-existing
  * key set against what the index still holds. That ground-truth key set arrives as a scan's
  * `allExternalKeys` (connectors/types.ts); this module turns it into instance deletions.
