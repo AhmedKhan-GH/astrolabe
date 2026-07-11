@@ -17,7 +17,7 @@ subscriber accounts are the day-to-day path; BYOK remains for future batch work)
 ## Decision: ACP client now; Alioth later as an ACP AGENT
 
 ACP is two-sided. Astrolabe implements the CLIENT side (the Zed role) via the official
-TypeScript SDK (`@zed-industries/agent-client-protocol`). When Alioth earns its existence
+TypeScript SDK (`@agentclientprotocol/sdk`). When Alioth earns its existence
 (post graph layers — it is only justified by a bespoke graph context assembler), it is built
 as a custom ACP agent (Agent SDK implements the agent side) and becomes a third row in the
 agent picker. Same socket, same pane, same permissions — nothing built here is throwaway.
