@@ -51,6 +51,13 @@ asarUnpack:
   - node_modules/@zed-industries/**
   - node_modules/bindings/**
   - node_modules/file-uri-to-path/**
+  # The claude adapter's own runtime imports (an unpacked process cannot resolve
+  # into the sibling asar): zod is lazily imported by the ACP sdk at session
+  # start; @modelcontextprotocol is the agent-sdk's MCP peer, lazily imported
+  # when sessions mount MCP servers. Unpack the adapter's whole declared+peer
+  # closure rather than chasing lazy imports one crash at a time.
+  - node_modules/zod/**
+  - node_modules/@modelcontextprotocol/**
 
 mac:
   target:
