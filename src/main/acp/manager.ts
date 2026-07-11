@@ -186,6 +186,15 @@ export function createAcpManager(deps: AcpManagerDeps): AcpManager {
     if (session.agentBuffer) session.writer?.addMessage({ role: 'agent', text: session.agentBuffer, at: nowIso() })
     session.writer?.flush()
     session.agentBuffer = ''
+    // A failed turn means the adapter is no longer trustworthy: mark the session dead (so later
+    // prompts reject with 'No such session.') and tear the child down. The pane offers a restart.
+    session.closed = true
+    sessions.delete(session.acpSessionId)
+    try {
+      session.channel.kill()
+    } catch {
+      // best-effort — the process may already be gone
+    }
     deps.onUpdate({ sessionId: session.acpSessionId, kind: 'error', reason: String(err) })
   }
 

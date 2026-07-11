@@ -129,6 +129,23 @@ describe('createAcpManager — prompt turn', () => {
     const { manager } = harness(scriptedAgent())
     expect(manager.prompt('nope', 'hi')).toEqual({ error: 'No such session.' })
   })
+
+  it('marks a session dead when its turn fails, so the next prompt rejects cleanly', async () => {
+    // The adapter dying mid-turn surfaces as a rejected session/prompt → an error update. The
+    // session must then be dead: a subsequent prompt() rejects rather than driving a broken conn.
+    const scripted = scriptedAgent(async () => {
+      throw new Error('adapter exploded')
+    })
+    const { manager, events, kill } = harness(scripted)
+    const { sessionId } = (await manager.newSession('claude')) as { sessionId: string }
+
+    expect(manager.prompt(sessionId, 'go')).toEqual({ ok: true })
+    await vi.waitFor(() => expect(events.some((e) => e.kind === 'error')).toBe(true))
+
+    // Dead: further prompts are refused, and the child was torn down.
+    expect(manager.prompt(sessionId, 'again')).toEqual({ error: 'No such session.' })
+    expect(kill).toHaveBeenCalled()
+  })
 })
 
 describe('createAcpManager — permissions', () => {

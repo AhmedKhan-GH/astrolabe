@@ -101,6 +101,32 @@ describe('built MCP bundle over stdio', () => {
       expect(hits).toHaveLength(1)
       expect(hits[0]!.title).toBe('Probabilistic Machine Learning')
       expect(hits[0]!.kind).toBe('pdf')
+
+      // Prove the M2 tools ride the same bundle: browse_library (added alongside search_library)
+      // must be registered and callable over the identical stdio transport.
+      const names = (await client.listTools()).tools.map((t) => t.name)
+      expect(names).toEqual(
+        expect.arrayContaining([
+          'search_library',
+          'browse_library',
+          'get_document',
+          'get_links',
+          'get_page_annotations',
+          'get_annotations',
+          'list_sources',
+          'list_overview',
+        ]),
+      )
+      const browse = (await client.callTool({
+        name: 'browse_library',
+        arguments: {},
+      })) as { content: { type: string; text: string }[] }
+      const page = JSON.parse(browse.content[0]!.text) as {
+        total: number
+        hits: { title: string }[]
+      }
+      expect(page.total).toBe(1)
+      expect(page.hits[0]!.title).toBe('Probabilistic Machine Learning')
     } finally {
       await client.close()
     }

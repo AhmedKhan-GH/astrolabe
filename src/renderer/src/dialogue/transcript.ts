@@ -6,7 +6,7 @@
  * state and returns new state, so the component is a thin dispatcher and the model is fully
  * unit-tested with synthetic updates.
  */
-import type { AcpUpdate } from './types'
+import type { AcpStoredDialogue, AcpUpdate } from './types'
 
 export interface UserMessageEntry {
   kind: 'message'
@@ -33,7 +33,12 @@ export interface ErrorEntry {
   reason: string
 }
 
-export type TranscriptEntry = UserMessageEntry | AgentMessageEntry | ToolCallEntry | ErrorEntry
+/** A visible seam between a dead session and the one restarted in its place (failure recovery). */
+export interface DividerEntry {
+  kind: 'divider'
+}
+
+export type TranscriptEntry = UserMessageEntry | AgentMessageEntry | ToolCallEntry | ErrorEntry | DividerEntry
 
 export interface Transcript {
   /** The session these entries belong to; updates for any other session are ignored. */
@@ -148,4 +153,33 @@ export function appendUserPrompt(state: Transcript, text: string): Transcript {
     streaming: true,
     sealed: true,
   }
+}
+
+/**
+ * Restart after a dead session (failure recovery): keep the whole prior transcript, drop a visible
+ * divider, and rebind to the fresh session id so its updates accrete while the old session's stale
+ * updates are ignored (applyUpdate filters on sessionId).
+ */
+export function restartTranscript(state: Transcript, newSessionId: string): Transcript {
+  return {
+    ...state,
+    sessionId: newSessionId,
+    entries: [...state.entries, { kind: 'divider' }],
+    streaming: false,
+    sealed: true,
+  }
+}
+
+/**
+ * Build a read-only transcript from a stored dialogue (history browser). The on-disk shape keeps
+ * messages and tool calls in separate arrays; both carry an `at` timestamp, so we interleave by it
+ * to recover stream order. Tool chips render as completed (the record is post-hoc; no live status).
+ */
+export function entriesFromDialogue(dialogue: AcpStoredDialogue): TranscriptEntry[] {
+  const dated: { at: string; entry: TranscriptEntry }[] = [
+    ...dialogue.messages.map((m) => ({ at: m.at, entry: { kind: 'message', role: m.role, text: m.text } as TranscriptEntry })),
+    ...dialogue.toolCalls.map((t) => ({ at: t.at, entry: { kind: 'tool', toolName: t.name, status: 'completed' } as TranscriptEntry })),
+  ]
+  dated.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0))
+  return dated.map((d) => d.entry)
 }

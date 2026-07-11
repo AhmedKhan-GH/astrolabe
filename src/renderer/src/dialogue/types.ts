@@ -37,6 +37,25 @@ export interface AcpPermissionRequest {
   title: string
 }
 
+/** One row in the history browser (v1.1) — a past dialogue reduced to its list card. */
+export interface AcpDialogueSummary {
+  file: string
+  agentKey: string
+  startedAt: string
+  firstPrompt: string
+  messageCount: number
+}
+
+/** A stored dialogue read back for read-only rendering (mirrors the on-disk shape). */
+export interface AcpStoredDialogue {
+  schemaVersion: 1
+  agentKey: string
+  startedAt: string
+  messages: { role: 'user' | 'agent'; text: string; at: string }[]
+  toolCalls: { name: string; at: string }[]
+  documentIds: number[]
+}
+
 /** The `window.astrolabe.acp` surface (mirrors the preload contract). */
 export interface AcpApi {
   agents(): Promise<AcpAgent[]>
@@ -44,6 +63,8 @@ export interface AcpApi {
   prompt(sessionId: string, text: string): Promise<void>
   cancel(sessionId: string): Promise<void>
   respondPermission(requestId: string, allow: boolean): Promise<void>
+  dialogues(): Promise<AcpDialogueSummary[]>
+  readDialogue(file: string): Promise<AcpStoredDialogue>
   onUpdate(cb: (u: AcpUpdate) => void): () => void
   onPermissionRequest(cb: (r: AcpPermissionRequest) => void): () => void
 }

@@ -21,12 +21,15 @@ import { createDialogueStore } from './acp/dialogue-store'
 import {
   ACP_AGENTS_CHANNEL,
   ACP_CANCEL_CHANNEL,
+  ACP_DIALOGUES_LIST_CHANNEL,
+  ACP_DIALOGUES_READ_CHANNEL,
   ACP_PERMISSION_REQUEST_EVENT,
   ACP_PERMISSION_RESPONSE_CHANNEL,
   ACP_PROMPT_CHANNEL,
   ACP_SESSION_NEW_CHANNEL,
   ACP_UPDATE_EVENT,
   acpCancelSchema,
+  acpDialogueReadSchema,
   acpPermissionResponseSchema,
   acpPromptSchema,
   acpSessionNewSchema,
@@ -237,15 +240,22 @@ app.whenReady().then(() => {
     const sendToRenderer = (channel: string, payload: unknown): void => {
       BrowserWindow.getAllWindows()[0]?.webContents.send(channel, payload)
     }
+    const dialogueStore = createDialogueStore(join(ws.astroDir, 'dialogues'))
     const acpManager = createAcpManager({
       channelFactory: nodeChannelFactory,
       mcpServer: () => mcpServerSpawn(app.getAppPath(), ws.dbPath),
       cwd: ws.root,
       onUpdate: (event) => sendToRenderer(ACP_UPDATE_EVENT, event),
       onPermissionRequest: (event) => sendToRenderer(ACP_PERMISSION_REQUEST_EVENT, event),
-      dialogueStore: createDialogueStore(join(ws.astroDir, 'dialogues')),
+      dialogueStore,
     })
     ipcMain.handle(ACP_AGENTS_CHANNEL, () => acpManager.agents())
+    // History browser (v1.1): list past dialogues, read one back read-only (basename re-validated
+    // against the store's own naming pattern main-side — no path traversal).
+    ipcMain.handle(ACP_DIALOGUES_LIST_CHANNEL, () => dialogueStore.list())
+    ipcMain.handle(ACP_DIALOGUES_READ_CHANNEL, (_event, raw: unknown) =>
+      dialogueStore.read(acpDialogueReadSchema.parse(raw).file),
+    )
     ipcMain.handle(ACP_SESSION_NEW_CHANNEL, (_event, raw: unknown) =>
       acpManager.newSession(acpSessionNewSchema.parse(raw).agentKey),
     )

@@ -3,6 +3,8 @@ import type { IpcRendererEvent } from 'electron'
 import {
   ACP_AGENTS_CHANNEL,
   ACP_CANCEL_CHANNEL,
+  ACP_DIALOGUES_LIST_CHANNEL,
+  ACP_DIALOGUES_READ_CHANNEL,
   ACP_PERMISSION_REQUEST_EVENT,
   ACP_PERMISSION_RESPONSE_CHANNEL,
   ACP_PROMPT_CHANNEL,
@@ -52,8 +54,10 @@ import type { VCollectionSummary } from '../main/lib/vcollections'
 import type {
   AcpAgentDescriptor,
   AcpAgentKey,
+  AcpDialogueSummary,
   AcpPermissionRequestEvent,
   AcpSessionResult,
+  AcpStoredDialogue,
   AcpUpdateEvent,
   TransferDirection,
   TransferResult,
@@ -145,6 +149,10 @@ const api = {
     cancel: (sessionId: string): Promise<void> => ipcRenderer.invoke(ACP_CANCEL_CHANNEL, { sessionId }),
     respondPermission: (requestId: string, allow: boolean): Promise<void> =>
       ipcRenderer.invoke(ACP_PERMISSION_RESPONSE_CHANNEL, { requestId, allow }),
+    // History browser (v1.1): list past dialogues + read one back by its store filename.
+    dialogues: (): Promise<AcpDialogueSummary[]> => ipcRenderer.invoke(ACP_DIALOGUES_LIST_CHANNEL),
+    readDialogue: (file: string): Promise<AcpStoredDialogue> =>
+      ipcRenderer.invoke(ACP_DIALOGUES_READ_CHANNEL, { file }),
     onUpdate: (cb: (event: AcpUpdateEvent) => void): (() => void) => {
       const listener = (_e: IpcRendererEvent, event: AcpUpdateEvent): void => cb(event)
       ipcRenderer.on(ACP_UPDATE_EVENT, listener)

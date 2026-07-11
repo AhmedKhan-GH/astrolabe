@@ -89,3 +89,64 @@ describe('createDialogueStore', () => {
     expect(onlyFile().name).toBe('2026-07-11T13-00-00-000Z-claude.json')
   })
 })
+
+describe('createDialogueStore — history browser (v1.1)', () => {
+  function seed(agentKey: 'claude' | 'codex', startedAt: string, firstUser: string, extra: (w: ReturnType<DialogueStore['open']>) => void = () => {}) {
+    const w = store.open(agentKey, startedAt)
+    w.addMessage({ role: 'user', text: firstUser, at: startedAt })
+    extra(w)
+    w.flush()
+    return w
+  }
+
+  it('list() returns summaries newest-first with a truncated first prompt + message count', () => {
+    seed('claude', '2026-07-11T10:00:00.000Z', 'oldest question', (w) => {
+      w.addMessage({ role: 'agent', text: 'answer', at: 't2' })
+    })
+    seed('codex', '2026-07-11T12:00:00.000Z', 'x'.repeat(120), (w) => {
+      w.addToolCall({ name: 'search_library', at: 't2' })
+      w.addMessage({ role: 'agent', text: 'reply', at: 't3' })
+    })
+
+    const list = store.list()
+    expect(list.map((d) => d.startedAt)).toEqual([
+      '2026-07-11T12:00:00.000Z',
+      '2026-07-11T10:00:00.000Z',
+    ])
+    expect(list[0]).toMatchObject({ agentKey: 'codex', messageCount: 2 })
+    // Truncated to ~80 chars with an ellipsis.
+    expect(list[0]!.firstPrompt.length).toBeLessThanOrEqual(81)
+    expect(list[0]!.firstPrompt.endsWith('…')).toBe(true)
+    expect(list[1]).toMatchObject({ agentKey: 'claude', firstPrompt: 'oldest question', messageCount: 2 })
+    // Each entry names its file so read() can fetch it.
+    expect(list[0]!.file).toMatch(/^2026-07-11T12-00-00-000Z-.*\.json$/)
+  })
+
+  it('list() on an empty/absent dir is []', () => {
+    expect(store.list()).toEqual([])
+  })
+
+  it('read(file) round-trips the stored dialogue for a listed entry', () => {
+    seed('claude', '2026-07-11T10:00:00.000Z', 'what did I highlight?', (w) => {
+      w.addToolCall({ name: 'search_library', at: 't2' })
+      w.addDocumentId(42)
+      w.addMessage({ role: 'agent', text: 'this passage', at: 't3' })
+    })
+    const { file } = store.list()[0]!
+    const body = store.read(file)
+    expect(body).toMatchObject({
+      schemaVersion: 1,
+      agentKey: 'claude',
+      documentIds: [42],
+    })
+    expect(body.messages.map((m) => m.text)).toEqual(['what did I highlight?', 'this passage'])
+  })
+
+  it('read() rejects path traversal and non-pattern names', () => {
+    seed('claude', '2026-07-11T10:00:00.000Z', 'q')
+    expect(() => store.read('../secrets.json')).toThrow()
+    expect(() => store.read('..')).toThrow()
+    expect(() => store.read('arbitrary.json')).toThrow()
+    expect(() => store.read('not-a-dialogue')).toThrow()
+  })
+})

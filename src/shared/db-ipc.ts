@@ -127,6 +127,9 @@ export const ACP_SESSION_NEW_CHANNEL = 'acp:session-new'
 export const ACP_PROMPT_CHANNEL = 'acp:prompt'
 export const ACP_CANCEL_CHANNEL = 'acp:cancel'
 export const ACP_PERMISSION_RESPONSE_CHANNEL = 'acp:permission-response'
+/** History browser (v1.1): list past dialogues + read one back read-only. */
+export const ACP_DIALOGUES_LIST_CHANNEL = 'acp:dialogues-list'
+export const ACP_DIALOGUES_READ_CHANNEL = 'acp:dialogues-read'
 /** Push events (main → renderer via webContents.send). */
 export const ACP_UPDATE_EVENT = 'acp:update'
 export const ACP_PERMISSION_REQUEST_EVENT = 'acp:permission-request'
@@ -198,6 +201,31 @@ export interface AcpPermissionRequestEvent {
   /** human-readable tool-call title, for the inline allow/deny card. */
   title: string
 }
+
+/** One row in the history browser (v1.1): a past dialogue reduced to its list card. */
+export interface AcpDialogueSummary {
+  /** The store's own filename — the key `read` validates and fetches by. */
+  file: string
+  agentKey: AcpAgentKey
+  startedAt: string
+  /** First user message, truncated (~80 chars) — the card's subject line. */
+  firstPrompt: string
+  messageCount: number
+}
+
+/** A stored dialogue read back for read-only rendering (mirrors the on-disk DialogueFile shape). */
+export interface AcpStoredDialogue {
+  schemaVersion: 1
+  agentKey: AcpAgentKey
+  startedAt: string
+  messages: { role: 'user' | 'agent'; text: string; at: string }[]
+  toolCalls: { name: string; at: string }[]
+  documentIds: number[]
+}
+
+/** dialogues-read request: a store basename (no slashes; the store re-validates the full pattern). */
+export const acpDialogueReadSchema = z.object({ file: z.string().min(1).max(300).regex(/^[^/\\]+\.json$/) })
+export type AcpDialogueReadRequest = z.infer<typeof acpDialogueReadSchema>
 
 export const dbRequestSchema = z.discriminatedUnion('op', [
   z.object({ table: z.string(), op: z.literal('getAll') }),

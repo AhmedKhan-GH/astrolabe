@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDb } from '../main/db'
 import { createUpsertApi } from '../main/index/upsert'
+import { resolveLinks } from '../main/index/links'
 import { openReadonlyDb, type ReadonlyDbHandle } from './db'
 import { createHandlers, type Handlers } from './handlers'
 
@@ -20,8 +21,12 @@ let writeHandle: ReturnType<typeof openDb>
 let roHandle: ReadonlyDbHandle
 let handlers: Handlers
 let documentId: number
+let alphaId: number
+let betaId: number
 
 const OPEN_PDF_URI = 'zotero://open-pdf/library/items/VSVGJBTT?page=148'
+// A path that MUST NOT appear in any agent-facing tool output (agents have no fs access).
+const SECRET_PATH = '/Users/ahmed/secret/murphy.pdf'
 
 beforeAll(() => {
   dir = mkdtempSync(join(tmpdir(), 'astrolabe-mcp-'))
@@ -37,6 +42,7 @@ beforeAll(() => {
     uri: 'zotero://select/library/items/ABC123',
     title: 'Probabilistic Machine Learning',
     kind: 'pdf',
+    filePath: SECRET_PATH,
     contentSha256: 'hash-murphy',
     modifiedAt: 1000,
     tags: ['ml', 'textbook'],
@@ -48,12 +54,39 @@ beforeAll(() => {
         text: 'precision represents the probability that a positive test is a true positive',
         pageLabel: '148',
         color: '#ffd400',
-        positionJson: JSON.stringify({ attachmentKey: 'VSVGJBTT', openPdfUri: OPEN_PDF_URI }),
+        // Carries the openPdfUri (top-level, for get_annotations) AND a $.position.pageIndex
+        // (for get_page_annotations' per-page heat).
+        positionJson: JSON.stringify({
+          attachmentKey: 'VSVGJBTT',
+          openPdfUri: OPEN_PDF_URI,
+          position: { pageIndex: 147 },
+        }),
         modifiedAt: 1000,
       },
     ],
   })
   documentId = res.documentId
+
+  // Two Obsidian notes wired by a wiki-link: Alpha → Beta (for get_links).
+  betaId = upsert.upsertDocument({
+    sourceKey: 'obsidian',
+    externalKey: 'Beta.md',
+    uri: 'obsidian://open?file=Beta.md',
+    title: 'Beta',
+    kind: 'note',
+    modifiedAt: 2000,
+    links: [],
+  }).documentId
+  alphaId = upsert.upsertDocument({
+    sourceKey: 'obsidian',
+    externalKey: 'Alpha.md',
+    uri: 'obsidian://open?file=Alpha.md',
+    title: 'Alpha',
+    kind: 'note',
+    modifiedAt: 3000,
+    links: ['Beta'],
+  }).documentId
+  resolveLinks(writeHandle.db) // resolve wiki-link targets, as the app does post-sync
   writeHandle.close()
 
   // Reopen exactly as the MCP server does.
@@ -71,7 +104,7 @@ describe('mcp handlers over a read-only index', () => {
     expect(() => roHandle.sqlite.exec('CREATE TABLE nope (x)')).toThrow(/readonly/i)
   })
 
-  it('search_library finds seeded content with provenance', () => {
+  it('search_library finds seeded content with provenance (no filePath)', () => {
     const hits = handlers.searchLibrary({ q: 'precision' })
     expect(hits).toHaveLength(1)
     const hit = hits[0]!
@@ -84,10 +117,10 @@ describe('mcp handlers over a read-only index', () => {
         instanceId: expect.any(Number),
         sourceKey: 'zotero',
         uri: 'zotero://select/library/items/ABC123',
-        filePath: null,
         openPdfUri: null,
       },
     ])
+    expect(hit.instances[0]).not.toHaveProperty('filePath')
     expect(hit.documentId).toBe(documentId)
   })
 
@@ -95,17 +128,84 @@ describe('mcp handlers over a read-only index', () => {
     expect(handlers.searchLibrary({ q: 'thereisnosuchtoken' })).toEqual([])
   })
 
-  it('get_document returns metadata, instances, tags, and collection names', () => {
-    const detail = handlers.getDocument({ documentId })
-    expect(detail).not.toBeNull()
-    expect(detail!.document.title).toBe('Probabilistic Machine Learning')
-    expect(detail!.instances.map((i) => i.sourceKey)).toEqual(['zotero'])
-    expect(detail!.tags).toEqual(expect.arrayContaining(['ml', 'textbook']))
-    expect(detail!.collections).toEqual(['Machine Learning'])
+  it('browse_library returns compact newest-first hits (sources, no instances/paths)', () => {
+    const page = handlers.browseLibrary({})
+    expect(page.total).toBe(3)
+    expect(page.hits.map((h) => h.title)).toEqual([
+      'Alpha',
+      'Beta',
+      'Probabilistic Machine Learning',
+    ])
+    const zhit = page.hits.find((h) => h.title.startsWith('Probabilistic'))!
+    expect(zhit.documentId).toBe(documentId)
+    expect(zhit.kind).toBe('pdf')
+    expect(zhit.sources).toEqual(['zotero'])
+    expect(zhit.tags).toEqual(expect.arrayContaining(['ml', 'textbook']))
+    expect(zhit).not.toHaveProperty('instances')
+    expect(zhit).not.toHaveProperty('filePath')
   })
 
-  it('get_document returns null for an unknown id', () => {
-    expect(handlers.getDocument({ documentId: 999999 })).toBeNull()
+  it('browse_library passes the filter set through', () => {
+    expect(handlers.browseLibrary({ sourceKeys: ['zotero'] }).total).toBe(1)
+    expect(handlers.browseLibrary({ kinds: ['note'] }).total).toBe(2)
+    expect(handlers.browseLibrary({ sourceKeys: ['zotero'] }).hits.map((h) => h.documentId)).toEqual([
+      documentId,
+    ])
+    expect(handlers.browseLibrary({ tagsAll: ['ml'] }).hits.map((h) => h.documentId)).toEqual([
+      documentId,
+    ])
+  })
+
+  it('browse_library caps limit at 50 (rejects a larger page)', () => {
+    expect(() => handlers.browseLibrary({ limit: 51 })).toThrow()
+  })
+
+  it('get_document returns the full DocumentDetail without file paths', () => {
+    const d = handlers.getDocument({ documentId })
+    expect(d.documentId).toBe(documentId)
+    expect(d.title).toBe('Probabilistic Machine Learning')
+    expect(d.kind).toBe('pdf')
+    expect(d.tags).toEqual(expect.arrayContaining(['ml', 'textbook']))
+    expect(d.instances).toEqual([
+      {
+        instanceId: expect.any(Number),
+        sourceKey: 'zotero',
+        uri: 'zotero://select/library/items/ABC123',
+        openPdfUri: null,
+      },
+    ])
+    expect(d.annotations.total).toBe(1)
+    expect(d.annotations.pages).toEqual([{ pageIndex: 147, count: 1 }])
+    expect(d.presence).toBe('zotero-only')
+    expect(d.virtualCollections).toEqual([])
+    expect(d.backlinks).toEqual([])
+    expect(JSON.stringify(d)).not.toContain('filePath')
+  })
+
+  it('get_document throws a not-found error for an unknown id', () => {
+    expect(() => handlers.getDocument({ documentId: 999999 })).toThrow(/not found/i)
+  })
+
+  it('get_links returns the wiki-link graph (outlinks + backlinks)', () => {
+    const alpha = handlers.getLinks({ documentId: alphaId })
+    expect(alpha.outlinks).toHaveLength(1)
+    expect(alpha.outlinks[0]).toMatchObject({
+      targetName: 'Beta',
+      documentId: betaId,
+      title: 'Beta',
+      kind: 'note',
+    })
+    expect(alpha.backlinks).toEqual([])
+
+    const beta = handlers.getLinks({ documentId: betaId })
+    expect(beta.outlinks).toEqual([])
+    expect(beta.backlinks).toHaveLength(1)
+    expect(beta.backlinks[0]).toMatchObject({ documentId: alphaId, title: 'Alpha', kind: 'note' })
+  })
+
+  it('get_page_annotations returns per-page annotation counts', () => {
+    const pa = handlers.getPageAnnotations({ documentId })
+    expect(pa.pages).toEqual([{ pageIndex: 147, count: 1 }])
   })
 
   it('get_annotations returns highlight text with the openPdfUri from positionJson', () => {
@@ -128,8 +228,51 @@ describe('mcp handlers over a read-only index', () => {
     expect(zotero!.status).toBe('ok')
   })
 
+  it('list_overview returns trimmed nav facets (no trees, no paths)', () => {
+    const o = handlers.listOverview()
+    expect(o.kinds).toEqual(
+      expect.arrayContaining([
+        { kind: 'pdf', count: 1 },
+        { kind: 'note', count: 2 },
+      ]),
+    )
+    const zsrc = o.sources.find((s) => s.key === 'zotero')!
+    expect(zsrc).toEqual({ key: 'zotero', status: expect.any(String), documentCount: 1 })
+    expect(o.sources.every((src) => !('tree' in src))).toBe(true)
+    expect(o.tags.length).toBeLessThanOrEqual(50)
+    expect(o.tags).toEqual(
+      expect.arrayContaining([
+        { name: 'ml', count: 1 },
+        { name: 'textbook', count: 1 },
+      ]),
+    )
+    expect(o.presence).toEqual([
+      { value: 'both', count: 0 },
+      { value: 'zotero-only', count: 1 },
+      { value: 'eagle-only', count: 0 },
+    ])
+  })
+
+  it('no tool output leaks a filesystem path', () => {
+    const outputs = [
+      handlers.searchLibrary({ q: 'precision' }),
+      handlers.browseLibrary({}),
+      handlers.getDocument({ documentId }),
+      handlers.getAnnotations({ documentId }),
+      handlers.getPageAnnotations({ documentId }),
+      handlers.getLinks({ documentId: alphaId }),
+      handlers.listSources(),
+      handlers.listOverview(),
+    ]
+    const blob = JSON.stringify(outputs)
+    expect(blob).not.toContain('filePath')
+    expect(blob).not.toContain(SECRET_PATH)
+    expect(blob).not.toContain('/Users/')
+  })
+
   it('rejects malformed input at the zod boundary', () => {
     expect(() => handlers.getDocument({ documentId: -1 })).toThrow()
     expect(() => handlers.searchLibrary({ q: '' })).toThrow()
+    expect(() => handlers.browseLibrary({ sourceKeys: ['nope'] })).toThrow()
   })
 })

@@ -1,8 +1,18 @@
-import { join } from 'node:path'
-import { mkdirSync, renameSync, writeFileSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
-import type { AcpAgentKey } from '../../shared/db-ipc'
+import type { AcpAgentKey, AcpDialogueSummary } from '../../shared/db-ipc'
 import { slugify } from '../lib/slug'
+
+/**
+ * The store's own on-disk naming pattern: `<ISO-stamp-with-[:.]-dashed>-<kebab-slug>.json`. `read`
+ * validates the requested basename against THIS pattern (and confirms it resolves inside the store
+ * dir) so a malicious `file` argument can never escape to path traversal.
+ */
+const DIALOGUE_FILE_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z-[a-z0-9]+(?:-[a-z0-9]+)*\.json$/
+
+/** First-prompt preview length in the history list (spec §1: "~80 chars"). */
+const FIRST_PROMPT_MAX = 80
 
 /**
  * Dialogues as first-party artifacts (2026-07-11-acp-dialogue-spec §Persistence; docs/00). One
@@ -46,6 +56,10 @@ export interface DialogueWriter {
 
 export interface DialogueStore {
   open(agentKey: AcpAgentKey, startedAt?: string): DialogueWriter
+  /** Past dialogues as summaries, newest first (the v1.1 history browser). */
+  list(): AcpDialogueSummary[]
+  /** The full stored dialogue for a listed `file`. Throws on any name that isn't one of ours. */
+  read(file: string): DialogueFile
 }
 
 /** `dialoguesDir` is injected (the workspace's `.astrolabe/dialogues/`) so tests run in a tmp dir.
@@ -89,5 +103,40 @@ export function createDialogueStore(dialoguesDir: string): DialogueStore {
     }
   }
 
-  return { open }
+  function firstPrompt(messages: DialogueMessage[]): string {
+    const first = messages.find((m) => m.role === 'user')?.text ?? ''
+    return first.length > FIRST_PROMPT_MAX ? first.slice(0, FIRST_PROMPT_MAX).trimEnd() + '…' : first
+  }
+
+  function list(): AcpDialogueSummary[] {
+    if (!existsSync(dialoguesDir)) return []
+    const summaries: AcpDialogueSummary[] = []
+    for (const file of readdirSync(dialoguesDir)) {
+      if (!DIALOGUE_FILE_PATTERN.test(file)) continue
+      try {
+        const body = JSON.parse(readFileSync(join(dialoguesDir, file), 'utf-8')) as DialogueFile
+        summaries.push({
+          file,
+          agentKey: body.agentKey,
+          startedAt: body.startedAt,
+          firstPrompt: firstPrompt(body.messages),
+          messageCount: body.messages.length,
+        })
+      } catch {
+        // A corrupt/partial file is skipped rather than sinking the whole list.
+      }
+    }
+    // Newest first — ISO timestamps sort lexicographically.
+    return summaries.sort((a, b) => (a.startedAt < b.startedAt ? 1 : a.startedAt > b.startedAt ? -1 : 0))
+  }
+
+  function read(file: string): DialogueFile {
+    if (!DIALOGUE_FILE_PATTERN.test(file)) throw new Error(`Not a dialogue file: ${file}`)
+    const dest = resolve(dialoguesDir, file)
+    // Defense in depth: the pattern already forbids separators, but confirm it stays in-dir.
+    if (dirname(dest) !== resolve(dialoguesDir)) throw new Error(`Refusing to read outside the store: ${file}`)
+    return JSON.parse(readFileSync(dest, 'utf-8')) as DialogueFile
+  }
+
+  return { open, list, read }
 }

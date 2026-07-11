@@ -3,11 +3,13 @@ import {
   emptyTranscript,
   applyUpdate,
   appendUserPrompt,
+  restartTranscript,
+  entriesFromDialogue,
   type Transcript,
   type AgentMessageEntry,
   type ToolCallEntry,
 } from './transcript'
-import type { AcpUpdate } from './types'
+import type { AcpStoredDialogue, AcpUpdate } from './types'
 
 const SID = 's1'
 const u = (over: Partial<AcpUpdate>): AcpUpdate => ({ sessionId: SID, kind: 'chunk', ...over })
@@ -110,6 +112,51 @@ describe('transcript — errors', () => {
     expect(err).toEqual({ kind: 'error', reason: 'model overloaded' })
     // the partial agent text is preserved
     expect(t.entries.some((e) => e.kind === 'message' && e.role === 'agent')).toBe(true)
+  })
+})
+
+describe('transcript — restart (failure recovery)', () => {
+  it('restart preserves prior entries above a divider and rebinds to the new session', () => {
+    const before = fold(
+      [u({ text: 'partial' }), u({ kind: 'error', reason: 'process died' })],
+      appendUserPrompt(emptyTranscript(SID), 'q'),
+    )
+    const after = restartTranscript(before, 'new-session')
+
+    expect(after.sessionId).toBe('new-session')
+    expect(after.streaming).toBe(false)
+    // Old transcript is kept; a divider marks the seam.
+    expect(after.entries.slice(0, before.entries.length)).toEqual(before.entries)
+    expect(after.entries[after.entries.length - 1]).toEqual({ kind: 'divider' })
+  })
+
+  it('after restart, updates for the new session accrete (old-session updates are ignored)', () => {
+    const restarted = restartTranscript(appendUserPrompt(emptyTranscript(SID), 'q'), 'new-session')
+    const t = fold([u({ sessionId: SID, text: 'stale' }), u({ sessionId: 'new-session', text: 'fresh' })], restarted)
+    expect(t.entries.some((e) => e.kind === 'message' && e.role === 'agent' && e.text === 'fresh')).toBe(true)
+    expect(t.entries.some((e) => e.kind === 'message' && (e as AgentMessageEntry).text === 'stale')).toBe(false)
+  })
+})
+
+describe('transcript — entriesFromDialogue (read-only history)', () => {
+  const stored: AcpStoredDialogue = {
+    schemaVersion: 1,
+    agentKey: 'claude',
+    startedAt: '2026-07-11T10:00:00.000Z',
+    messages: [
+      { role: 'user', text: 'what did I highlight?', at: '2026-07-11T10:00:01.000Z' },
+      { role: 'agent', text: 'this passage', at: '2026-07-11T10:00:03.000Z' },
+    ],
+    toolCalls: [{ name: 'search_library', at: '2026-07-11T10:00:02.000Z' }],
+    documentIds: [42],
+  }
+
+  it('interleaves stored messages and tool calls in timestamp order', () => {
+    const entries = entriesFromDialogue(stored)
+    expect(entries.map((e) => e.kind)).toEqual(['message', 'tool', 'message'])
+    expect((entries[0] as AgentMessageEntry).text).toBe('what did I highlight?')
+    expect((entries[1] as ToolCallEntry).toolName).toBe('search_library')
+    expect((entries[2] as AgentMessageEntry).text).toBe('this passage')
   })
 })
 

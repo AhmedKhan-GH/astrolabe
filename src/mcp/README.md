@@ -35,11 +35,19 @@ claude mcp add astrolabe -- pnpm --dir /Users/ahmed/WebstormProjects/astrolabe m
 
 ## Tools
 
+All tools are **read-only** and **path-free**: file paths are stripped from every output (agents
+have no filesystem access by design). `documentId` in each per-document tool comes from a
+`search_library` or `browse_library` hit.
+
 | Tool | Use |
 |---|---|
-| `search_library({q, limit?})` | FTS over titles/annotations/tags → ranked hits with provenance |
-| `get_document({documentId})` | full record: instances (URIs, paths), tags, collections |
+| `list_overview()` | call ONCE first: kinds, sources (counts+status), top ~50 tags, virtual collections, presence buckets — the library's shape and the valid filter values |
+| `search_library({q, limit?, ...filters})` | FTS over titles/annotations/tags → ranked hits `{documentId, title, kind, snippet, tags, instances, virtualCollections}`; accepts the same filters as browse |
+| `browse_library({...filters, offset?, limit?})` | recency river (newest-first) with NO query; the library filter set (sourceKeys, kinds, tags*, collectionIds, folderPrefixes, virtualCollections, presence); `limit` capped at 50 → `{total, hits:[{documentId, title, kind, modifiedAt, tags, sources}]}` |
+| `get_document({documentId})` | full record: tags, instances (URIs, `openPdfUri`), virtual collections, annotation summary, presence, backlinks (errors if not found) |
 | `get_annotations({documentId})` | highlights/notes with pageLabel + `openPdfUri` (opens Zotero at the page) |
+| `get_page_annotations({documentId})` | per-page annotation counts `{pages:[{pageIndex, count}]}` — the canvas heat data |
+| `get_links({documentId})` | the wiki-link graph: `{outlinks, backlinks}` with titles/kinds |
 | `list_sources()` | per-source sync status + document counts |
 
 ## Implementation notes
