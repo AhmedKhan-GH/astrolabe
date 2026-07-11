@@ -2,12 +2,15 @@ import { useMemo } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { TranscriptEntry } from './transcript'
+import { ToolCard } from './ToolCard'
+import { ThoughtBlock } from './ThoughtBlock'
 
 /**
- * The transcript body — the message/tool-chip/divider rendering shared by the live pane AND the
- * read-only history view (spec §1: "reuse the existing message/chip rendering"). Agent prose is
- * markdown (NoteView's zinc prose); every href routes through `onOpenUri` (provenance schemes),
- * and a tool chip carrying a documentId links into the Document Hub via `onOpenHub`.
+ * The transcript body — the message / thought / tool-card / divider rendering shared by the live
+ * pane AND the read-only history view (spec §1: "reuse the existing message rendering"). Agent
+ * prose is markdown (NoteView's zinc prose); every href routes through `onOpenUri` (provenance
+ * schemes); a `thought` folds into a collapsible ThoughtBlock; a `tool` renders an expandable
+ * ToolCard that links a harvested documentId into the Document Hub via `onOpenHub`.
  */
 export function TranscriptBody({
   entries,
@@ -84,24 +87,17 @@ export function TranscriptBody({
             </li>
           )
         }
-        if (e.kind === 'tool') {
-          const label = `${e.toolName} · ${e.status}`
+        if (e.kind === 'thought') {
           return (
             <li key={i}>
-              {e.documentId != null ? (
-                <button
-                  onClick={() => onOpenHub(e.documentId as number)}
-                  title="open in Document Hub"
-                  className="inline-flex items-center gap-1 rounded-full border border-violet-800 bg-violet-950/60 px-2 py-0.5 text-[11px] text-violet-300 hover:bg-violet-900"
-                >
-                  <span className="font-mono">{label}</span>
-                  <span aria-hidden>ⓘ</span>
-                </button>
-              ) : (
-                <span className="inline-flex items-center rounded-full border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[11px] font-mono text-zinc-400">
-                  {label}
-                </span>
-              )}
+              <ThoughtBlock entry={e} />
+            </li>
+          )
+        }
+        if (e.kind === 'tool') {
+          return (
+            <li key={i}>
+              <ToolCard entry={e} onOpenHub={onOpenHub} />
             </li>
           )
         }

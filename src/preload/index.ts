@@ -9,6 +9,7 @@ import {
   ACP_PERMISSION_RESPONSE_CHANNEL,
   ACP_PROMPT_CHANNEL,
   ACP_SESSION_NEW_CHANNEL,
+  ACP_SET_MODE_CHANNEL,
   ACP_UPDATE_EVENT,
   DB_CHANNEL,
   INDEX_BROWSE_CHANNEL,
@@ -147,8 +148,10 @@ const api = {
     prompt: (sessionId: string, text: string): Promise<void> =>
       ipcRenderer.invoke(ACP_PROMPT_CHANNEL, { sessionId, text }),
     cancel: (sessionId: string): Promise<void> => ipcRenderer.invoke(ACP_CANCEL_CHANNEL, { sessionId }),
-    respondPermission: (requestId: string, allow: boolean): Promise<void> =>
-      ipcRenderer.invoke(ACP_PERMISSION_RESPONSE_CHANNEL, { requestId, allow }),
+    respondPermission: (requestId: string, optionId: string): Promise<void> =>
+      ipcRenderer.invoke(ACP_PERMISSION_RESPONSE_CHANNEL, { requestId, optionId }),
+    setMode: (sessionId: string, modeId: string): Promise<void> =>
+      ipcRenderer.invoke(ACP_SET_MODE_CHANNEL, { sessionId, modeId }),
     // History browser (v1.1): list past dialogues + read one back by its store filename.
     dialogues: (): Promise<AcpDialogueSummary[]> => ipcRenderer.invoke(ACP_DIALOGUES_LIST_CHANNEL),
     readDialogue: (file: string): Promise<AcpStoredDialogue> =>

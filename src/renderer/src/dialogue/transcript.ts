@@ -1,12 +1,13 @@
 /**
  * Transcript reducer — the token-heavy logic core of the dialogue pane. It folds an AcpUpdate
  * stream (plus the user's own prompts) into a flat, render-ready transcript: streaming chunks
- * accrete into the open agent message, tool calls become chips that resolve in place, turn
- * boundaries flip `streaming`, and errors land as their own entry. PURE — every function takes
- * state and returns new state, so the component is a thin dispatcher and the model is fully
- * unit-tested with synthetic updates.
+ * accrete into the open agent message, `thought` chunks group into one collapsible block, `tool`
+ * events upsert by toolCallId (status transitions in place, content accumulates), a single live
+ * `plan` block is replaced on each update, and the current mode / available modes / available
+ * commands are held aside for the header + slash palette. PURE — every function takes state and
+ * returns new state, so the component is a thin dispatcher and the model is fully unit-tested.
  */
-import type { AcpStoredDialogue, AcpUpdate } from './types'
+import type { AcpCommand, AcpMode, AcpStoredDialogue, AcpToolKind, AcpToolStatus, AcpUpdate, PlanEntry, ToolContentItem, ToolLocation } from './types'
 
 export interface UserMessageEntry {
   kind: 'message'
@@ -20,11 +21,25 @@ export interface AgentMessageEntry {
   text: string
 }
 
-/** A tool call rendered as a collapsed chip (name + lifecycle status), linkable if it hit a doc. */
+/** A run of consecutive agent_thought chunks, folded into one collapsible "thinking" block. */
+export interface ThoughtEntry {
+  kind: 'thought'
+  text: string
+}
+
+/**
+ * A tool call rendered as an expandable card. Upserted by `toolCallId`: status transitions in
+ * place (pending → in_progress → completed/failed) and content blocks accumulate across updates.
+ */
 export interface ToolCallEntry {
   kind: 'tool'
-  toolName: string
-  status: string
+  toolCallId: string
+  title: string
+  toolKind: AcpToolKind
+  status: AcpToolStatus
+  command?: string
+  content?: ToolContentItem[]
+  locations?: ToolLocation[]
   documentId?: number
 }
 
@@ -38,7 +53,13 @@ export interface DividerEntry {
   kind: 'divider'
 }
 
-export type TranscriptEntry = UserMessageEntry | AgentMessageEntry | ToolCallEntry | ErrorEntry | DividerEntry
+export type TranscriptEntry =
+  | UserMessageEntry
+  | AgentMessageEntry
+  | ThoughtEntry
+  | ToolCallEntry
+  | ErrorEntry
+  | DividerEntry
 
 export interface Transcript {
   /** The session these entries belong to; updates for any other session are ignored. */
@@ -48,6 +69,14 @@ export interface Transcript {
   streaming: boolean
   /** Every documentId seen across the dialogue (deduped) — the Layer 4→5 graph seam. */
   documentIds: number[]
+  /** The single live plan/todo block, replaced whole on each `plan` update (null until one lands). */
+  plan: PlanEntry[] | null
+  /** The session's current mode id (null until a `mode` update lands). */
+  currentModeId: string | null
+  /** Modes the user can switch to (feeds the header dropdown); sticky across mode updates. */
+  availableModes: AcpMode[]
+  /** Slash commands the agent exposes (feeds the palette). */
+  availableCommands: AcpCommand[]
   /**
    * Internal: whether the trailing agent message is closed. A turn end or a fresh user prompt
    * seals it so the next chunk opens a NEW agent message rather than accreting onto the old one.
@@ -56,7 +85,17 @@ export interface Transcript {
 }
 
 export function emptyTranscript(sessionId: string): Transcript {
-  return { sessionId, entries: [], streaming: false, documentIds: [], sealed: true }
+  return {
+    sessionId,
+    entries: [],
+    streaming: false,
+    documentIds: [],
+    plan: null,
+    currentModeId: null,
+    availableModes: [],
+    availableCommands: [],
+    sealed: true,
+  }
 }
 
 function mergeDocId(ids: number[], id: number | undefined): number[] {
@@ -77,37 +116,37 @@ function appendChunk(state: Transcript, text: string): Transcript {
   }
 }
 
-function addToolCall(state: Transcript, u: AcpUpdate): Transcript {
-  const entry: ToolCallEntry = {
-    kind: 'tool',
-    toolName: u.toolName ?? 'tool',
-    status: u.toolStatus ?? 'running',
-    ...(u.documentId != null ? { documentId: u.documentId } : {}),
+/** Fold a thought chunk into the trailing thought block, or open a new one if the run just broke. */
+function appendThought(state: Transcript, text: string): Transcript {
+  const last = state.entries[state.entries.length - 1]
+  if (last && last.kind === 'thought') {
+    const entries = state.entries.slice(0, -1)
+    entries.push({ ...last, text: last.text + text })
+    return { ...state, entries }
   }
-  return {
-    ...state,
-    entries: [...state.entries, entry],
-    documentIds: mergeDocId(state.documentIds, u.documentId),
-  }
+  return { ...state, entries: [...state.entries, { kind: 'thought', text }] }
 }
 
-/** Resolve the most recent still-open tool chip (matched by name when the result names one). */
-function resolveToolCall(state: Transcript, u: AcpUpdate): Transcript {
-  let idx = -1
-  for (let i = state.entries.length - 1; i >= 0; i--) {
-    const e = state.entries[i]
-    if (e.kind === 'tool' && (u.toolName == null || e.toolName === u.toolName)) {
-      idx = i
-      break
-    }
-  }
+/**
+ * Upsert a tool entry keyed by toolCallId: first sight appends a card; later updates transition
+ * status in place, accumulate content blocks, and fill in command/locations/documentId as they
+ * arrive (never clobbering a value already seen with an absent one).
+ */
+function upsertTool(state: Transcript, u: Extract<AcpUpdate, { kind: 'tool' }>): Transcript {
   const documentIds = mergeDocId(state.documentIds, u.documentId)
+  const idx = state.entries.findIndex((e) => e.kind === 'tool' && e.toolCallId === u.toolCallId)
   if (idx < 0) {
-    // No matching call seen — record the result as a standalone chip so nothing is lost.
     const entry: ToolCallEntry = {
       kind: 'tool',
-      toolName: u.toolName ?? 'tool',
-      status: u.toolStatus ?? 'done',
+      toolCallId: u.toolCallId,
+      // Defaults for a create that arrives as a partial update (rare, but valid per the wire
+      // contract): later updates fill the real values in via the merge branch below.
+      title: u.title ?? '',
+      toolKind: u.toolKind ?? 'other',
+      status: u.status ?? 'pending',
+      ...(u.command != null ? { command: u.command } : {}),
+      ...(u.content != null ? { content: u.content } : {}),
+      ...(u.locations != null ? { locations: u.locations } : {}),
       ...(u.documentId != null ? { documentId: u.documentId } : {}),
     }
     return { ...state, entries: [...state.entries, entry], documentIds }
@@ -115,8 +154,13 @@ function resolveToolCall(state: Transcript, u: AcpUpdate): Transcript {
   const prev = state.entries[idx] as ToolCallEntry
   const updated: ToolCallEntry = {
     ...prev,
-    status: u.toolStatus ?? 'done',
-    ...(prev.documentId == null && u.documentId != null ? { documentId: u.documentId } : {}),
+    status: u.status ?? prev.status,
+    title: u.title || prev.title,
+    toolKind: u.toolKind || prev.toolKind,
+    command: u.command ?? prev.command,
+    content: u.content ? [...(prev.content ?? []), ...u.content] : prev.content,
+    locations: u.locations ?? prev.locations,
+    documentId: prev.documentId ?? u.documentId,
   }
   const entries = state.entries.slice()
   entries[idx] = updated
@@ -129,10 +173,20 @@ export function applyUpdate(state: Transcript, u: AcpUpdate): Transcript {
   switch (u.kind) {
     case 'chunk':
       return appendChunk(state, u.text ?? '')
-    case 'tool-call':
-      return addToolCall(state, u)
-    case 'tool-result':
-      return resolveToolCall(state, u)
+    case 'thought':
+      return appendThought(state, u.text ?? '')
+    case 'tool':
+      return upsertTool(state, u)
+    case 'plan':
+      return { ...state, plan: u.entries }
+    case 'commands':
+      return { ...state, availableCommands: u.commands }
+    case 'mode':
+      return {
+        ...state,
+        currentModeId: u.currentModeId,
+        availableModes: u.availableModes ?? state.availableModes,
+      }
     case 'turn-end':
       return { ...state, streaming: false, sealed: true }
     case 'error':
@@ -158,7 +212,8 @@ export function appendUserPrompt(state: Transcript, text: string): Transcript {
 /**
  * Restart after a dead session (failure recovery): keep the whole prior transcript, drop a visible
  * divider, and rebind to the fresh session id so its updates accrete while the old session's stale
- * updates are ignored (applyUpdate filters on sessionId).
+ * updates are ignored (applyUpdate filters on sessionId). The live plan is stale for the new
+ * session, so it is cleared; modes/commands (agent-scoped) survive until the new session re-emits.
  */
 export function restartTranscript(state: Transcript, newSessionId: string): Transcript {
   return {
@@ -167,18 +222,32 @@ export function restartTranscript(state: Transcript, newSessionId: string): Tran
     entries: [...state.entries, { kind: 'divider' }],
     streaming: false,
     sealed: true,
+    plan: null,
   }
 }
 
 /**
  * Build a read-only transcript from a stored dialogue (history browser). The on-disk shape keeps
  * messages and tool calls in separate arrays; both carry an `at` timestamp, so we interleave by it
- * to recover stream order. Tool chips render as completed (the record is post-hoc; no live status).
+ * to recover stream order. Tool cards render as completed (the record is post-hoc; the stored shape
+ * omits the rich content/status trail — see spec §Integration).
  */
 export function entriesFromDialogue(dialogue: AcpStoredDialogue): TranscriptEntry[] {
   const dated: { at: string; entry: TranscriptEntry }[] = [
-    ...dialogue.messages.map((m) => ({ at: m.at, entry: { kind: 'message', role: m.role, text: m.text } as TranscriptEntry })),
-    ...dialogue.toolCalls.map((t) => ({ at: t.at, entry: { kind: 'tool', toolName: t.name, status: 'completed' } as TranscriptEntry })),
+    ...dialogue.messages.map((m) => ({
+      at: m.at,
+      entry: { kind: 'message', role: m.role, text: m.text } as TranscriptEntry,
+    })),
+    ...dialogue.toolCalls.map((t, i) => ({
+      at: t.at,
+      entry: {
+        kind: 'tool',
+        toolCallId: `stored-${i}`,
+        title: t.name,
+        toolKind: 'other',
+        status: 'completed',
+      } as TranscriptEntry,
+    })),
   ]
   dated.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0))
   return dated.map((d) => d.entry)

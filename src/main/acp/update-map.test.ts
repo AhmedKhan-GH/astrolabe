@@ -3,11 +3,12 @@ import type { SessionUpdate } from '@agentclientprotocol/sdk'
 import { mapSessionUpdate, harvestDocumentId } from './update-map'
 
 /**
- * Pure mapping unit tests (spec §Renderer contract): SDK session/update variants → AcpUpdateEvent.
- * These pin the exact shape the parallel renderer agent codes against.
+ * Pure mapping unit tests (spec §"Frozen wire contract"): SDK session/update variants →
+ * AcpUpdateEvent. These pin the exact shape the parallel renderer agent codes against. Exhaustive:
+ * every mapped variant + every ToolCallContent type + unknown variant → null.
  */
 
-describe('mapSessionUpdate', () => {
+describe('mapSessionUpdate — chunk / thought', () => {
   it('maps an agent message chunk to a chunk event with text', () => {
     const u: SessionUpdate = {
       sessionUpdate: 'agent_message_chunk',
@@ -28,22 +29,76 @@ describe('mapSessionUpdate', () => {
     expect(mapSessionUpdate('s1', u)).toBeNull()
   })
 
-  it('maps a tool_call to a tool-call event with name + status', () => {
+  it('maps an agent thought chunk to a thought event', () => {
+    const u: SessionUpdate = {
+      sessionUpdate: 'agent_thought_chunk',
+      content: { type: 'text', text: 'Let me reason about this' },
+    }
+    expect(mapSessionUpdate('s1', u)).toEqual({
+      sessionId: 's1',
+      kind: 'thought',
+      text: 'Let me reason about this',
+    })
+  })
+
+  it('drops an empty thought chunk', () => {
+    const u: SessionUpdate = {
+      sessionUpdate: 'agent_thought_chunk',
+      content: { type: 'text', text: '' },
+    }
+    expect(mapSessionUpdate('s1', u)).toBeNull()
+  })
+
+  it('ignores the user message echo', () => {
+    const u: SessionUpdate = {
+      sessionUpdate: 'user_message_chunk',
+      content: { type: 'text', text: 'my prompt' },
+    }
+    expect(mapSessionUpdate('s1', u)).toBeNull()
+  })
+})
+
+describe('mapSessionUpdate — tool', () => {
+  it('maps a tool_call to a unified tool event with id/title/kind/status', () => {
     const u: SessionUpdate = {
       sessionUpdate: 'tool_call',
       toolCallId: 't1',
       title: 'search_library',
+      kind: 'search',
       status: 'in_progress',
     }
     expect(mapSessionUpdate('s1', u)).toEqual({
       sessionId: 's1',
-      kind: 'tool-call',
-      toolName: 'search_library',
-      toolStatus: 'in_progress',
+      kind: 'tool',
+      toolCallId: 't1',
+      title: 'search_library',
+      toolKind: 'search',
+      status: 'in_progress',
     })
   })
 
-  it('maps a completed tool_call_update to a tool-result, harvesting the documentId', () => {
+  it('harvests the shell command from an execute tool rawInput', () => {
+    const u: SessionUpdate = {
+      sessionUpdate: 'tool_call',
+      toolCallId: 't2',
+      title: 'Run tests',
+      kind: 'execute',
+      status: 'pending',
+      rawInput: { command: 'pnpm test', description: 'run the suite' },
+    }
+    expect(mapSessionUpdate('s1', u)).toEqual({
+      sessionId: 's1',
+      kind: 'tool',
+      toolCallId: 't2',
+      title: 'Run tests',
+      toolKind: 'execute',
+      status: 'pending',
+      command: 'pnpm test',
+      rawInput: { command: 'pnpm test', description: 'run the suite' },
+    })
+  })
+
+  it('maps text content and harvests a documentId from it', () => {
     const u: SessionUpdate = {
       sessionUpdate: 'tool_call_update',
       toolCallId: 't1',
@@ -53,30 +108,168 @@ describe('mapSessionUpdate', () => {
     }
     expect(mapSessionUpdate('s1', u)).toEqual({
       sessionId: 's1',
-      kind: 'tool-result',
-      toolName: 'get_document',
-      toolStatus: 'completed',
+      kind: 'tool',
+      toolCallId: 't1',
+      title: 'get_document',
+      status: 'completed',
+      content: [{ type: 'text', text: '{"documentId": 42, "title": "x"}' }],
       documentId: 42,
     })
   })
 
-  it('an in-flight tool_call_update stays a tool-call (not a result)', () => {
+  it('maps a resource_link content block to a text item using its uri', () => {
+    const u: SessionUpdate = {
+      sessionUpdate: 'tool_call_update',
+      toolCallId: 't1',
+      content: [{ type: 'content', content: { type: 'resource_link', name: 'doc', uri: 'astro://doc/9' } }],
+    }
+    expect(mapSessionUpdate('s1', u)).toEqual({
+      sessionId: 's1',
+      kind: 'tool',
+      toolCallId: 't1',
+      content: [{ type: 'text', text: 'astro://doc/9' }],
+      documentId: 9,
+    })
+  })
+
+  it('maps a diff content item (oldText null for a new file)', () => {
+    const u: SessionUpdate = {
+      sessionUpdate: 'tool_call_update',
+      toolCallId: 't1',
+      status: 'completed',
+      content: [{ type: 'diff', path: '/ws/new.ts', oldText: null, newText: 'export const x = 1\n' }],
+    }
+    expect(mapSessionUpdate('s1', u)).toEqual({
+      sessionId: 's1',
+      kind: 'tool',
+      toolCallId: 't1',
+      status: 'completed',
+      content: [{ type: 'diff', path: '/ws/new.ts', oldText: null, newText: 'export const x = 1\n' }],
+    })
+  })
+
+  it('maps a diff content item with an existing oldText', () => {
+    const u: SessionUpdate = {
+      sessionUpdate: 'tool_call_update',
+      toolCallId: 't1',
+      content: [{ type: 'diff', path: '/ws/a.ts', oldText: 'a', newText: 'b' }],
+    }
+    expect(mapSessionUpdate('s1', u)).toMatchObject({
+      content: [{ type: 'diff', path: '/ws/a.ts', oldText: 'a', newText: 'b' }],
+    })
+  })
+
+  it('maps a terminal content item using its terminalId as text', () => {
+    const u: SessionUpdate = {
+      sessionUpdate: 'tool_call_update',
+      toolCallId: 't1',
+      content: [{ type: 'terminal', terminalId: 'term-7' }],
+    }
+    expect(mapSessionUpdate('s1', u)).toEqual({
+      sessionId: 's1',
+      kind: 'tool',
+      toolCallId: 't1',
+      content: [{ type: 'terminal', text: 'term-7' }],
+    })
+  })
+
+  it('maps locations, dropping a null line', () => {
+    const u: SessionUpdate = {
+      sessionUpdate: 'tool_call_update',
+      toolCallId: 't1',
+      locations: [
+        { path: '/ws/a.ts', line: 12 },
+        { path: '/ws/b.ts', line: null },
+      ],
+    }
+    expect(mapSessionUpdate('s1', u)).toEqual({
+      sessionId: 's1',
+      kind: 'tool',
+      toolCallId: 't1',
+      locations: [{ path: '/ws/a.ts', line: 12 }, { path: '/ws/b.ts' }],
+    })
+  })
+
+  it('a minimal tool_call_update carries only id + changed fields', () => {
     const u: SessionUpdate = {
       sessionUpdate: 'tool_call_update',
       toolCallId: 't1',
       status: 'in_progress',
     }
-    expect(mapSessionUpdate('s1', u)).toMatchObject({ kind: 'tool-call', toolStatus: 'in_progress' })
+    expect(mapSessionUpdate('s1', u)).toEqual({
+      sessionId: 's1',
+      kind: 'tool',
+      toolCallId: 't1',
+      status: 'in_progress',
+    })
+  })
+})
+
+describe('mapSessionUpdate — plan / commands / mode', () => {
+  it('maps a plan to a plan event with entries', () => {
+    const u: SessionUpdate = {
+      sessionUpdate: 'plan',
+      entries: [
+        { content: 'Search the library', priority: 'high', status: 'in_progress' },
+        { content: 'Summarize findings', priority: 'low', status: 'pending' },
+      ],
+    }
+    expect(mapSessionUpdate('s1', u)).toEqual({
+      sessionId: 's1',
+      kind: 'plan',
+      entries: [
+        { content: 'Search the library', priority: 'high', status: 'in_progress' },
+        { content: 'Summarize findings', priority: 'low', status: 'pending' },
+      ],
+    })
   })
 
-  it('ignores updates the transcript does not render (thoughts, plans)', () => {
-    expect(
-      mapSessionUpdate('s1', {
-        sessionUpdate: 'agent_thought_chunk',
-        content: { type: 'text', text: 'thinking' },
-      }),
-    ).toBeNull()
-    expect(mapSessionUpdate('s1', { sessionUpdate: 'plan', entries: [] })).toBeNull()
+  it('maps an empty plan (a cleared plan) to a plan event with no entries', () => {
+    expect(mapSessionUpdate('s1', { sessionUpdate: 'plan', entries: [] })).toEqual({
+      sessionId: 's1',
+      kind: 'plan',
+      entries: [],
+    })
+  })
+
+  it('maps available_commands_update to a commands event', () => {
+    const u: SessionUpdate = {
+      sessionUpdate: 'available_commands_update',
+      availableCommands: [
+        { name: 'create_plan', description: 'Draft a plan' },
+        { name: 'research', description: 'Research the codebase' },
+      ],
+    }
+    expect(mapSessionUpdate('s1', u)).toEqual({
+      sessionId: 's1',
+      kind: 'commands',
+      commands: [
+        { name: 'create_plan', description: 'Draft a plan' },
+        { name: 'research', description: 'Research the codebase' },
+      ],
+    })
+  })
+
+  it('maps current_mode_update to a mode event (no availableModes in a notification)', () => {
+    const u: SessionUpdate = { sessionUpdate: 'current_mode_update', currentModeId: 'plan' }
+    expect(mapSessionUpdate('s1', u)).toEqual({
+      sessionId: 's1',
+      kind: 'mode',
+      currentModeId: 'plan',
+    })
+  })
+})
+
+describe('mapSessionUpdate — unknown / non-rendered variants → null', () => {
+  it('returns null for plan_removed, usage, session_info, config option updates', () => {
+    expect(mapSessionUpdate('s1', { sessionUpdate: 'plan_removed', planId: 'p1' } as unknown as SessionUpdate)).toBeNull()
+    expect(mapSessionUpdate('s1', { sessionUpdate: 'usage_update' } as unknown as SessionUpdate)).toBeNull()
+    expect(mapSessionUpdate('s1', { sessionUpdate: 'session_info_update' } as unknown as SessionUpdate)).toBeNull()
+    expect(mapSessionUpdate('s1', { sessionUpdate: 'config_option_update' } as unknown as SessionUpdate)).toBeNull()
+  })
+
+  it('returns null for a genuinely unknown variant', () => {
+    expect(mapSessionUpdate('s1', { sessionUpdate: 'brand_new_thing' } as unknown as SessionUpdate)).toBeNull()
   })
 })
 

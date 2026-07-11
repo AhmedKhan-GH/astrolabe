@@ -127,6 +127,8 @@ export const ACP_SESSION_NEW_CHANNEL = 'acp:session-new'
 export const ACP_PROMPT_CHANNEL = 'acp:prompt'
 export const ACP_CANCEL_CHANNEL = 'acp:cancel'
 export const ACP_PERMISSION_RESPONSE_CHANNEL = 'acp:permission-response'
+/** Session mode switch (v2 rich client): drive `session/set_mode` on the live agent. */
+export const ACP_SET_MODE_CHANNEL = 'acp:set-mode'
 /** History browser (v1.1): list past dialogues + read one back read-only. */
 export const ACP_DIALOGUES_LIST_CHANNEL = 'acp:dialogues-list'
 export const ACP_DIALOGUES_READ_CHANNEL = 'acp:dialogues-read'
@@ -166,40 +168,151 @@ export type AcpPromptRequest = z.infer<typeof acpPromptSchema>
 export const acpCancelSchema = z.object({ sessionId: z.string().min(1).max(200) })
 export type AcpCancelRequest = z.infer<typeof acpCancelSchema>
 
-/** permission-response: the user's allow/deny for a pending tool-call permission request. */
+/** permission-response: the option the user chose for a pending permission request. The renderer
+ *  renders one button per option and echoes back the selected `optionId` (v2 rich client — REPLACES
+ *  the old boolean allow). */
 export const acpPermissionResponseSchema = z.object({
   requestId: z.string().min(1).max(200),
-  allow: z.boolean(),
+  optionId: z.string().min(1).max(200),
 })
 export type AcpPermissionResponse = z.infer<typeof acpPermissionResponseSchema>
 
-/**
- * The renderer-facing shape of one streamed dialogue event (spec §Renderer contract). The main
- * side maps the SDK's `session/update` notification variants into THIS shape (pure + unit-tested,
- * see src/main/acp/update-map.ts) and synthesizes `turn-end`/`error` from the prompt lifecycle.
- * Both sides import this type so the wire stays honest.
- */
-export interface AcpUpdateEvent {
+/** set-mode: switch a live session's operational mode (one of its advertised `availableModes`). */
+export const acpSetModeSchema = z.object({
+  sessionId: z.string().min(1).max(200),
+  modeId: z.string().min(1).max(200),
+})
+export type AcpSetModeRequest = z.infer<typeof acpSetModeSchema>
+
+// ── Frozen wire contract (2026-07-11-acp-rich-client-spec §"Frozen wire contract") ──────────────
+// The renderer track codes against these types VERBATIM. `AcpUpdateEvent` is a discriminated union
+// on `kind`, every variant carrying `sessionId`. Main maps the SDK's `session/update` notification
+// variants into these (pure + unit-tested, see src/main/acp/update-map.ts) and synthesizes
+// `turn-end`/`error` from the prompt lifecycle. Both sides import these types so the wire stays honest.
+
+/** Tool categories (mirrors the SDK `ToolKind`) — the renderer picks an icon per kind. */
+export type AcpToolKind =
+  | 'read'
+  | 'edit'
+  | 'delete'
+  | 'move'
+  | 'search'
+  | 'execute'
+  | 'think'
+  | 'fetch'
+  | 'switch_mode'
+  | 'other'
+
+/** Tool execution status (mirrors the SDK `ToolCallStatus`). */
+export type AcpToolStatus = 'pending' | 'in_progress' | 'completed' | 'failed'
+
+/** One renderable piece of a tool call's output. `terminal.text` carries the SDK terminal id (the
+ *  only wire-visible handle for an embedded terminal; the client has no terminal capability in v2). */
+export type AcpToolContentItem =
+  | { type: 'text'; text: string }
+  | { type: 'diff'; path: string; oldText: string | null; newText: string }
+  | { type: 'terminal'; text: string }
+
+/** agent_message_chunk → the streamed agent text. */
+export interface AcpChunkEvent {
   sessionId: string
-  kind: 'chunk' | 'tool-call' | 'tool-result' | 'turn-end' | 'error'
-  /** agent message text (chunk). */
-  text?: string
-  /** tool title/name (tool-call, tool-result). */
-  toolName?: string
-  /** tool execution status (tool-call, tool-result). */
-  toolStatus?: 'pending' | 'in_progress' | 'completed' | 'failed'
-  /** a library documentId harvested from a tool result — the Layer 4→5 provenance seam. */
-  documentId?: number
-  /** stop reason (turn-end) or an error message (error). */
-  reason?: string
+  kind: 'chunk'
+  text: string
 }
 
-/** A pending permission prompt surfaced to the renderer (spec §Wire: `acp:permission-request`). */
+/** agent_thought_chunk → the agent's reasoning (renders as a collapsible "thinking" block). */
+export interface AcpThoughtEvent {
+  sessionId: string
+  kind: 'thought'
+  text: string
+}
+
+/**
+ * tool_call + tool_call_update → ONE unified tool event. The renderer upserts by `toolCallId`;
+ * every other field is a partial update (ACP sends only changed fields on `tool_call_update`), so
+ * all but `toolCallId` are optional.
+ */
+export interface AcpToolEvent {
+  sessionId: string
+  kind: 'tool'
+  toolCallId: string
+  /** human-readable title of what the tool is doing. */
+  title?: string
+  /** the tool category (icon hint). */
+  toolKind?: AcpToolKind
+  status?: AcpToolStatus
+  /** the shell command, harvested from an `execute` tool's rawInput. */
+  command?: string
+  /** produced content: text blocks, file diffs, terminal handles. */
+  content?: AcpToolContentItem[]
+  /** file locations touched (the "follow-along" seam). */
+  locations?: { path: string; line?: number }[]
+  /** raw tool input parameters (rendered as JSON for non-execute tools). */
+  rawInput?: unknown
+  /** a library documentId harvested from the result — the Layer 4→5 provenance seam. */
+  documentId?: number
+}
+
+/** plan → the agent's live plan/todo list (replaces the prior plan on each update). */
+export interface AcpPlanEvent {
+  sessionId: string
+  kind: 'plan'
+  entries: { content: string; priority?: 'high' | 'medium' | 'low'; status: 'pending' | 'in_progress' | 'completed' }[]
+}
+
+/** available_commands_update → the slash-command palette. */
+export interface AcpCommandsEvent {
+  sessionId: string
+  kind: 'commands'
+  commands: { name: string; description?: string }[]
+}
+
+/** current_mode_update + the modes from session/new → the mode switcher. */
+export interface AcpModeEvent {
+  sessionId: string
+  kind: 'mode'
+  currentModeId: string
+  availableModes?: { id: string; name: string }[]
+}
+
+/** synthesized on prompt resolution. */
+export interface AcpTurnEndEvent {
+  sessionId: string
+  kind: 'turn-end'
+  stopReason?: string
+}
+
+/** synthesized on a failed turn / adapter death (stderr tail appended, existing behavior). */
+export interface AcpErrorEvent {
+  sessionId: string
+  kind: 'error'
+  reason: string
+}
+
+export type AcpUpdateEvent =
+  | AcpChunkEvent
+  | AcpThoughtEvent
+  | AcpToolEvent
+  | AcpPlanEvent
+  | AcpCommandsEvent
+  | AcpModeEvent
+  | AcpTurnEndEvent
+  | AcpErrorEvent
+
+/** The kind of a permission option (mirrors the SDK `PermissionOptionKind`) — styles the button. */
+export type AcpPermissionOptionKind = 'allow_once' | 'allow_always' | 'reject_once' | 'reject_always'
+
+/** A pending permission prompt surfaced to the renderer (spec §Wire: `acp:permission-request`).
+ *  Carries the FULL option set; the renderer renders one button per option and answers with the
+ *  chosen `optionId`. */
 export interface AcpPermissionRequestEvent {
   requestId: string
   sessionId: string
-  /** human-readable tool-call title, for the inline allow/deny card. */
+  /** human-readable tool-call title, for the inline permission card. */
   title: string
+  /** the tool call this permission gates (upsert key for the referenced tool card). */
+  toolCallId?: string
+  options: { optionId: string; name: string; kind: AcpPermissionOptionKind }[]
 }
 
 /** One row in the history browser (v1.1): a past dialogue reduced to its list card. */

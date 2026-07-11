@@ -10,6 +10,7 @@ import {
   type PermissionOption,
   type RequestPermissionRequest,
   type RequestPermissionResponse,
+  type SessionModeState,
   type SessionNotification,
   type StopReason,
 } from '@agentclientprotocol/sdk'
@@ -117,7 +118,10 @@ export interface AcpManager {
   newSession(agentKey: AcpAgentKey): Promise<AcpSessionResult>
   prompt(sessionId: string, text: string): { ok: true } | { error: string }
   cancel(sessionId: string): void
-  respondPermission(requestId: string, allow: boolean): void
+  /** Answer a pending permission request with the option the user chose. */
+  respondPermission(requestId: string, optionId: string): void
+  /** Switch a live session's operational mode (one of its advertised availableModes). */
+  setMode(sessionId: string, modeId: string): void
   disposeAll(): void
 }
 
@@ -129,6 +133,9 @@ interface Session {
   writer: DialogueWriter | undefined
   agentBuffer: string
   closed: boolean
+  /** The session's currently active mode + the modes it advertised (for re-emitting on set). */
+  currentModeId: string | undefined
+  availableModes: { id: string; name: string }[] | undefined
 }
 
 interface PendingPermission {
@@ -137,19 +144,13 @@ interface PendingPermission {
   timer: ReturnType<typeof setTimeout>
 }
 
-function selectOutcome(options: PermissionOption[], kinds: PermissionOption['kind'][]): RequestPermissionResponse {
-  for (const kind of kinds) {
-    const opt = options.find((o) => o.kind === kind)
-    if (opt) return { outcome: { outcome: 'selected', optionId: opt.optionId } }
-  }
-  // No matching option offered — 'cancelled' is the safe outcome (the agent aborts the tool).
+/** The default outcome on timeout/teardown: the FIRST reject_* option offered (spec), or a synthetic
+ *  'cancelled' outcome when the agent offered no reject option (the tool is aborted either way). */
+function rejectOutcome(options: PermissionOption[]): RequestPermissionResponse {
+  const opt = options.find((o) => o.kind === 'reject_once' || o.kind === 'reject_always')
+  if (opt) return { outcome: { outcome: 'selected', optionId: opt.optionId } }
   return { outcome: { outcome: 'cancelled' } }
 }
-
-const allowOutcome = (options: PermissionOption[]): RequestPermissionResponse =>
-  selectOutcome(options, ['allow_once', 'allow_always'])
-const denyOutcome = (options: PermissionOption[]): RequestPermissionResponse =>
-  selectOutcome(options, ['reject_once', 'reject_always'])
 
 export function createAcpManager(deps: AcpManagerDeps): AcpManager {
   const adapterList = deps.adapters ?? defaultAdapters
@@ -170,11 +171,15 @@ export function createAcpManager(deps: AcpManagerDeps): AcpManager {
 
     const session = sessions.get(params.sessionId)
     if (!session) return
-    if (mapped.kind === 'chunk' && mapped.text) session.agentBuffer += mapped.text
-    if (params.update.sessionUpdate === 'tool_call' && mapped.toolName) {
-      session.writer?.addToolCall({ name: mapped.toolName, at: nowIso() })
+    if (mapped.kind === 'chunk') session.agentBuffer += mapped.text
+    // Persist a tool call the first time it appears (the `tool_call` create, not every update) and
+    // any harvested documentId — the dialogue store keeps the minimal name/id history.
+    if (params.update.sessionUpdate === 'tool_call' && mapped.kind === 'tool' && mapped.title) {
+      session.writer?.addToolCall({ name: mapped.title, at: nowIso() })
     }
-    if (mapped.documentId !== undefined) session.writer?.addDocumentId(mapped.documentId)
+    if (mapped.kind === 'tool' && mapped.documentId !== undefined) session.writer?.addDocumentId(mapped.documentId)
+    // Track autonomous mode changes so setMode re-emits reflect the live mode.
+    if (mapped.kind === 'mode') session.currentModeId = mapped.currentModeId
   }
 
   function onPermission(params: RequestPermissionRequest): Promise<RequestPermissionResponse> {
@@ -182,14 +187,18 @@ export function createAcpManager(deps: AcpManagerDeps): AcpManager {
     return new Promise<RequestPermissionResponse>((resolve) => {
       const timer = setTimeout(() => {
         pending.delete(requestId)
-        resolve(denyOutcome(params.options)) // default-deny on timeout (spec)
+        resolve(rejectOutcome(params.options)) // default-reject on timeout (spec)
       }, permissionTimeoutMs)
       if (typeof timer.unref === 'function') timer.unref()
       pending.set(requestId, { resolve, options: params.options, timer })
+      // Forward the FULL option set + the gated tool call id (spec §"Frozen wire contract"): the
+      // renderer renders one button per option and answers with the chosen optionId.
       deps.onPermissionRequest({
         requestId,
         sessionId: params.sessionId,
         title: params.toolCall.title ?? 'tool call',
+        ...(params.toolCall.toolCallId ? { toolCallId: params.toolCall.toolCallId } : {}),
+        options: params.options.map((o) => ({ optionId: o.optionId, name: o.name, kind: o.kind })),
       })
     })
   }
@@ -207,7 +216,7 @@ export function createAcpManager(deps: AcpManagerDeps): AcpManager {
     if (session.agentBuffer) session.writer?.addMessage({ role: 'agent', text: session.agentBuffer, at: nowIso() })
     session.writer?.flush() // append-on-turn-end
     session.agentBuffer = ''
-    deps.onUpdate({ sessionId: session.acpSessionId, kind: 'turn-end', reason: stopReason })
+    deps.onUpdate({ sessionId: session.acpSessionId, kind: 'turn-end', stopReason })
   }
 
   function failTurn(session: Session, err: unknown): void {
@@ -245,6 +254,20 @@ export function createAcpManager(deps: AcpManagerDeps): AcpManager {
     })
   }
 
+  /** If a session opens in `bypassPermissions` (which shadows the client's permission callback),
+   *  switch it to `default` so tool calls actually prompt. Best-effort: a set_mode failure leaves
+   *  the session as-is rather than sinking session creation. */
+  async function ensurePromptingMode(session: Session, modes: SessionModeState | null | undefined): Promise<void> {
+    if (modes?.currentModeId !== 'bypassPermissions') return
+    if (!modes.availableModes.some((m) => m.id === 'default')) return
+    try {
+      await session.conn.agent.request('session/set_mode', { sessionId: session.acpSessionId, modeId: 'default' })
+      session.currentModeId = 'default'
+    } catch {
+      // best-effort — keep the reported mode; the pane still shows the (bypass) reality
+    }
+  }
+
   async function newSession(agentKey: AcpAgentKey): Promise<AcpSessionResult> {
     const adapter = adapterList.find((a) => a.key === agentKey)
     if (!adapter) return { error: `Unknown agent: ${agentKey}` }
@@ -273,7 +296,8 @@ export function createAcpManager(deps: AcpManagerDeps): AcpManager {
         mcpServers: [deps.mcpServer()],
       })
       const acpSessionId = res.sessionId
-      sessions.set(acpSessionId, {
+      const availableModes = res.modes?.availableModes?.map((m) => ({ id: m.id, name: m.name }))
+      const session: Session = {
         acpSessionId,
         agentKey,
         conn,
@@ -281,12 +305,31 @@ export function createAcpManager(deps: AcpManagerDeps): AcpManager {
         writer: deps.dialogueStore?.open(agentKey),
         agentBuffer: '',
         closed: false,
-      })
+        currentModeId: res.modes?.currentModeId,
+        availableModes,
+      }
+      sessions.set(acpSessionId, session)
       // Adapter death mid-session → an error event, never a crash.
       void conn.closed.then(
         () => handleDeath(acpSessionId),
         () => handleDeath(acpSessionId),
       )
+      // Turn OFF bypassPermissions so `session/request_permission` reaches the client: the Claude
+      // adapter's permissionMode comes from its own settings; `bypassPermissions` fully SHADOWS
+      // canUseTool (the SDK auto-approves every tool and never calls the client), so the observed
+      // canary saw no prompts. The client's lever is `session/set_mode` — switch back to `default`
+      // ("Manual", which prompts) whenever a session opens in bypass. Other modes route through
+      // canUseTool, so we leave them (the user's own configurability, per the non-restrict goal).
+      await ensurePromptingMode(session, res.modes)
+      // Surface the initial mode (from the session/new response) as a `mode` event.
+      if (session.currentModeId) {
+        deps.onUpdate({
+          sessionId: acpSessionId,
+          kind: 'mode',
+          currentModeId: session.currentModeId,
+          ...(session.availableModes ? { availableModes: session.availableModes } : {}),
+        })
+      }
       return { sessionId: acpSessionId }
     } catch (err) {
       channel.kill()
@@ -317,18 +360,35 @@ export function createAcpManager(deps: AcpManagerDeps): AcpManager {
     void session.conn.agent.notify('session/cancel', { sessionId }).catch(() => {})
   }
 
-  function respondPermission(requestId: string, allow: boolean): void {
+  function setMode(sessionId: string, modeId: string): void {
+    const session = sessions.get(sessionId)
+    if (!session || session.closed) return
+    void session.conn.agent
+      .request('session/set_mode', { sessionId, modeId })
+      .then(() => {
+        session.currentModeId = modeId
+        deps.onUpdate({
+          sessionId,
+          kind: 'mode',
+          currentModeId: modeId,
+          ...(session.availableModes ? { availableModes: session.availableModes } : {}),
+        })
+      })
+      .catch(() => {}) // a rejected set_mode leaves the mode unchanged; the pane keeps its state
+  }
+
+  function respondPermission(requestId: string, optionId: string): void {
     const p = pending.get(requestId)
     if (!p) return
     clearTimeout(p.timer)
     pending.delete(requestId)
-    p.resolve(allow ? allowOutcome(p.options) : denyOutcome(p.options))
+    p.resolve({ outcome: { outcome: 'selected', optionId } })
   }
 
   function disposeAll(): void {
     for (const p of pending.values()) {
       clearTimeout(p.timer)
-      p.resolve(denyOutcome(p.options)) // default-deny on teardown (spec)
+      p.resolve(rejectOutcome(p.options)) // default-reject on teardown (spec)
     }
     pending.clear()
     for (const session of sessions.values()) {
@@ -342,5 +402,5 @@ export function createAcpManager(deps: AcpManagerDeps): AcpManager {
     sessions.clear()
   }
 
-  return { agents, newSession, prompt, cancel, respondPermission, disposeAll }
+  return { agents, newSession, prompt, cancel, respondPermission, setMode, disposeAll }
 }

@@ -27,12 +27,14 @@ import {
   ACP_PERMISSION_RESPONSE_CHANNEL,
   ACP_PROMPT_CHANNEL,
   ACP_SESSION_NEW_CHANNEL,
+  ACP_SET_MODE_CHANNEL,
   ACP_UPDATE_EVENT,
   acpCancelSchema,
   acpDialogueReadSchema,
   acpPermissionResponseSchema,
   acpPromptSchema,
   acpSessionNewSchema,
+  acpSetModeSchema,
   DB_CHANNEL,
   INDEX_BROWSE_CHANNEL,
   INDEX_DOCUMENT_CHANNEL,
@@ -268,7 +270,11 @@ app.whenReady().then(() => {
     })
     ipcMain.handle(ACP_PERMISSION_RESPONSE_CHANNEL, (_event, raw: unknown) => {
       const req = acpPermissionResponseSchema.parse(raw)
-      acpManager.respondPermission(req.requestId, req.allow)
+      acpManager.respondPermission(req.requestId, req.optionId)
+    })
+    ipcMain.handle(ACP_SET_MODE_CHANNEL, (_event, raw: unknown) => {
+      const req = acpSetModeSchema.parse(raw)
+      acpManager.setMode(req.sessionId, req.modeId)
     })
     // Teardown: kill live adapter children + default-deny any pending permission on quit.
     app.on('before-quit', () => acpManager.disposeAll())

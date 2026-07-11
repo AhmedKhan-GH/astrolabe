@@ -7,78 +7,159 @@ import {
   entriesFromDialogue,
   type Transcript,
   type AgentMessageEntry,
+  type ThoughtEntry,
   type ToolCallEntry,
 } from './transcript'
 import type { AcpStoredDialogue, AcpUpdate } from './types'
 
 const SID = 's1'
-const u = (over: Partial<AcpUpdate>): AcpUpdate => ({ sessionId: SID, kind: 'chunk', ...over })
+/** Build a well-typed update over the frozen union; the caller supplies the discriminant + fields. */
+const up = (u: AcpUpdate): AcpUpdate => u
+const chunk = (text: string, sessionId = SID): AcpUpdate => ({ kind: 'chunk', sessionId, text })
 const fold = (updates: AcpUpdate[], start: Transcript = emptyTranscript(SID)): Transcript =>
   updates.reduce(applyUpdate, start)
 
 describe('transcript — chunk assembly', () => {
   it('accretes consecutive chunks into one agent message', () => {
-    const t = fold([u({ text: 'Hello ' }), u({ text: 'world' }), u({ text: '!' })])
+    const t = fold([chunk('Hello '), chunk('world'), chunk('!')])
     expect(t.entries).toHaveLength(1)
     const m = t.entries[0] as AgentMessageEntry
     expect(m).toMatchObject({ kind: 'message', role: 'agent', text: 'Hello world!' })
   })
 
   it('starts a fresh agent message after a turn boundary', () => {
-    const t = fold([
-      u({ text: 'first turn' }),
-      u({ kind: 'turn-end' }),
-      u({ text: 'second turn' }),
-    ])
+    const t = fold([chunk('first turn'), up({ kind: 'turn-end', sessionId: SID }), chunk('second turn')])
     expect(t.entries.filter((e) => e.kind === 'message')).toHaveLength(2)
     expect((t.entries[1] as AgentMessageEntry).text).toBe('second turn')
   })
 })
 
-describe('transcript — tool call lifecycle', () => {
-  it('a tool-call chip is added then resolved in place with status + documentId', () => {
+describe('transcript — thought grouping', () => {
+  it('folds consecutive thought chunks into one collapsible block', () => {
     const t = fold([
-      u({ kind: 'tool-call', toolName: 'search_library', toolStatus: 'running' }),
-      u({ kind: 'tool-result', toolName: 'search_library', toolStatus: 'completed', documentId: 42 }),
+      up({ kind: 'thought', sessionId: SID, text: 'let me ' }),
+      up({ kind: 'thought', sessionId: SID, text: 'think about ' }),
+      up({ kind: 'thought', sessionId: SID, text: 'this' }),
+    ])
+    const thoughts = t.entries.filter((e) => e.kind === 'thought') as ThoughtEntry[]
+    expect(thoughts).toHaveLength(1)
+    expect(thoughts[0].text).toBe('let me think about this')
+  })
+
+  it('an intervening chunk breaks the thought run into two blocks', () => {
+    const t = fold([
+      up({ kind: 'thought', sessionId: SID, text: 'first thought' }),
+      chunk('spoken answer'),
+      up({ kind: 'thought', sessionId: SID, text: 'second thought' }),
+    ])
+    expect(t.entries.map((e) => e.kind)).toEqual(['thought', 'message', 'thought'])
+    expect((t.entries[0] as ThoughtEntry).text).toBe('first thought')
+    expect((t.entries[2] as ThoughtEntry).text).toBe('second thought')
+  })
+})
+
+describe('transcript — tool upsert lifecycle', () => {
+  const tool = (over: Partial<Extract<AcpUpdate, { kind: 'tool' }>>): AcpUpdate => ({
+    kind: 'tool',
+    sessionId: SID,
+    toolCallId: 'tc1',
+    title: 'Search library',
+    toolKind: 'search',
+    status: 'pending',
+    ...over,
+  })
+
+  it('upserts one card by toolCallId across status transitions (in place)', () => {
+    const t = fold([
+      tool({ status: 'pending' }),
+      tool({ status: 'in_progress' }),
+      tool({ status: 'completed', documentId: 42 }),
     ])
     const tools = t.entries.filter((e) => e.kind === 'tool') as ToolCallEntry[]
     expect(tools).toHaveLength(1)
-    expect(tools[0]).toMatchObject({ toolName: 'search_library', status: 'completed', documentId: 42 })
+    expect(tools[0]).toMatchObject({ toolCallId: 'tc1', status: 'completed', documentId: 42 })
     expect(t.documentIds).toEqual([42])
   })
 
-  it('interleaves messages and tool chips in stream order', () => {
+  it('accumulates content blocks across updates', () => {
     const t = fold([
-      u({ text: 'let me look' }),
-      u({ kind: 'tool-call', toolName: 'search_library' }),
-      u({ kind: 'tool-result', toolName: 'search_library', documentId: 7 }),
-      u({ text: 'found it' }),
+      tool({ status: 'in_progress', content: [{ type: 'text', text: 'reading…' }] }),
+      tool({ status: 'completed', content: [{ type: 'diff', path: 'a.ts', oldText: 'x', newText: 'y' }] }),
     ])
+    const card = t.entries.find((e) => e.kind === 'tool') as ToolCallEntry
+    expect(card.content).toHaveLength(2)
+    expect(card.content?.[0]).toEqual({ type: 'text', text: 'reading…' })
+    expect(card.content?.[1]).toMatchObject({ type: 'diff', path: 'a.ts' })
+  })
+
+  it('two distinct toolCallIds are two cards', () => {
+    const t = fold([tool({ toolCallId: 'a' }), tool({ toolCallId: 'b' })])
+    expect(t.entries.filter((e) => e.kind === 'tool')).toHaveLength(2)
+  })
+
+  it('keeps an earlier documentId when a later update omits it', () => {
+    const t = fold([tool({ status: 'in_progress', documentId: 7 }), tool({ status: 'completed' })])
+    const card = t.entries.find((e) => e.kind === 'tool') as ToolCallEntry
+    expect(card.documentId).toBe(7)
+  })
+
+  it('interleaves messages and tool cards in stream order', () => {
+    const t = fold([chunk('let me look'), tool({ status: 'completed', documentId: 7 }), chunk('found it')])
     expect(t.entries.map((e) => e.kind)).toEqual(['message', 'tool', 'message'])
-    expect((t.entries[0] as AgentMessageEntry).text).toBe('let me look')
-    expect((t.entries[2] as AgentMessageEntry).text).toBe('found it')
-  })
-
-  it('a tool-call default status is running before resolution', () => {
-    const t = fold([u({ kind: 'tool-call', toolName: 'graphify' })])
-    expect((t.entries[0] as ToolCallEntry).status).toBe('running')
-  })
-
-  it('a lone tool-result with no prior call still records a chip', () => {
-    const t = fold([u({ kind: 'tool-result', toolName: 'x', documentId: 3 })])
-    expect(t.entries).toHaveLength(1)
-    expect(t.entries[0].kind).toBe('tool')
-    expect(t.documentIds).toEqual([3])
   })
 
   it('dedupes documentIds across the dialogue', () => {
     const t = fold([
-      u({ kind: 'tool-call', toolName: 'a' }),
-      u({ kind: 'tool-result', toolName: 'a', documentId: 5 }),
-      u({ kind: 'tool-call', toolName: 'b' }),
-      u({ kind: 'tool-result', toolName: 'b', documentId: 5 }),
+      tool({ toolCallId: 'a', status: 'completed', documentId: 5 }),
+      tool({ toolCallId: 'b', status: 'completed', documentId: 5 }),
     ])
     expect(t.documentIds).toEqual([5])
+  })
+})
+
+describe('transcript — plan block', () => {
+  it('holds the plan and replaces it whole on each update', () => {
+    const t = fold([
+      up({ kind: 'plan', sessionId: SID, entries: [{ content: 'step 1', status: 'in_progress' }] }),
+      up({
+        kind: 'plan',
+        sessionId: SID,
+        entries: [
+          { content: 'step 1', status: 'completed' },
+          { content: 'step 2', status: 'pending' },
+        ],
+      }),
+    ])
+    expect(t.plan).toHaveLength(2)
+    expect(t.plan?.[0]).toMatchObject({ content: 'step 1', status: 'completed' })
+    // the plan is not folded into the message/tool entry stream
+    expect(t.entries).toHaveLength(0)
+  })
+})
+
+describe('transcript — mode + commands state', () => {
+  it('holds availableCommands from a commands update', () => {
+    const t = fold([
+      up({ kind: 'commands', sessionId: SID, commands: [{ name: 'graphify', description: 'to graph' }] }),
+    ])
+    expect(t.availableCommands).toEqual([{ name: 'graphify', description: 'to graph' }])
+  })
+
+  it('sets currentModeId + availableModes and keeps modes sticky when a later update omits them', () => {
+    const t = fold([
+      up({
+        kind: 'mode',
+        sessionId: SID,
+        currentModeId: 'default',
+        availableModes: [
+          { id: 'default', name: 'Default' },
+          { id: 'plan', name: 'Plan' },
+        ],
+      }),
+      up({ kind: 'mode', sessionId: SID, currentModeId: 'plan' }),
+    ])
+    expect(t.currentModeId).toBe('plan')
+    expect(t.availableModes).toHaveLength(2)
   })
 })
 
@@ -90,12 +171,12 @@ describe('transcript — turn boundaries + streaming', () => {
   })
 
   it('turn-end leaves streaming false', () => {
-    const t = fold([u({ text: 'answer' }), u({ kind: 'turn-end' })], appendUserPrompt(emptyTranscript(SID), 'q'))
+    const t = fold([chunk('answer'), up({ kind: 'turn-end', sessionId: SID })], appendUserPrompt(emptyTranscript(SID), 'q'))
     expect(t.streaming).toBe(false)
   })
 
   it('an agent chunk after a user prompt does not accrete onto the user message', () => {
-    const t = fold([u({ text: 'reply' })], appendUserPrompt(emptyTranscript(SID), 'q'))
+    const t = fold([chunk('reply')], appendUserPrompt(emptyTranscript(SID), 'q'))
     expect(t.entries.map((e) => e.kind)).toEqual(['message', 'message'])
     expect((t.entries[1] as AgentMessageEntry).role).toBe('agent')
   })
@@ -104,35 +185,32 @@ describe('transcript — turn boundaries + streaming', () => {
 describe('transcript — errors', () => {
   it('an error mid-turn adds an error entry and ends streaming', () => {
     const t = fold(
-      [u({ text: 'partial' }), u({ kind: 'error', reason: 'model overloaded' })],
+      [chunk('partial'), up({ kind: 'error', sessionId: SID, reason: 'model overloaded' })],
       appendUserPrompt(emptyTranscript(SID), 'q'),
     )
     expect(t.streaming).toBe(false)
-    const err = t.entries[t.entries.length - 1]
-    expect(err).toEqual({ kind: 'error', reason: 'model overloaded' })
-    // the partial agent text is preserved
+    expect(t.entries[t.entries.length - 1]).toEqual({ kind: 'error', reason: 'model overloaded' })
     expect(t.entries.some((e) => e.kind === 'message' && e.role === 'agent')).toBe(true)
   })
 })
 
 describe('transcript — restart (failure recovery)', () => {
-  it('restart preserves prior entries above a divider and rebinds to the new session', () => {
+  it('preserves prior entries above a divider, clears the plan, and rebinds to the new session', () => {
     const before = fold(
-      [u({ text: 'partial' }), u({ kind: 'error', reason: 'process died' })],
+      [chunk('partial'), up({ kind: 'plan', sessionId: SID, entries: [{ content: 's', status: 'pending' }] }), up({ kind: 'error', sessionId: SID, reason: 'process died' })],
       appendUserPrompt(emptyTranscript(SID), 'q'),
     )
     const after = restartTranscript(before, 'new-session')
-
     expect(after.sessionId).toBe('new-session')
     expect(after.streaming).toBe(false)
-    // Old transcript is kept; a divider marks the seam.
+    expect(after.plan).toBeNull()
     expect(after.entries.slice(0, before.entries.length)).toEqual(before.entries)
     expect(after.entries[after.entries.length - 1]).toEqual({ kind: 'divider' })
   })
 
   it('after restart, updates for the new session accrete (old-session updates are ignored)', () => {
     const restarted = restartTranscript(appendUserPrompt(emptyTranscript(SID), 'q'), 'new-session')
-    const t = fold([u({ sessionId: SID, text: 'stale' }), u({ sessionId: 'new-session', text: 'fresh' })], restarted)
+    const t = fold([chunk('stale', SID), chunk('fresh', 'new-session')], restarted)
     expect(t.entries.some((e) => e.kind === 'message' && e.role === 'agent' && e.text === 'fresh')).toBe(true)
     expect(t.entries.some((e) => e.kind === 'message' && (e as AgentMessageEntry).text === 'stale')).toBe(false)
   })
@@ -151,25 +229,25 @@ describe('transcript — entriesFromDialogue (read-only history)', () => {
     documentIds: [42],
   }
 
-  it('interleaves stored messages and tool calls in timestamp order', () => {
+  it('interleaves stored messages and tool calls in timestamp order, tool as completed', () => {
     const entries = entriesFromDialogue(stored)
     expect(entries.map((e) => e.kind)).toEqual(['message', 'tool', 'message'])
     expect((entries[0] as AgentMessageEntry).text).toBe('what did I highlight?')
-    expect((entries[1] as ToolCallEntry).toolName).toBe('search_library')
+    expect(entries[1]).toMatchObject({ kind: 'tool', title: 'search_library', status: 'completed' })
     expect((entries[2] as AgentMessageEntry).text).toBe('this passage')
   })
 })
 
 describe('transcript — stale session', () => {
   it('ignores updates for a different sessionId', () => {
-    const t = fold([u({ text: 'mine' }), u({ sessionId: 'other', text: 'not mine' })])
+    const t = fold([chunk('mine'), chunk('not mine', 'other')])
     expect(t.entries).toHaveLength(1)
     expect((t.entries[0] as AgentMessageEntry).text).toBe('mine')
   })
 
   it('ignores a stale turn-end (does not flip streaming for the wrong session)', () => {
     const start = appendUserPrompt(emptyTranscript(SID), 'q')
-    const t = applyUpdate(start, u({ sessionId: 'other', kind: 'turn-end' }))
+    const t = applyUpdate(start, { kind: 'turn-end', sessionId: 'other' })
     expect(t.streaming).toBe(true)
   })
 })

@@ -1,6 +1,8 @@
 import { useEffect, useReducer, useRef, useState } from 'react'
 import type { AcpAgent, AcpApi, AcpDialogueSummary, AcpPermissionRequest, AcpUpdate } from './types'
 import { TranscriptBody } from './TranscriptBody'
+import { PlanList } from './PlanList'
+import { PermissionCard } from './PermissionCard'
 import {
   applyUpdate,
   appendUserPrompt,
@@ -12,9 +14,10 @@ import {
 } from './transcript'
 
 /**
- * The ACP surface is added preload-side by the parallel main-half work; until that lands this is
- * the one expected `typecheck:web` residual (Property 'acp' does not exist on AstrolabeApi). The
- * accessor keeps the rest of the pane fully typed against AcpApi.
+ * The rich-client preload additions (`acp.setMode`, and `respondPermission` taking an `optionId`
+ * instead of a boolean) land with the parallel main-half work; until then the accessor cast is the
+ * one expected `typecheck:web` residual (Property 'setMode' missing on the preload's acp surface).
+ * The accessor keeps the rest of the pane fully typed against the frozen-contract AcpApi.
  */
 const acpApi = (): AcpApi => window.astrolabe.acp
 
@@ -40,8 +43,8 @@ function reduce(state: Transcript, a: Action): Transcript {
 /**
  * Dialogue pane (ACP client v1 + the v1.1 history browser / failure recovery) — a self-contained
  * LEFT column that owns one live session with the picked agent. Agent text streams in as markdown,
- * tool calls collapse to chips (linking to the Document Hub when a result carries a documentId),
- * and permission requests surface as inline allow/deny cards. A "History" toggle browses past
+ * tool calls render as expandable cards (linking to the Document Hub when one carries a documentId),
+ * and permission requests surface as inline option cards. A "History" toggle browses past
  * dialogues read-only; a dead session (adapter death / failed turn / failed session-new) shows a
  * restart banner that starts a fresh session while preserving the transcript above a divider.
  */
@@ -64,6 +67,13 @@ export function DialoguePane({
   const [perms, setPerms] = useState<AcpPermissionRequest[]>([])
   const [transcript, dispatch] = useReducer(reduce, emptyTranscript(''))
   const sessionRef = useRef<string | null>(null)
+  const promptRef = useRef<HTMLTextAreaElement | null>(null)
+
+  // Slash palette (spec §Track B/3): opens when the draft starts with `/`, filtered by the token
+  // after the slash. `slashOpen` lets Esc dismiss it without clearing the draft; `slashIndex` is
+  // the keyboard-highlighted row.
+  const [slashOpen, setSlashOpen] = useState(false)
+  const [slashIndex, setSlashIndex] = useState(0)
 
   // History browser state (v1.1): `historyOpen` swaps the pane into read-only mode; `reading` is
   // the opened past dialogue (null = the list view).
@@ -132,11 +142,31 @@ export function DialoguePane({
     if (!text || !sessionId || transcript.streaming || deadReason) return
     dispatch({ type: 'user', text })
     setDraft('')
+    setSlashOpen(false)
     void acpApi().prompt(sessionId, text)
   }
 
-  const respond = (requestId: string, allow: boolean): void => {
-    void acpApi().respondPermission(requestId, allow)
+  // Slash palette: filter available commands by the token after a leading `/`.
+  const slashQuery = draft.startsWith('/') ? draft.slice(1).split(/\s/, 1)[0].toLowerCase() : ''
+  const filteredCommands = draft.startsWith('/')
+    ? transcript.availableCommands.filter((c) => c.name.toLowerCase().includes(slashQuery))
+    : []
+  const showPalette = slashOpen && draft.startsWith('/') && filteredCommands.length > 0
+
+  const onDraftChange = (value: string): void => {
+    setDraft(value)
+    setSlashOpen(value.startsWith('/'))
+    setSlashIndex(0)
+  }
+
+  const insertCommand = (name: string): void => {
+    setDraft(`/${name} `)
+    setSlashOpen(false)
+    promptRef.current?.focus()
+  }
+
+  const respond = (requestId: string, optionId: string): void => {
+    void acpApi().respondPermission(requestId, optionId)
     setPerms((p) => p.filter((x) => x.requestId !== requestId))
   }
 
@@ -202,6 +232,20 @@ export function DialoguePane({
               <option key={a.key} value={a.key} disabled={!a.available}>
                 {a.label}
                 {a.available ? '' : ' (not installed)'}
+              </option>
+            ))}
+          </select>
+        )}
+        {!historyOpen && transcript.availableModes.length > 0 && (
+          <select
+            aria-label="mode"
+            value={transcript.currentModeId ?? ''}
+            onChange={(e) => sessionId && void acpApi().setMode(sessionId, e.target.value)}
+            className="rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-200 outline-none focus:border-zinc-500"
+          >
+            {transcript.availableModes.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
               </option>
             ))}
           </select>
@@ -279,33 +323,24 @@ export function DialoguePane({
                 {selected.key} is installed but signed out — run{' '}
                 {selected.key === 'codex' ? 'codex login' : 'claude'} (or codex login) in a terminal, then retry.
               </p>
-            ) : transcript.entries.length === 0 && !blockingError ? (
+            ) : transcript.entries.length === 0 && !(transcript.plan && transcript.plan.length > 0) && !blockingError ? (
               <p className="text-xs text-zinc-600">
                 ask about your library — the index is mounted into this session.
               </p>
             ) : (
-              <TranscriptBody entries={transcript.entries} onOpenUri={onOpenUri} onOpenHub={onOpenHub} />
+              <>
+                <TranscriptBody entries={transcript.entries} onOpenUri={onOpenUri} onOpenHub={onOpenHub} />
+                {transcript.plan && transcript.plan.length > 0 && (
+                  <div className="mt-3">
+                    <PlanList entries={transcript.plan} />
+                  </div>
+                )}
+              </>
             )}
           </div>
 
-          {perms.map((r) => (
-            <div key={r.requestId} className="border-t border-amber-900/60 bg-amber-950/30 px-3 py-2 text-xs">
-              <p className="mb-2 text-amber-200">{r.title}</p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => respond(r.requestId, true)}
-                  className="rounded border border-emerald-800 bg-emerald-950 px-2 py-1 text-emerald-300 hover:bg-emerald-900"
-                >
-                  Allow once
-                </button>
-                <button
-                  onClick={() => respond(r.requestId, false)}
-                  className="rounded border border-zinc-700 px-2 py-1 text-zinc-300 hover:bg-zinc-800"
-                >
-                  Deny
-                </button>
-              </div>
-            </div>
+          {perms.map((r, i) => (
+            <PermissionCard key={r.requestId} request={r} keyboardActive={i === 0} onRespond={respond} />
           ))}
 
           {blockingError && restartable && (
@@ -321,13 +356,61 @@ export function DialoguePane({
           )}
 
           {availableCount > 0 && !blockingError && (
-            <div className="border-t border-zinc-800 p-3">
+            <div className="relative border-t border-zinc-800 p-3">
+              {showPalette && (
+                <ul
+                  role="listbox"
+                  aria-label="slash commands"
+                  className="absolute inset-x-3 bottom-full mb-1 max-h-56 overflow-y-auto rounded-lg border border-zinc-700 bg-zinc-900 py-1 shadow-xl"
+                >
+                  {filteredCommands.map((c, i) => (
+                    <li key={c.name} role="option" aria-selected={i === slashIndex}>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          insertCommand(c.name)
+                        }}
+                        className={`flex w-full flex-col items-start px-3 py-1 text-left ${
+                          i === slashIndex ? 'bg-zinc-800' : 'hover:bg-zinc-800/60'
+                        }`}
+                      >
+                        <span className="font-mono text-xs text-zinc-100">/{c.name}</span>
+                        {c.description && <span className="text-[11px] text-zinc-500">{c.description}</span>}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
               <div className="flex items-end gap-2">
                 <textarea
+                  ref={promptRef}
                   value={draft}
                   disabled={!canSend}
-                  onChange={(e) => setDraft(e.target.value)}
+                  onChange={(e) => onDraftChange(e.target.value)}
                   onKeyDown={(e) => {
+                    if (showPalette) {
+                      if (e.key === 'ArrowDown') {
+                        e.preventDefault()
+                        setSlashIndex((n) => Math.min(n + 1, filteredCommands.length - 1))
+                        return
+                      }
+                      if (e.key === 'ArrowUp') {
+                        e.preventDefault()
+                        setSlashIndex((n) => Math.max(n - 1, 0))
+                        return
+                      }
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        insertCommand(filteredCommands[slashIndex].name)
+                        return
+                      }
+                      if (e.key === 'Escape') {
+                        e.preventDefault()
+                        setSlashOpen(false)
+                        return
+                      }
+                    }
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault()
                       send()
