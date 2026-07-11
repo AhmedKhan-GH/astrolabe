@@ -169,6 +169,42 @@ describe('DocumentRow — hub affordance', () => {
   })
 })
 
+describe('DocumentRow — transfer gesture', () => {
+  const eagleOnly = (over: Partial<BrowseHit> = {}): BrowseHit =>
+    hit({
+      instances: [{ instanceId: 12, sourceKey: 'eagle', uri: 'eagle://item/XYZ', filePath: '/lib/x.pdf', openPdfUri: null }],
+      ...over,
+    })
+  const zoteroOnly = (): BrowseHit =>
+    hit({
+      instances: [{ instanceId: 11, sourceKey: 'zotero', uri: 'zotero://select/items/ABC', filePath: '/z/x.pdf', openPdfUri: null }],
+    })
+
+  it('an eagle-only pdf row fires to-zotero with the documentId', () => {
+    const onTransfer = vi.fn()
+    render(<DocumentRow hit={eagleOnly({ documentId: 5 })} onOpenUri={vi.fn()} onOpenFile={vi.fn()} onReveal={vi.fn()} onTransfer={onTransfer} />)
+    fireEvent.click(screen.getByRole('button', { name: /transfer to-zotero/i }))
+    expect(onTransfer).toHaveBeenCalledWith(5, 'to-zotero')
+  })
+
+  it('a zotero-only pdf row fires to-eagle', () => {
+    const onTransfer = vi.fn()
+    render(<DocumentRow hit={zoteroOnly()} onOpenUri={vi.fn()} onOpenFile={vi.fn()} onReveal={vi.fn()} onTransfer={onTransfer} />)
+    fireEvent.click(screen.getByRole('button', { name: /transfer to-eagle/i }))
+    expect(onTransfer).toHaveBeenCalledWith(1, 'to-eagle')
+  })
+
+  it('a both-sources row gets no transfer affordance', () => {
+    render(<DocumentRow hit={hit()} onOpenUri={vi.fn()} onOpenFile={vi.fn()} onReveal={vi.fn()} onTransfer={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: /transfer/i })).toBeNull()
+  })
+
+  it('without onTransfer there is no transfer affordance', () => {
+    render(<DocumentRow hit={eagleOnly()} onOpenUri={vi.fn()} onOpenFile={vi.fn()} onReveal={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: /transfer/i })).toBeNull()
+  })
+})
+
 describe('DocumentRow — membership popover', () => {
   const rowProps = (over = {}) => ({
     onOpenUri: vi.fn(),

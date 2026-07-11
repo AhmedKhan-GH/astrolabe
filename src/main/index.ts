@@ -9,6 +9,9 @@ import { createUpsertApi } from './index/upsert'
 import { createIndexQueries } from './index/queries'
 import { createSyncApi } from './index/sync'
 import { documentLinks, resolveLinks } from './index/links'
+import { createReconcileApi } from './index/reconcile'
+import { createZoteroWrite } from './lib/zotero-write'
+import { createEagleWrite } from './lib/eagle-write'
 import { createViewsApi } from './lib/views'
 import { createVCollectionsApi, syncVirtualCollections } from './lib/vcollections'
 import { connectors } from './connectors/registry'
@@ -24,6 +27,7 @@ import {
   INDEX_SOURCES_CHANNEL,
   INDEX_STATS_CHANNEL,
   INDEX_SYNC_CHANNEL,
+  RECONCILE_TRANSFER_CHANNEL,
   SYSTEM_OPEN_CHANNEL,
   SYSTEM_REQUEST_ACCESS_CHANNEL,
   VCOLLECTIONS_ADD_MEMBERS_CHANNEL,
@@ -38,6 +42,7 @@ import {
   linksRequestSchema,
   requestAccessSchema,
   systemOpenSchema,
+  transferRequestSchema,
 } from '../shared/db-ipc'
 import { createAccessApi, FULL_DISK_ACCESS_SETTINGS_URI } from './system/access'
 import { APP_INDEX_URL, registerAstroProtocol, registerAstroProtocolPrivileges } from './system/doc-protocol'
@@ -108,6 +113,13 @@ app.whenReady().then(() => {
     const upsert = createUpsertApi(handle.db)
     const queries = createIndexQueries(handle.db)
     const syncApi = createSyncApi(handle.db, connectors, upsert)
+    // Eagle↔Zotero write gestures: the two write clients (default localhost bases) + the gate/dispatch
+    // orchestrator. The handler runs the TARGET connector's sync afterward so the content-hash join
+    // flips presence to `both` (2026-07-11-eagle-zotero-sync-spec).
+    const reconcile = createReconcileApi(handle.db, queries, {
+      zoteroWrite: createZoteroWrite(),
+      eagleWrite: createEagleWrite(),
+    })
     // Saved views are a user artifact, not index data — one JSON file per view under the
     // workspace, so they survive a rebuild and ride file-sync (docs/2026-07-10-lens-saved-views).
     const viewsApi = createViewsApi(join(ws.astroDir, 'views'))
@@ -156,6 +168,22 @@ app.whenReady().then(() => {
     ipcMain.handle(INDEX_DOCUMENT_CHANNEL, (_event, raw: unknown) => {
       const req = documentRequestSchema.parse(raw)
       return queries.documentDetail(req.documentId)
+    })
+    // Eagle↔Zotero transfer: gate + dispatch, then (on success) sync the TARGET source so the
+    // content-hash join merges the new instance and presence flips to `both` — the same post-sync
+    // block INDEX_SYNC runs (vcollection re-mirror + wiki-link re-resolve). Single-source sync via
+    // syncApi.syncOne(connector) (spec §Handler). A failed write returns its reason untouched.
+    ipcMain.handle(RECONCILE_TRANSFER_CHANNEL, async (_event, raw: unknown) => {
+      const req = transferRequestSchema.parse(raw)
+      const result = await reconcile.transfer(req)
+      if (result.ok) {
+        const targetKey = req.direction === 'to-zotero' ? 'zotero' : 'eagle'
+        const connector = connectors.find((c) => c.key === targetKey)
+        if (connector) await syncApi.syncOne(connector)
+        syncVirtualCollections(handle.db, collectionsDir)
+        resolveLinks(handle.db)
+      }
+      return result
     })
     registerAstroProtocol(() => handle.db, join(currentDir, '../renderer'))
     // Saved-view CRUD (validation is at the module boundary via zod, like the query handlers).

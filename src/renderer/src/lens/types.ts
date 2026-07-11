@@ -7,6 +7,14 @@
 export type SourceKey = 'zotero' | 'eagle' | 'obsidian' | 'goodnotes'
 export type DocumentKind = 'pdf' | 'image' | 'note' | 'other'
 
+/**
+ * Eagle↔Zotero sync gesture (2026-07-11-eagle-zotero-sync-spec) — the direction a document's bytes
+ * move, and the write result. `to-zotero` promotes an eagle-only PDF; `to-eagle` imports a
+ * zotero-only PDF. `reason` on failure is a ready-to-render sentence.
+ */
+export type TransferDirection = 'to-zotero' | 'to-eagle'
+export type TransferResult = { ok: true } | { ok: false; reason: string }
+
 /** The zotero↔eagle split as a facet (docs/2026-07-10-lens-presence-facet). Values are stable, so
  *  they persist and round-trip verbatim (no ref mapping like collections need). */
 export type PresenceValue = 'both' | 'zotero-only' | 'eagle-only'

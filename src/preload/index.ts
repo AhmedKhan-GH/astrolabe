@@ -11,6 +11,7 @@ import {
   INDEX_STATS_CHANNEL,
   INDEX_SEARCH_CHANNEL,
   INDEX_SYNC_CHANNEL,
+  RECONCILE_TRANSFER_CHANNEL,
   SYSTEM_OPEN_CHANNEL,
   SYSTEM_REQUEST_ACCESS_CHANNEL,
   VCOLLECTIONS_ADD_MEMBERS_CHANNEL,
@@ -40,6 +41,7 @@ import type { AccessProbeResult } from '../main/system/access'
 import type { SourceKey } from '../main/connectors/types'
 import type { SavedView, SaveViewRequest } from '../main/lib/views'
 import type { VCollectionSummary } from '../main/lib/vcollections'
+import type { TransferDirection, TransferResult } from '../shared/db-ipc'
 
 /**
  * The single, explicit IPC surface exposed to the renderer — an allowlist, never a
@@ -91,6 +93,10 @@ const api = {
     rebuild: (): Promise<SyncReport[]> => ipcRenderer.invoke(INDEX_REBUILD_CHANNEL),
     sources: (): Promise<SourceSummary[]> => ipcRenderer.invoke(INDEX_SOURCES_CHANNEL),
     stats: (): Promise<IndexStats> => ipcRenderer.invoke(INDEX_STATS_CHANNEL),
+    // Eagle↔Zotero sync gesture: move one document's bytes into the other system of record. Lives
+    // on the existing `index` surface (NO new top-level key — the e2e allowlist stays stable).
+    transfer: (documentId: number, direction: TransferDirection): Promise<TransferResult> =>
+      ipcRenderer.invoke(RECONCILE_TRANSFER_CHANNEL, { documentId, direction }),
   },
   views: {
     list: (): Promise<SavedView[]> => ipcRenderer.invoke(VIEWS_LIST_CHANNEL),

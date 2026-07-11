@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import clsx from 'clsx'
-import type { DocumentDetail } from './types'
+import type { DocumentDetail, TransferDirection } from './types'
+import { transferDirection, transferLabel } from './transfer'
 
 /** How many annotated pages the hub lists (top-by-count). */
 const TOP_PAGES = 8
@@ -38,6 +39,9 @@ export function DocumentHub({
   onOpenCanvas,
   onOpenNote,
   onOpenBacklink,
+  onTransfer,
+  transferPending = false,
+  transferError,
   onClose,
 }: {
   detail: DocumentDetail | null
@@ -49,6 +53,12 @@ export function DocumentHub({
   onOpenCanvas: () => void
   onOpenNote: () => void
   onOpenBacklink: (target: { documentId: number; instanceId: number; title: string }) => void
+  // Eagle↔Zotero sync gesture — the primary home for the affordance (spec §Renderer). Unwired =
+  // absent (same optional-prop pattern as every other affordance). Pending disables the button;
+  // `transferError` renders inline in red.
+  onTransfer?: (direction: TransferDirection) => void
+  transferPending?: boolean
+  transferError?: string
   onClose: () => void
 }) {
   useEffect(() => {
@@ -69,6 +79,8 @@ export function DocumentHub({
   const canCanvas = detail?.kind === 'pdf' && detail.instances.some((i) => i.filePath !== null)
   // Note reads a file-backed obsidian instance by instanceId.
   const canNote = detail?.instances.some((i) => i.sourceKey === 'obsidian' && i.filePath !== null) ?? false
+  // Eagle↔Zotero gesture direction (null unless a file-backed, single-system pdf).
+  const transferDir = detail ? transferDirection(detail.kind, detail.instances) : null
 
   return (
     <div
@@ -121,6 +133,19 @@ export function DocumentHub({
             {/* Sources. */}
             <Section title="Sources">
               <p className="mb-2 text-xs text-zinc-500">{PRESENCE_STATEMENT[detail.presence]}</p>
+              {onTransfer && transferDir && (
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <button
+                    aria-label={`transfer ${transferDir}`}
+                    disabled={transferPending}
+                    onClick={() => onTransfer(transferDir)}
+                    className="rounded border border-emerald-800 bg-emerald-950 px-2.5 py-1 text-xs font-medium text-emerald-300 hover:bg-emerald-900 disabled:opacity-50"
+                  >
+                    {transferPending ? 'sending…' : transferLabel(transferDir)}
+                  </button>
+                  {transferError && <span className="text-xs text-red-400">{transferError}</span>}
+                </div>
+              )}
               <ul className="flex flex-col gap-2">
                 {detail.instances.map((inst) => (
                   <li key={inst.instanceId} className="flex flex-wrap items-center gap-1.5">

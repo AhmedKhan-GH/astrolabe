@@ -132,6 +132,55 @@ describe('DocumentHub notes / backlinks', () => {
   })
 })
 
+describe('DocumentHub transfer gesture', () => {
+  const eagleOnly = () =>
+    detail({
+      presence: 'eagle-only',
+      instances: [{ instanceId: 12, sourceKey: 'eagle', uri: 'eagle://item/XYZ', filePath: '/lib/x.pdf', openPdfUri: null }],
+    })
+  const zoteroOnly = () =>
+    detail({
+      presence: 'zotero-only',
+      instances: [{ instanceId: 11, sourceKey: 'zotero', uri: 'zotero://select/library/items/ABC', filePath: '/z/x.pdf', openPdfUri: null }],
+    })
+
+  it('an eagle-only pdf offers "→ Zotero" and fires to-zotero', () => {
+    const onTransfer = vi.fn()
+    setup({ detail: eagleOnly(), onTransfer })
+    fireEvent.click(screen.getByRole('button', { name: /transfer to-zotero/i }))
+    expect(onTransfer).toHaveBeenCalledWith('to-zotero')
+  })
+
+  it('a zotero-only pdf offers "→ Eagle" and fires to-eagle', () => {
+    const onTransfer = vi.fn()
+    setup({ detail: zoteroOnly(), onTransfer })
+    fireEvent.click(screen.getByRole('button', { name: /transfer to-eagle/i }))
+    expect(onTransfer).toHaveBeenCalledWith('to-eagle')
+  })
+
+  it('a document in both sources offers no transfer', () => {
+    setup({ onTransfer: vi.fn() }) // default fixture is presence: both
+    expect(screen.queryByRole('button', { name: /transfer/i })).toBeNull()
+  })
+
+  it('without onTransfer there is no transfer affordance', () => {
+    setup({ detail: eagleOnly() })
+    expect(screen.queryByRole('button', { name: /transfer/i })).toBeNull()
+  })
+
+  it('pending disables the button and reads "sending…"', () => {
+    setup({ detail: eagleOnly(), onTransfer: vi.fn(), transferPending: true })
+    const btn = screen.getByRole('button', { name: /transfer to-zotero/i }) as HTMLButtonElement
+    expect(btn.disabled).toBe(true)
+    expect(btn.textContent).toMatch(/sending/i)
+  })
+
+  it('renders the failure reason inline', () => {
+    setup({ detail: eagleOnly(), onTransfer: vi.fn(), transferError: "Zotero isn't running — open it and retry" })
+    expect(screen.getByText(/zotero isn't running/i)).toBeTruthy()
+  })
+})
+
 describe('DocumentHub actions', () => {
   it('a note document offers a Note action', () => {
     const noteDetail = detail({

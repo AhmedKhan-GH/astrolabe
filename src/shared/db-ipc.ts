@@ -37,6 +37,24 @@ export type LinksRequest = z.infer<typeof linksRequestSchema>
 export const documentRequestSchema = z.object({ documentId: id })
 export type DocumentRequest = z.infer<typeof documentRequestSchema>
 
+// Eagle↔Zotero sync gestures (2026-07-11-eagle-zotero-sync-spec): move one document's bytes into
+// the other system of record via that system's own write API. `to-zotero` promotes an eagle-only
+// PDF; `to-eagle` imports a zotero-only PDF. The handler gates BEFORE any network call (exists +
+// pdf + file-backed source + idempotent target) then runs the target connector's sync so the
+// content-hash join flips presence to `both`. The result reason is user-renderable.
+export const RECONCILE_TRANSFER_CHANNEL = 'reconcile:transfer'
+
+/** transfer request: the document to move and which direction. */
+export const transferRequestSchema = z.object({
+  documentId: id,
+  direction: z.enum(['to-zotero', 'to-eagle']),
+})
+export type TransferRequest = z.infer<typeof transferRequestSchema>
+export type TransferDirection = TransferRequest['direction']
+
+/** A write gesture's outcome — `reason` is a ready-to-render sentence on failure. */
+export type TransferResult = { ok: true } | { ok: false; reason: string }
+
 export const INDEX_SOURCES_CHANNEL = 'index:sources'
 export const INDEX_STATS_CHANNEL = 'index:stats'
 export const SYSTEM_OPEN_CHANNEL = 'system:open'

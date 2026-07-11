@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import { renderSnippet } from './snippet'
-import type { BrowseInstance } from './types'
+import type { BrowseInstance, TransferDirection } from './types'
+import { transferDirection, transferLabel } from './transfer'
 
 /** Mirrors SearchHit from src/main/index/queries (structural copy; type flows via preload).
  *  `instances` share BrowseInstance with the river so the Canvas opens from either pane. */
@@ -28,6 +29,7 @@ export function SearchResult({
   onOpenCanvas,
   onOpenNote,
   onOpenHub,
+  onTransfer,
 }: {
   hit: ResultData
   onOpenUri: (uri: string) => void
@@ -36,8 +38,11 @@ export function SearchResult({
   onOpenCanvas?: (hit: ResultData) => void
   onOpenNote?: (hit: ResultData) => void
   onOpenHub?: (hit: ResultData) => void
+  onTransfer?: (documentId: number, direction: TransferDirection) => void
 }) {
   const filePath = hit.instances.find((i) => i.filePath)?.filePath ?? null
+  // Compact Eagle↔Zotero gesture, mirror of DocumentRow: same eligibility from the hit's instances.
+  const transferDir = transferDirection(hit.kind, hit.instances)
   // Same rule as the river (DocumentRiver `canCanvas`): the Canvas streams bytes, so it needs
   // a pdf kind + a file on disk, and the affordance appears only when the handler is wired.
   const canCanvas = Boolean(onOpenCanvas) && hit.kind === 'pdf' && filePath !== null
@@ -114,6 +119,16 @@ export function SearchResult({
               reveal
             </button>
           </>
+        )}
+        {onTransfer && transferDir && (
+          <button
+            aria-label={`transfer ${transferDir}: ${hit.title}`}
+            title={`Copy into ${transferDir === 'to-zotero' ? 'Zotero' : 'Eagle'}`}
+            onClick={() => onTransfer(hit.documentId, transferDir)}
+            className="rounded border border-emerald-800 bg-emerald-950 px-1.5 py-0.5 text-[11px] font-medium text-emerald-300 hover:bg-emerald-900"
+          >
+            {transferLabel(transferDir)}
+          </button>
         )}
         {hit.tags.slice(0, 6).map((t) => (
           <span key={t} className="rounded-full bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-400">

@@ -33,6 +33,7 @@ import type {
   NavNode,
   PageAnnotations,
   SavedView,
+  TransferDirection,
   VCollectionSummary,
 } from './types'
 
@@ -210,19 +211,40 @@ function DocumentHost({
   onOpenCanvas,
   onOpenNote,
   onOpenBacklink,
+  onAfterTransfer,
   onClose,
 }: {
   documentId: number
   onOpenCanvas: (hit: CanvasHostHit) => void
   onOpenNote: (hit: NoteSource) => void
   onOpenBacklink: (target: NoteNavTarget) => void
+  // Invalidate the shared index queries after a successful transfer (owned by Lens).
+  onAfterTransfer: () => void
   onClose: () => void
 }) {
+  const queryClient = useQueryClient()
   const detail = useQuery<DocumentDetail | null>({
     queryKey: ['document', documentId],
     queryFn: () => window.astrolabe.index.document(documentId),
   })
   const d = detail.data ?? null
+  // Eagle↔Zotero gesture, owned here so pending/error stay local to the open hub. On ok, refetch
+  // this document (presence flips visibly) plus the shared index views; on ok:false, surface reason.
+  const transfer = useMutation({
+    mutationFn: (direction: TransferDirection) => window.astrolabe.index.transfer(documentId, direction),
+    onSuccess: (result) => {
+      if (result.ok) {
+        void queryClient.invalidateQueries({ queryKey: ['document', documentId] })
+        onAfterTransfer()
+      }
+    },
+  })
+  const transferError =
+    transfer.data && !transfer.data.ok
+      ? transfer.data.reason
+      : transfer.isError
+        ? String(transfer.error)
+        : undefined
   return (
     <DocumentHub
       detail={d}
@@ -244,6 +266,9 @@ function DocumentHost({
         d && onOpenNote({ documentId: d.documentId, title: d.title, tags: d.tags, instances: d.instances })
       }
       onOpenBacklink={onOpenBacklink}
+      onTransfer={(direction) => transfer.mutate(direction)}
+      transferPending={transfer.isPending}
+      transferError={transferError}
       onClose={onClose}
     />
   )
@@ -463,6 +488,24 @@ export function Lens() {
     void queryClient.invalidateQueries({ queryKey: ['nav'] })
   }
 
+  // After a successful Eagle↔Zotero transfer the target sync ran main-side: browse/search/nav all
+  // change (a new instance joined the row → presence flips), and vcollection counts may shift.
+  function invalidateAfterTransfer() {
+    void queryClient.invalidateQueries({ queryKey: ['browse'] })
+    void queryClient.invalidateQueries({ queryKey: ['search'] })
+    void queryClient.invalidateQueries({ queryKey: ['nav'] })
+    void queryClient.invalidateQueries({ queryKey: ['vcollections'] })
+  }
+  // Compact row gesture (river/search): fire-and-invalidate — the flipped presence surfaces via the
+  // browse/search refetch. Per-row pending/failure UI stays with the hub (the primary home).
+  const rowTransfer = useMutation({
+    mutationFn: ({ documentId, direction }: { documentId: number; direction: TransferDirection }) =>
+      window.astrolabe.index.transfer(documentId, direction),
+    onSuccess: (result) => {
+      if (result.ok) invalidateAfterTransfer()
+    },
+  })
+
   return (
     <div className="mx-auto flex h-screen w-full max-w-6xl flex-col gap-3 p-4">
       <header className="flex items-center gap-2">
@@ -593,6 +636,7 @@ export function Lens() {
                     onOpenCanvas={openCanvas}
                     onOpenNote={openNote}
                     onOpenHub={(hit) => openHub(hit.documentId)}
+                    onTransfer={(documentId, direction) => rowTransfer.mutate({ documentId, direction })}
                   />
                 ))}
               </ul>
@@ -606,6 +650,7 @@ export function Lens() {
               onOpenCanvas={openCanvas}
               onOpenNote={openNote}
               onOpenHub={(hit) => openHub(hit.documentId)}
+              onTransfer={(documentId, direction) => rowTransfer.mutate({ documentId, direction })}
               onSync={() => sync.mutate()}
             />
           )}
@@ -636,6 +681,7 @@ export function Lens() {
           onOpenCanvas={openCanvas}
           onOpenNote={openNote}
           onOpenBacklink={openNoteRef}
+          onAfterTransfer={invalidateAfterTransfer}
           onClose={() => setHubFor(null)}
         />
       )}

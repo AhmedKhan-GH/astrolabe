@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import type { BrowseHit, BrowsePage, FilterSet, VCollectionSummary } from './types'
+import type { BrowseHit, BrowsePage, FilterSet, TransferDirection, VCollectionSummary } from './types'
 import { shouldFetchNextPage } from './pagination'
+import { transferDirection, transferLabel } from './transfer'
 
 const PAGE = 100
 
@@ -26,6 +27,7 @@ export function DocumentRiver({
   onOpenCanvas,
   onOpenNote,
   onOpenHub,
+  onTransfer,
   onSync,
 }: {
   filters: FilterSet
@@ -38,6 +40,7 @@ export function DocumentRiver({
   onOpenCanvas?: (hit: BrowseHit) => void
   onOpenNote?: (hit: BrowseHit) => void
   onOpenHub?: (hit: BrowseHit) => void
+  onTransfer?: (documentId: number, direction: TransferDirection) => void
   onSync?: () => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -148,6 +151,7 @@ export function DocumentRiver({
                   onOpenCanvas={onOpenCanvas}
                   onOpenNote={onOpenNote}
                   onOpenHub={onOpenHub}
+                  onTransfer={onTransfer}
                 />
               </div>
             )
@@ -170,6 +174,7 @@ export function DocumentRow({
   onOpenCanvas,
   onOpenNote,
   onOpenHub,
+  onTransfer,
 }: {
   hit: BrowseHit
   collections?: VCollectionSummary[]
@@ -181,11 +186,15 @@ export function DocumentRow({
   onOpenCanvas?: (hit: BrowseHit) => void
   onOpenNote?: (hit: BrowseHit) => void
   onOpenHub?: (hit: BrowseHit) => void
+  onTransfer?: (documentId: number, direction: TransferDirection) => void
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   // The membership affordance appears only when the feature is wired in.
   const canManage = Boolean(onToggleMembership || onCreateAndAdd)
   const filePath = hit.instances.find((i) => i.filePath)?.filePath ?? null
+  // Compact Eagle↔Zotero gesture (spec §Renderer, secondary home): same eligibility as the hub,
+  // computed from the hit's own instances. Absent unless wired and the row is a single-system pdf.
+  const transferDir = transferDirection(hit.kind, hit.instances)
   // Canvas needs bytes to render: pdf kind + a served file (astro://doc streams by instanceId).
   const canCanvas = Boolean(onOpenCanvas) && hit.kind === 'pdf' && filePath !== null
   // NoteView reads a file-backed obsidian note (astro://doc streams the markdown by instanceId).
@@ -283,6 +292,16 @@ export function DocumentRow({
               reveal
             </button>
           </>
+        )}
+        {onTransfer && transferDir && (
+          <button
+            aria-label={`transfer ${transferDir}: ${hit.title}`}
+            title={`Copy into ${transferDir === 'to-zotero' ? 'Zotero' : 'Eagle'}`}
+            onClick={() => onTransfer(hit.documentId, transferDir)}
+            className="rounded border border-emerald-800 bg-emerald-950 px-1.5 py-0.5 text-[11px] font-medium text-emerald-300 hover:bg-emerald-900"
+          >
+            {transferLabel(transferDir)}
+          </button>
         )}
         {hit.tags.slice(0, 6).map((t) => (
           <span key={t} className="rounded-full bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-400">
