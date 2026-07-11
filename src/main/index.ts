@@ -15,7 +15,21 @@ import { createEagleWrite } from './lib/eagle-write'
 import { createViewsApi } from './lib/views'
 import { createVCollectionsApi, syncVirtualCollections } from './lib/vcollections'
 import { connectors } from './connectors/registry'
+import { createAcpManager, nodeChannelFactory } from './acp/manager'
+import { mcpServerSpawn } from './acp/adapters'
+import { createDialogueStore } from './acp/dialogue-store'
 import {
+  ACP_AGENTS_CHANNEL,
+  ACP_CANCEL_CHANNEL,
+  ACP_PERMISSION_REQUEST_EVENT,
+  ACP_PERMISSION_RESPONSE_CHANNEL,
+  ACP_PROMPT_CHANNEL,
+  ACP_SESSION_NEW_CHANNEL,
+  ACP_UPDATE_EVENT,
+  acpCancelSchema,
+  acpPermissionResponseSchema,
+  acpPromptSchema,
+  acpSessionNewSchema,
   DB_CHANNEL,
   INDEX_BROWSE_CHANNEL,
   INDEX_DOCUMENT_CHANNEL,
@@ -216,6 +230,38 @@ app.whenReady().then(() => {
       else shell.showItemInFolder(req.value)
       return true
     })
+    // ACP dialogue v1 (2026-07-11-acp-dialogue-spec): the ACP CLIENT. The index MCP server mounts
+    // into every session (entry-path contract via mcpServerSpawn — pinned to app.getAppPath()/out).
+    // Session updates + permission prompts push to the renderer as webContents events. Default-deny
+    // teardown runs on quit. A missing adapter degrades to an empty picker — never a crash.
+    const sendToRenderer = (channel: string, payload: unknown): void => {
+      BrowserWindow.getAllWindows()[0]?.webContents.send(channel, payload)
+    }
+    const acpManager = createAcpManager({
+      channelFactory: nodeChannelFactory,
+      mcpServer: () => mcpServerSpawn(app.getAppPath(), ws.dbPath),
+      cwd: ws.root,
+      onUpdate: (event) => sendToRenderer(ACP_UPDATE_EVENT, event),
+      onPermissionRequest: (event) => sendToRenderer(ACP_PERMISSION_REQUEST_EVENT, event),
+      dialogueStore: createDialogueStore(join(ws.astroDir, 'dialogues')),
+    })
+    ipcMain.handle(ACP_AGENTS_CHANNEL, () => acpManager.agents())
+    ipcMain.handle(ACP_SESSION_NEW_CHANNEL, (_event, raw: unknown) =>
+      acpManager.newSession(acpSessionNewSchema.parse(raw).agentKey),
+    )
+    ipcMain.handle(ACP_PROMPT_CHANNEL, (_event, raw: unknown) => {
+      const req = acpPromptSchema.parse(raw)
+      return acpManager.prompt(req.sessionId, req.text)
+    })
+    ipcMain.handle(ACP_CANCEL_CHANNEL, (_event, raw: unknown) => {
+      acpManager.cancel(acpCancelSchema.parse(raw).sessionId)
+    })
+    ipcMain.handle(ACP_PERMISSION_RESPONSE_CHANNEL, (_event, raw: unknown) => {
+      const req = acpPermissionResponseSchema.parse(raw)
+      acpManager.respondPermission(req.requestId, req.allow)
+    })
+    // Teardown: kill live adapter children + default-deny any pending permission on quit.
+    app.on('before-quit', () => acpManager.disposeAll())
     log.info(
       { workspace: ws.root, workspaceId: ws.manifest.workspaceId, packaged: app.isPackaged },
       'workspace + db + ipc ready — creating window',

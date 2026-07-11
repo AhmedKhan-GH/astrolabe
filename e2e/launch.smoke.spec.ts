@@ -54,6 +54,7 @@ test('preload bridge exposes exactly its allowlist', async () => {
   // The bridge surface is a security contract: exactly these keys, nothing more.
   expect(api).toBeTruthy()
   expect(Object.keys(api as object).sort()).toEqual([
+    'acp',
     'collections',
     'db',
     'index',

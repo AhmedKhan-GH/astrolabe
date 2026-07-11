@@ -1,5 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { IpcRendererEvent } from 'electron'
 import {
+  ACP_AGENTS_CHANNEL,
+  ACP_CANCEL_CHANNEL,
+  ACP_PERMISSION_REQUEST_EVENT,
+  ACP_PERMISSION_RESPONSE_CHANNEL,
+  ACP_PROMPT_CHANNEL,
+  ACP_SESSION_NEW_CHANNEL,
+  ACP_UPDATE_EVENT,
   DB_CHANNEL,
   INDEX_BROWSE_CHANNEL,
   INDEX_DOCUMENT_CHANNEL,
@@ -41,7 +49,15 @@ import type { AccessProbeResult } from '../main/system/access'
 import type { SourceKey } from '../main/connectors/types'
 import type { SavedView, SaveViewRequest } from '../main/lib/views'
 import type { VCollectionSummary } from '../main/lib/vcollections'
-import type { TransferDirection, TransferResult } from '../shared/db-ipc'
+import type {
+  AcpAgentDescriptor,
+  AcpAgentKey,
+  AcpPermissionRequestEvent,
+  AcpSessionResult,
+  AcpUpdateEvent,
+  TransferDirection,
+  TransferResult,
+} from '../shared/db-ipc'
 
 /**
  * The single, explicit IPC surface exposed to the renderer — an allowlist, never a
@@ -114,6 +130,31 @@ const api = {
       ipcRenderer.invoke(VCOLLECTIONS_ADD_MEMBERS_CHANNEL, { slug, documentIds }),
     removeMembers: (slug: string, documentIds: number[]): Promise<VCollectionSummary> =>
       ipcRenderer.invoke(VCOLLECTIONS_REMOVE_MEMBERS_CHANNEL, { slug, documentIds }),
+  },
+  acp: {
+    // The ACP client surface (2026-07-11-acp-dialogue-spec §Wire). Requests are invoke-style;
+    // session output + permission prompts arrive via the on* subscriptions, each returning an
+    // unsubscribe fn so the renderer can tear listeners down without leaking.
+    agents: (): Promise<AcpAgentDescriptor[]> => ipcRenderer.invoke(ACP_AGENTS_CHANNEL),
+    newSession: (agentKey: AcpAgentKey): Promise<AcpSessionResult> =>
+      ipcRenderer.invoke(ACP_SESSION_NEW_CHANNEL, { agentKey }),
+    // Ack only — the turn's output streams back via onUpdate (spec §Wire); the renderer ignores
+    // the resolved value, so the surface is typed as a bare ack.
+    prompt: (sessionId: string, text: string): Promise<void> =>
+      ipcRenderer.invoke(ACP_PROMPT_CHANNEL, { sessionId, text }),
+    cancel: (sessionId: string): Promise<void> => ipcRenderer.invoke(ACP_CANCEL_CHANNEL, { sessionId }),
+    respondPermission: (requestId: string, allow: boolean): Promise<void> =>
+      ipcRenderer.invoke(ACP_PERMISSION_RESPONSE_CHANNEL, { requestId, allow }),
+    onUpdate: (cb: (event: AcpUpdateEvent) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, event: AcpUpdateEvent): void => cb(event)
+      ipcRenderer.on(ACP_UPDATE_EVENT, listener)
+      return () => ipcRenderer.removeListener(ACP_UPDATE_EVENT, listener)
+    },
+    onPermissionRequest: (cb: (event: AcpPermissionRequestEvent) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, event: AcpPermissionRequestEvent): void => cb(event)
+      ipcRenderer.on(ACP_PERMISSION_REQUEST_EVENT, listener)
+      return () => ipcRenderer.removeListener(ACP_PERMISSION_REQUEST_EVENT, listener)
+    },
   },
   system: {
     openUri: (value: string): Promise<boolean> =>

@@ -117,6 +117,88 @@ export const systemOpenSchema = z.discriminatedUnion('kind', [
 ])
 export type SystemOpenRequest = z.infer<typeof systemOpenSchema>
 
+// ACP dialogue v1 (2026-07-11-acp-dialogue-spec §Wire): the CLIENT side of the Agent Client
+// Protocol. ONE new top-level preload key `acp` (e2e allowlist +1). Requests are invoke-style;
+// session updates + permission prompts arrive as webContents.send events, subscribed via preload
+// callbacks. The library speaks to the agent ONLY through the index MCP server — no fs/terminal
+// client capabilities in v1.
+export const ACP_AGENTS_CHANNEL = 'acp:agents'
+export const ACP_SESSION_NEW_CHANNEL = 'acp:session-new'
+export const ACP_PROMPT_CHANNEL = 'acp:prompt'
+export const ACP_CANCEL_CHANNEL = 'acp:cancel'
+export const ACP_PERMISSION_RESPONSE_CHANNEL = 'acp:permission-response'
+/** Push events (main → renderer via webContents.send). */
+export const ACP_UPDATE_EVENT = 'acp:update'
+export const ACP_PERMISSION_REQUEST_EVENT = 'acp:permission-request'
+
+/** The two v1 adapters. The picker shows an adapter only if its binary resolves. */
+export const acpAgentKeySchema = z.enum(['claude', 'codex'])
+export type AcpAgentKey = z.infer<typeof acpAgentKeySchema>
+
+/** One row in the agent picker. `available` = binary resolves; `authenticated` is best-effort
+ *  (real auth is enforced at session-new, which surfaces an `auth_required` error). */
+export interface AcpAgentDescriptor {
+  key: AcpAgentKey
+  label: string
+  available: boolean
+  authenticated: boolean
+}
+
+/** session-new request: which adapter to spawn. */
+export const acpSessionNewSchema = z.object({ agentKey: acpAgentKeySchema })
+export type AcpSessionNewRequest = z.infer<typeof acpSessionNewSchema>
+
+/** session-new result: the live session id, or a user-renderable error (e.g. auth required). */
+export type AcpSessionResult = { sessionId: string } | { error: string }
+
+/** prompt request: the target session and the user's text. Ack returns immediately; the turn's
+ *  output streams back as `acp:update` events. */
+export const acpPromptSchema = z.object({
+  sessionId: z.string().min(1).max(200),
+  text: z.string().min(1).max(50_000),
+})
+export type AcpPromptRequest = z.infer<typeof acpPromptSchema>
+
+/** cancel request: stop the in-flight turn for a session. */
+export const acpCancelSchema = z.object({ sessionId: z.string().min(1).max(200) })
+export type AcpCancelRequest = z.infer<typeof acpCancelSchema>
+
+/** permission-response: the user's allow/deny for a pending tool-call permission request. */
+export const acpPermissionResponseSchema = z.object({
+  requestId: z.string().min(1).max(200),
+  allow: z.boolean(),
+})
+export type AcpPermissionResponse = z.infer<typeof acpPermissionResponseSchema>
+
+/**
+ * The renderer-facing shape of one streamed dialogue event (spec §Renderer contract). The main
+ * side maps the SDK's `session/update` notification variants into THIS shape (pure + unit-tested,
+ * see src/main/acp/update-map.ts) and synthesizes `turn-end`/`error` from the prompt lifecycle.
+ * Both sides import this type so the wire stays honest.
+ */
+export interface AcpUpdateEvent {
+  sessionId: string
+  kind: 'chunk' | 'tool-call' | 'tool-result' | 'turn-end' | 'error'
+  /** agent message text (chunk). */
+  text?: string
+  /** tool title/name (tool-call, tool-result). */
+  toolName?: string
+  /** tool execution status (tool-call, tool-result). */
+  toolStatus?: 'pending' | 'in_progress' | 'completed' | 'failed'
+  /** a library documentId harvested from a tool result — the Layer 4→5 provenance seam. */
+  documentId?: number
+  /** stop reason (turn-end) or an error message (error). */
+  reason?: string
+}
+
+/** A pending permission prompt surfaced to the renderer (spec §Wire: `acp:permission-request`). */
+export interface AcpPermissionRequestEvent {
+  requestId: string
+  sessionId: string
+  /** human-readable tool-call title, for the inline allow/deny card. */
+  title: string
+}
+
 export const dbRequestSchema = z.discriminatedUnion('op', [
   z.object({ table: z.string(), op: z.literal('getAll') }),
   z.object({ table: z.string(), op: z.literal('getById'), id }),

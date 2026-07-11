@@ -21,6 +21,7 @@ import { NoteView, type NoteNavTarget } from './NoteView'
 import { ExcalidrawView } from './excalidraw/ExcalidrawView'
 import { isExcalidrawNote, parseExcalidrawScene } from './excalidraw/parse'
 import { DocumentHub } from './DocumentHub'
+import { DialoguePane } from '../dialogue/DialoguePane'
 import { canvasCandidates, type CanvasHostHit } from './canvas'
 import { usePdfDocument } from './pdf/usePdfDocument'
 import { rewriteOpenPdfPage } from './pdf/heat'
@@ -282,6 +283,9 @@ export function Lens() {
   // other two (docs/2026-07-10-implementation-plan-notes-hub-ink §Step 2 — one panel slot).
   const [noteFor, setNoteFor] = useState<NoteRef | null>(null)
   const [hubFor, setHubFor] = useState<number | null>(null)
+  // The dialogue pane is a LEFT column that coexists with the lens — independent of the
+  // Canvas/Note/Hub slot (which the three setters above share).
+  const [dialogueOpen, setDialogueOpen] = useState(false)
   const openCanvas = (hit: CanvasHostHit): void => {
     setNoteFor(null)
     setHubFor(null)
@@ -507,11 +511,31 @@ export function Lens() {
   })
 
   return (
-    <div className="mx-auto flex h-screen w-full max-w-6xl flex-col gap-3 p-4">
+    <div className="flex h-screen w-full">
+      {dialogueOpen && (
+        <DialoguePane
+          onOpenUri={(uri) => void window.astrolabe.system.openUri(uri)}
+          onOpenHub={openHub}
+          onClose={() => setDialogueOpen(false)}
+        />
+      )}
+      <div className="mx-auto flex h-full min-w-0 w-full max-w-6xl flex-col gap-3 p-4">
       <header className="flex items-center gap-2">
         <h1 className="text-lg font-semibold tracking-tight text-zinc-100">Astrolabe</h1>
         <span className="text-xs text-zinc-500">library lens</span>
         <div className="ml-auto flex gap-2">
+          <button
+            onClick={() => setDialogueOpen((v) => !v)}
+            aria-pressed={dialogueOpen}
+            title="Converse with an agent that knows your library"
+            className={`rounded border px-2 py-1 text-xs ${
+              dialogueOpen
+                ? 'border-violet-700 bg-violet-950 text-violet-200'
+                : 'border-zinc-700 text-zinc-300 hover:bg-zinc-800'
+            }`}
+          >
+            Dialogue
+          </button>
           <button
             onClick={() => sync.mutate()}
             disabled={sync.isPending || rebuild.isPending}
@@ -685,6 +709,7 @@ export function Lens() {
           onClose={() => setHubFor(null)}
         />
       )}
+      </div>
     </div>
   )
 }

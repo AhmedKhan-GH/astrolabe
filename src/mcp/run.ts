@@ -1,3 +1,5 @@
+import { realpathSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
@@ -75,12 +77,42 @@ export function createServer(db: Db): McpServer {
   return server
 }
 
-/** Open the real workspace index read-only and serve over stdio. */
-export async function serve(): Promise<void> {
-  const { dbPath } = ensureWorkspace()
-  const { db } = openReadonlyDb(dbPath)
+/**
+ * Resolve the index db path: an explicit argv path wins, otherwise fall back to
+ * the workspace default (env-driven — ASTROLABE_WORKSPACE). The packaged app
+ * spawns `server.mjs <dbPath>`, so argv[2] is the primary path; `pnpm mcp:serve`
+ * passes nothing and gets the ensureWorkspace() default.
+ */
+export function resolveDbPath(argvPath: string | undefined, fallback: () => string): string {
+  return argvPath != null && argvPath.length > 0 ? argvPath : fallback()
+}
+
+/** Open the index read-only (given path, else workspace default) and serve over stdio. */
+export async function serve(dbPath?: string): Promise<void> {
+  const resolved = dbPath ?? ensureWorkspace().dbPath
+  const { db } = openReadonlyDb(resolved)
   const server = createServer(db)
   const transport = new StdioServerTransport()
   await server.connect(transport)
-  console.error(`[astrolabe-mcp] serving read-only index at ${dbPath}`)
+  console.error(`[astrolabe-mcp] serving read-only index at ${resolved}`)
+}
+
+/** True when this module is the process entry point (the built out/mcp/server.mjs),
+ *  not merely imported (by server.ts's tsx path, or by tests). */
+function isDirectRun(): boolean {
+  const entry = process.argv[1]
+  if (entry == null) return false
+  try {
+    return realpathSync(entry) === realpathSync(fileURLToPath(import.meta.url))
+  } catch {
+    return false
+  }
+}
+
+if (isDirectRun()) {
+  // Packaged entry: db path from argv[2], workspace default otherwise.
+  serve(resolveDbPath(process.argv[2], () => ensureWorkspace().dbPath)).catch((err) => {
+    console.error('[astrolabe-mcp] fatal', err)
+    process.exit(1)
+  })
 }
