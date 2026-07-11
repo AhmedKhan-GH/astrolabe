@@ -4,10 +4,18 @@
  * accrete into the open agent message, `thought` chunks group into one collapsible block, `tool`
  * events upsert by toolCallId (status transitions in place, content accumulates), a single live
  * `plan` block is replaced on each update, and the current mode / available modes / available
- * commands are held aside for the header + slash palette. PURE — every function takes state and
+ * commands / config options / usage readout / session title are held aside for the header + slash
+ * palette. PURE — every function takes state and
  * returns new state, so the component is a thin dispatcher and the model is fully unit-tested.
  */
-import type { AcpCommand, AcpMode, AcpStoredDialogue, AcpToolKind, AcpToolStatus, AcpUpdate, PlanEntry, ToolContentItem, ToolLocation } from './types'
+import type { AcpCommand, AcpConfigOption, AcpMode, AcpStoredDialogue, AcpToolKind, AcpToolStatus, AcpUpdate, PlanEntry, ToolContentItem, ToolLocation } from './types'
+
+/** The session's live token/context usage readout (feeds the header usage line). */
+export interface UsageReadout {
+  used: number
+  size: number
+  cost?: number | null
+}
 
 export interface UserMessageEntry {
   kind: 'message'
@@ -77,6 +85,12 @@ export interface Transcript {
   availableModes: AcpMode[]
   /** Slash commands the agent exposes (feeds the palette). */
   availableCommands: AcpCommand[]
+  /** Settable session config options (model / effort / thinking / fast-mode), upserted by id. */
+  configOptions: AcpConfigOption[]
+  /** The live token/context usage readout (null until a `usage` update lands). */
+  usage: UsageReadout | null
+  /** The session title (null until a `session-info` update sets one; cleared by `title: null`). */
+  sessionTitle: string | null
   /**
    * Internal: whether the trailing agent message is closed. A turn end or a fresh user prompt
    * seals it so the next chunk opens a NEW agent message rather than accreting onto the old one.
@@ -94,8 +108,26 @@ export function emptyTranscript(sessionId: string): Transcript {
     currentModeId: null,
     availableModes: [],
     availableCommands: [],
+    configOptions: [],
+    usage: null,
+    sessionTitle: null,
     sealed: true,
   }
+}
+
+/**
+ * Upsert config options by id (a config update may carry the full set OR one changed option, like
+ * tool cards): a matched id is replaced in place, a new id is appended, and unmatched options are
+ * kept — so a single-option update never drops the rest.
+ */
+function upsertConfig(prev: AcpConfigOption[], incoming: AcpConfigOption[]): AcpConfigOption[] {
+  const next = prev.slice()
+  for (const opt of incoming) {
+    const idx = next.findIndex((o) => o.id === opt.id)
+    if (idx < 0) next.push(opt)
+    else next[idx] = opt
+  }
+  return next
 }
 
 function mergeDocId(ids: number[], id: number | undefined): number[] {
@@ -187,6 +219,13 @@ export function applyUpdate(state: Transcript, u: AcpUpdate): Transcript {
         currentModeId: u.currentModeId,
         availableModes: u.availableModes ?? state.availableModes,
       }
+    case 'config':
+      return { ...state, configOptions: upsertConfig(state.configOptions, u.options) }
+    case 'usage':
+      return { ...state, usage: { used: u.used, size: u.size, ...(u.cost != null ? { cost: u.cost } : {}) } }
+    case 'session-info':
+      // A present title (incl. explicit null → clear) sets it; an absent title leaves it untouched.
+      return { ...state, sessionTitle: 'title' in u ? (u.title ?? null) : state.sessionTitle }
     case 'turn-end':
       return { ...state, streaming: false, sealed: true }
     case 'error':
@@ -212,8 +251,9 @@ export function appendUserPrompt(state: Transcript, text: string): Transcript {
 /**
  * Restart after a dead session (failure recovery): keep the whole prior transcript, drop a visible
  * divider, and rebind to the fresh session id so its updates accrete while the old session's stale
- * updates are ignored (applyUpdate filters on sessionId). The live plan is stale for the new
- * session, so it is cleared; modes/commands (agent-scoped) survive until the new session re-emits.
+ * updates are ignored (applyUpdate filters on sessionId). The live plan, usage readout, and session
+ * title are session-scoped and stale for the new session, so they are cleared; modes/commands/config
+ * (agent-scoped) survive until the new session re-emits.
  */
 export function restartTranscript(state: Transcript, newSessionId: string): Transcript {
   return {
@@ -223,6 +263,8 @@ export function restartTranscript(state: Transcript, newSessionId: string): Tran
     streaming: false,
     sealed: true,
     plan: null,
+    usage: null,
+    sessionTitle: null,
   }
 }
 

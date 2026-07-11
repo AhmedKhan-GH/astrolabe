@@ -7,6 +7,7 @@ import {
   type McpServerStdio,
   type NewSessionResponse,
   type RequestPermissionResponse,
+  type SetSessionConfigOptionResponse,
   type StopReason,
 } from '@agentclientprotocol/sdk'
 import { createAcpManager, type AcpChannel } from './manager'
@@ -37,16 +38,18 @@ const testAdapter: Adapter = {
 
 interface ScriptedAgent {
   app: AgentApp
-  captured: { initialize?: unknown; newSession?: unknown; setMode: unknown[] }
+  captured: { initialize?: unknown; newSession?: unknown; setMode: unknown[]; setConfig: unknown[] }
 }
 
 interface ScriptOpts {
   onPrompt?: (client: AgentContext, sessionId: string) => Promise<StopReason>
   newSessionResponse?: NewSessionResponse
+  /** The option set a `session/set_config_option` response echoes back (the updated config). */
+  setConfigResponse?: SetSessionConfigOptionResponse
 }
 
 function scriptedAgent(opts: ScriptOpts = {}): ScriptedAgent {
-  const captured: ScriptedAgent['captured'] = { setMode: [] }
+  const captured: ScriptedAgent['captured'] = { setMode: [], setConfig: [] }
   const app = agent({ name: 'scripted' })
     .onRequest('initialize', ({ params }) => {
       captured.initialize = params
@@ -59,6 +62,10 @@ function scriptedAgent(opts: ScriptOpts = {}): ScriptedAgent {
     .onRequest('session/set_mode', ({ params }) => {
       captured.setMode.push(params)
       return {}
+    })
+    .onRequest('session/set_config_option', ({ params }) => {
+      captured.setConfig.push(params)
+      return opts.setConfigResponse ?? { configOptions: [] }
     })
     .onRequest('session/prompt', async ({ params, client }) => {
       const stopReason = opts.onPrompt ? await opts.onPrompt(client, params.sessionId) : 'end_turn'
@@ -114,7 +121,7 @@ describe('createAcpManager — initialization', () => {
       .onRequest('session/new', () => {
         throw new Error('Internal error')
       })
-    const scripted: ScriptedAgent = { app, captured: { setMode: [] } }
+    const scripted: ScriptedAgent = { app, captured: { setMode: [], setConfig: [] } }
     const { manager } = harness(scripted, {
       stderr: () => 'node:internal/modules/esm/resolve failed for app.asar/out/mcp/server.mjs\n',
     })
@@ -319,6 +326,128 @@ describe('createAcpManager — set mode', () => {
   it('setMode on an unknown session is a no-op', () => {
     const { manager } = harness(scriptedAgent())
     expect(() => manager.setMode('nope', 'plan')).not.toThrow()
+  })
+})
+
+describe('createAcpManager — config / usage / session-info', () => {
+  it('emits an initial config event from the session/new configOptions', async () => {
+    const scripted = scriptedAgent({
+      newSessionResponse: {
+        sessionId: 'sess-1',
+        configOptions: [
+          {
+            id: 'model',
+            name: 'Model',
+            type: 'select',
+            currentValue: 'sonnet',
+            options: [
+              { value: 'sonnet', name: 'Sonnet' },
+              { value: 'opus', name: 'Opus' },
+            ],
+          },
+          { id: 'fast', name: 'Fast Mode', type: 'boolean', currentValue: false },
+        ],
+      },
+    })
+    const { manager, events } = harness(scripted)
+    await manager.newSession('claude')
+
+    expect(events).toContainEqual({
+      sessionId: 'sess-1',
+      kind: 'config',
+      options: [
+        {
+          id: 'model',
+          name: 'Model',
+          type: 'select',
+          currentValue: 'sonnet',
+          values: [
+            { id: 'sonnet', name: 'Sonnet' },
+            { id: 'opus', name: 'Opus' },
+          ],
+        },
+        { id: 'fast', name: 'Fast Mode', type: 'boolean', currentValue: false },
+      ],
+    })
+  })
+
+  it('forwards config / usage / session-info updates during a turn', async () => {
+    const scripted = scriptedAgent({
+      onPrompt: async (client, sessionId) => {
+        await client.notify('session/update', {
+          sessionId,
+          update: {
+            sessionUpdate: 'config_option_update',
+            configOptions: [{ id: 'fast', name: 'Fast Mode', type: 'boolean', currentValue: true }],
+          },
+        })
+        await client.notify('session/update', {
+          sessionId,
+          update: { sessionUpdate: 'usage_update', used: 1000, size: 200_000, cost: { amount: 0.1, currency: 'USD' } },
+        })
+        await client.notify('session/update', {
+          sessionId,
+          update: { sessionUpdate: 'session_info_update', title: 'My session' },
+        })
+        return 'end_turn'
+      },
+    })
+    const { manager, events } = harness(scripted)
+    const { sessionId } = (await manager.newSession('claude')) as { sessionId: string }
+    manager.prompt(sessionId, 'go')
+    await vi.waitFor(() => expect(events.some((e) => e.kind === 'turn-end')).toBe(true))
+
+    expect(events).toContainEqual({
+      sessionId: 'sess-1',
+      kind: 'config',
+      options: [{ id: 'fast', name: 'Fast Mode', type: 'boolean', currentValue: true }],
+    })
+    expect(events).toContainEqual({ sessionId: 'sess-1', kind: 'usage', used: 1000, size: 200_000, cost: 0.1 })
+    expect(events).toContainEqual({ sessionId: 'sess-1', kind: 'session-info', title: 'My session' })
+  })
+
+  it('setConfig drives session/set_config_option (boolean carries the type discriminant) and re-emits the config', async () => {
+    const scripted = scriptedAgent({
+      setConfigResponse: {
+        configOptions: [{ id: 'fast', name: 'Fast Mode', type: 'boolean', currentValue: true }],
+      },
+    })
+    const { manager, events } = harness(scripted)
+    await manager.newSession('claude')
+
+    manager.setConfig('sess-1', 'fast', true)
+    await vi.waitFor(() =>
+      expect(scripted.captured.setConfig).toContainEqual({ sessionId: 'sess-1', configId: 'fast', value: true, type: 'boolean' }),
+    )
+    await vi.waitFor(() =>
+      expect(events).toContainEqual({
+        sessionId: 'sess-1',
+        kind: 'config',
+        options: [{ id: 'fast', name: 'Fast Mode', type: 'boolean', currentValue: true }],
+      }),
+    )
+  })
+
+  it('setConfig on a select sends the bare value-id (no type discriminant)', async () => {
+    const scripted = scriptedAgent({
+      setConfigResponse: {
+        configOptions: [
+          { id: 'model', name: 'Model', type: 'select', currentValue: 'opus', options: [{ value: 'opus', name: 'Opus' }] },
+        ],
+      },
+    })
+    const { manager } = harness(scripted)
+    await manager.newSession('claude')
+
+    manager.setConfig('sess-1', 'model', 'opus')
+    await vi.waitFor(() =>
+      expect(scripted.captured.setConfig).toContainEqual({ sessionId: 'sess-1', configId: 'model', value: 'opus' }),
+    )
+  })
+
+  it('setConfig on an unknown session is a no-op', () => {
+    const { manager } = harness(scriptedAgent())
+    expect(() => manager.setConfig('nope', 'model', 'opus')).not.toThrow()
   })
 })
 

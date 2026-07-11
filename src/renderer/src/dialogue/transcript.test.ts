@@ -163,6 +163,48 @@ describe('transcript — mode + commands state', () => {
   })
 })
 
+describe('transcript — config / usage / session-info state', () => {
+  const model = (currentValue: string): AcpUpdate => ({
+    kind: 'config',
+    sessionId: SID,
+    options: [
+      { id: 'model', name: 'Model', type: 'select', currentValue, values: [{ id: 'sonnet', name: 'Sonnet' }, { id: 'opus', name: 'Opus' }] },
+    ],
+  })
+
+  it('holds config options and upserts by id (a later single-option update updates in place)', () => {
+    const t = fold([
+      model('sonnet'),
+      up({ kind: 'config', sessionId: SID, options: [{ id: 'fast', name: 'Fast Mode', type: 'boolean', currentValue: false }] }),
+      model('opus'),
+    ])
+    expect(t.configOptions).toHaveLength(2)
+    expect(t.configOptions.find((o) => o.id === 'model')?.currentValue).toBe('opus')
+    expect(t.configOptions.find((o) => o.id === 'fast')?.currentValue).toBe(false)
+  })
+
+  it('holds the usage readout, replacing it on each update', () => {
+    const t = fold([
+      up({ kind: 'usage', sessionId: SID, used: 100, size: 200_000 }),
+      up({ kind: 'usage', sessionId: SID, used: 12_300, size: 200_000, cost: 0.42 }),
+    ])
+    expect(t.usage).toEqual({ used: 12_300, size: 200_000, cost: 0.42 })
+  })
+
+  it('sets the session title and clears it on an explicit null', () => {
+    const set = fold([up({ kind: 'session-info', sessionId: SID, title: 'Refactor' })])
+    expect(set.sessionTitle).toBe('Refactor')
+    const cleared = applyUpdate(set, { kind: 'session-info', sessionId: SID, title: null })
+    expect(cleared.sessionTitle).toBeNull()
+  })
+
+  it('a session-info update without a title leaves the current title untouched', () => {
+    const set = fold([up({ kind: 'session-info', sessionId: SID, title: 'Keep me' })])
+    const t = applyUpdate(set, { kind: 'session-info', sessionId: SID, updatedAt: '2026-07-11T10:00:00Z' })
+    expect(t.sessionTitle).toBe('Keep me')
+  })
+})
+
 describe('transcript — turn boundaries + streaming', () => {
   it('appendUserPrompt adds a user message and enters streaming', () => {
     const t = appendUserPrompt(emptyTranscript(SID), 'what is in my library?')

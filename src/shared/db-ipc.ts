@@ -129,6 +129,9 @@ export const ACP_CANCEL_CHANNEL = 'acp:cancel'
 export const ACP_PERMISSION_RESPONSE_CHANNEL = 'acp:permission-response'
 /** Session mode switch (v2 rich client): drive `session/set_mode` on the live agent. */
 export const ACP_SET_MODE_CHANNEL = 'acp:set-mode'
+/** Config-option set (v2 rich client): drive `session/set_config_option` (model, reasoning
+ *  effort, thinking level, fast-mode toggle) on the live agent. */
+export const ACP_SET_CONFIG_CHANNEL = 'acp:set-config'
 /** History browser (v1.1): list past dialogues + read one back read-only. */
 export const ACP_DIALOGUES_LIST_CHANNEL = 'acp:dialogues-list'
 export const ACP_DIALOGUES_READ_CHANNEL = 'acp:dialogues-read'
@@ -183,6 +186,16 @@ export const acpSetModeSchema = z.object({
   modeId: z.string().min(1).max(200),
 })
 export type AcpSetModeRequest = z.infer<typeof acpSetModeSchema>
+
+/** set-config: set one of a live session's config options (`session/set_config_option`). The value
+ *  is a value-id string for a `select` option or a boolean for a toggle; the manager routes the two
+ *  shapes into the SDK's discriminated request. */
+export const acpSetConfigSchema = z.object({
+  sessionId: z.string().min(1).max(200),
+  configId: z.string().min(1).max(200),
+  value: z.union([z.string(), z.boolean()]),
+})
+export type AcpSetConfigRequest = z.infer<typeof acpSetConfigSchema>
 
 // ── Frozen wire contract (2026-07-11-acp-rich-client-spec §"Frozen wire contract") ──────────────
 // The renderer track codes against these types VERBATIM. `AcpUpdateEvent` is a discriminated union
@@ -275,6 +288,56 @@ export interface AcpModeEvent {
   availableModes?: { id: string; name: string }[]
 }
 
+/**
+ * One session configuration option (mirrors the SDK `SessionConfigOption`) — a settable model /
+ * reasoning-effort / thinking-level selector (`select`) or a fast-mode-style toggle (`boolean`).
+ * `values` carries a `select`'s selectable options (flattened across any groups) and is omitted for
+ * a `boolean`. Set via `acp:set-config` → `session/set_config_option`.
+ */
+export interface AcpConfigOption {
+  id: string
+  name: string
+  description?: string
+  type: 'select' | 'boolean'
+  /** the current value: a value-id (select) or on/off (boolean). */
+  currentValue: string | boolean
+  /** selectable values for a `select` (id + label); omitted for a `boolean`. */
+  values?: { id: string; name: string }[]
+}
+
+/**
+ * config_option_update (+ the initial options from session/new) → the header config bar. Carries
+ * one or more options; the renderer upserts by `id` (like tool cards), so a partial update leaves
+ * the rest untouched.
+ */
+export interface AcpConfigEvent {
+  sessionId: string
+  kind: 'config'
+  options: AcpConfigOption[]
+}
+
+/** usage_update → the token/context readout. `cost` is the structured SDK `Cost` flattened to its
+ *  numeric `amount` (the wire keeps a single number the UI can render). */
+export interface AcpUsageEvent {
+  sessionId: string
+  kind: 'usage'
+  /** tokens currently in context. */
+  used: number
+  /** total context-window size in tokens. */
+  size: number
+  /** cumulative session cost amount, if the agent reports one. */
+  cost?: number | null
+}
+
+/** session_info_update → the session title shown in the header. `title: null` clears it; an absent
+ *  title leaves the current one untouched (partial update). */
+export interface AcpSessionInfoEvent {
+  sessionId: string
+  kind: 'session-info'
+  title?: string | null
+  updatedAt?: string | null
+}
+
 /** synthesized on prompt resolution. */
 export interface AcpTurnEndEvent {
   sessionId: string
@@ -296,6 +359,9 @@ export type AcpUpdateEvent =
   | AcpPlanEvent
   | AcpCommandsEvent
   | AcpModeEvent
+  | AcpConfigEvent
+  | AcpUsageEvent
+  | AcpSessionInfoEvent
   | AcpTurnEndEvent
   | AcpErrorEvent
 

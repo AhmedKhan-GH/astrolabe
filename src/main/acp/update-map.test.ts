@@ -260,12 +260,129 @@ describe('mapSessionUpdate — plan / commands / mode', () => {
   })
 })
 
+describe('mapSessionUpdate — config / usage / session-info', () => {
+  it('maps a config_option_update carrying a select option (flattening its option values)', () => {
+    const u: SessionUpdate = {
+      sessionUpdate: 'config_option_update',
+      configOptions: [
+        {
+          id: 'model',
+          name: 'Model',
+          description: 'The model to use',
+          type: 'select',
+          currentValue: 'sonnet',
+          options: [
+            { value: 'sonnet', name: 'Sonnet' },
+            { value: 'opus', name: 'Opus' },
+          ],
+        },
+      ],
+    }
+    expect(mapSessionUpdate('s1', u)).toEqual({
+      sessionId: 's1',
+      kind: 'config',
+      options: [
+        {
+          id: 'model',
+          name: 'Model',
+          description: 'The model to use',
+          type: 'select',
+          currentValue: 'sonnet',
+          values: [
+            { id: 'sonnet', name: 'Sonnet' },
+            { id: 'opus', name: 'Opus' },
+          ],
+        },
+      ],
+    })
+  })
+
+  it('flattens a select whose values are grouped', () => {
+    const u: SessionUpdate = {
+      sessionUpdate: 'config_option_update',
+      configOptions: [
+        {
+          id: 'effort',
+          name: 'Reasoning Effort',
+          type: 'select',
+          currentValue: 'high',
+          options: [
+            { group: 'g1', name: 'Fast', options: [{ value: 'low', name: 'Low' }] },
+            { group: 'g2', name: 'Slow', options: [{ value: 'high', name: 'High' }] },
+          ],
+        },
+      ],
+    }
+    expect(mapSessionUpdate('s1', u)).toMatchObject({
+      kind: 'config',
+      options: [
+        {
+          id: 'effort',
+          type: 'select',
+          currentValue: 'high',
+          values: [
+            { id: 'low', name: 'Low' },
+            { id: 'high', name: 'High' },
+          ],
+        },
+      ],
+    })
+  })
+
+  it('maps a boolean config option (no values list)', () => {
+    const u: SessionUpdate = {
+      sessionUpdate: 'config_option_update',
+      configOptions: [{ id: 'fast', name: 'Fast Mode', type: 'boolean', currentValue: true }],
+    }
+    expect(mapSessionUpdate('s1', u)).toEqual({
+      sessionId: 's1',
+      kind: 'config',
+      options: [{ id: 'fast', name: 'Fast Mode', type: 'boolean', currentValue: true }],
+    })
+  })
+
+  it('maps a usage_update, flattening a structured Cost to its numeric amount', () => {
+    const u: SessionUpdate = {
+      sessionUpdate: 'usage_update',
+      used: 12_300,
+      size: 200_000,
+      cost: { amount: 0.42, currency: 'USD' },
+    }
+    expect(mapSessionUpdate('s1', u)).toEqual({
+      sessionId: 's1',
+      kind: 'usage',
+      used: 12_300,
+      size: 200_000,
+      cost: 0.42,
+    })
+  })
+
+  it('maps a usage_update without a cost', () => {
+    const u: SessionUpdate = { sessionUpdate: 'usage_update', used: 5, size: 100 }
+    expect(mapSessionUpdate('s1', u)).toEqual({ sessionId: 's1', kind: 'usage', used: 5, size: 100 })
+  })
+
+  it('maps a session_info_update title', () => {
+    const u: SessionUpdate = { sessionUpdate: 'session_info_update', title: 'Refactoring the reducer' }
+    expect(mapSessionUpdate('s1', u)).toEqual({
+      sessionId: 's1',
+      kind: 'session-info',
+      title: 'Refactoring the reducer',
+    })
+  })
+
+  it('maps a session_info_update that clears the title (title: null)', () => {
+    const u: SessionUpdate = { sessionUpdate: 'session_info_update', title: null }
+    expect(mapSessionUpdate('s1', u)).toEqual({ sessionId: 's1', kind: 'session-info', title: null })
+  })
+})
+
 describe('mapSessionUpdate — unknown / non-rendered variants → null', () => {
-  it('returns null for plan_removed, usage, session_info, config option updates', () => {
+  it('returns null for plan_removed (unstable) and the user echo', () => {
     expect(mapSessionUpdate('s1', { sessionUpdate: 'plan_removed', planId: 'p1' } as unknown as SessionUpdate)).toBeNull()
-    expect(mapSessionUpdate('s1', { sessionUpdate: 'usage_update' } as unknown as SessionUpdate)).toBeNull()
-    expect(mapSessionUpdate('s1', { sessionUpdate: 'session_info_update' } as unknown as SessionUpdate)).toBeNull()
-    expect(mapSessionUpdate('s1', { sessionUpdate: 'config_option_update' } as unknown as SessionUpdate)).toBeNull()
+    expect(
+      mapSessionUpdate('s1', { sessionUpdate: 'user_message_chunk', content: { type: 'text', text: 'echo' } }),
+    ).toBeNull()
   })
 
   it('returns null for a genuinely unknown variant', () => {

@@ -56,6 +56,19 @@ export interface AcpMode {
 }
 
 /**
+ * One session configuration option (feeds the header config bar). `select` renders a dropdown over
+ * `values`; `boolean` renders a toggle. Set via `acp.setConfig(sessionId, id, value)`.
+ */
+export interface AcpConfigOption {
+  id: string
+  name: string
+  description?: string
+  type: 'select' | 'boolean'
+  currentValue: string | boolean
+  values?: { id: string; name: string }[]
+}
+
+/**
  * A streamed session/update notification — a discriminated union on `kind`, all carrying
  * `sessionId` (frozen wire contract). Forwarded from main verbatim-but-typed.
  */
@@ -83,6 +96,9 @@ export type AcpUpdate =
   | { kind: 'plan'; sessionId: string; entries: PlanEntry[] }
   | { kind: 'commands'; sessionId: string; commands: AcpCommand[] }
   | { kind: 'mode'; sessionId: string; currentModeId: string; availableModes?: AcpMode[] }
+  | { kind: 'config'; sessionId: string; options: AcpConfigOption[] }
+  | { kind: 'usage'; sessionId: string; used: number; size: number; cost?: number | null }
+  | { kind: 'session-info'; sessionId: string; title?: string | null; updatedAt?: string | null }
 
 export type AcpUpdateKind = AcpUpdate['kind']
 
@@ -146,6 +162,8 @@ export interface AcpApi {
   respondPermission(requestId: string, optionId: string): Promise<void>
   /** Switch the session's mode (frozen contract: acp:set-mode). */
   setMode(sessionId: string, modeId: string): Promise<void>
+  /** Set a session config option — model / effort / thinking / fast-mode (frozen contract: acp:set-config). */
+  setConfig(sessionId: string, configId: string, value: string | boolean): Promise<void>
   dialogues(): Promise<AcpDialogueSummary[]>
   readDialogue(file: string): Promise<AcpStoredDialogue>
   onUpdate(cb: (u: AcpUpdate) => void): () => void

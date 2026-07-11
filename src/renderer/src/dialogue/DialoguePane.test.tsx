@@ -17,6 +17,7 @@ const makeAcp = (agents: AcpAgent[]) => ({
   cancel: vi.fn().mockResolvedValue(undefined),
   respondPermission: vi.fn().mockResolvedValue(undefined),
   setMode: vi.fn().mockResolvedValue(undefined),
+  setConfig: vi.fn().mockResolvedValue(undefined),
   dialogues: vi.fn().mockResolvedValue([]),
   readDialogue: vi.fn().mockResolvedValue({
     schemaVersion: 1,
@@ -287,6 +288,71 @@ describe('DialoguePane — mode switcher', () => {
     setup()
     await waitReady()
     expect(screen.queryByLabelText('mode')).toBeNull()
+  })
+})
+
+describe('DialoguePane — config bar', () => {
+  const emitConfig = () =>
+    emit({
+      kind: 'config',
+      sessionId: 's1',
+      options: [
+        {
+          id: 'model',
+          name: 'Model',
+          type: 'select',
+          currentValue: 'sonnet',
+          values: [
+            { id: 'sonnet', name: 'Sonnet' },
+            { id: 'opus', name: 'Opus' },
+          ],
+        },
+        { id: 'fast', name: 'Fast Mode', type: 'boolean', currentValue: false },
+      ],
+    })
+
+  it('renders a select config option and calls setConfig with the chosen value-id', async () => {
+    const { acp } = setup()
+    await waitReady()
+    emitConfig()
+    const select = (await screen.findByLabelText('Model')) as HTMLSelectElement
+    expect(select.value).toBe('sonnet')
+    expect(screen.getByRole('option', { name: 'Opus' })).toBeTruthy()
+    fireEvent.change(select, { target: { value: 'opus' } })
+    expect(acp.setConfig).toHaveBeenCalledWith('s1', 'model', 'opus')
+  })
+
+  it('renders a boolean config option as a toggle and calls setConfig with the new boolean', async () => {
+    const { acp } = setup()
+    await waitReady()
+    emitConfig()
+    const toggle = (await screen.findByLabelText('Fast Mode')) as HTMLInputElement
+    expect(toggle.checked).toBe(false)
+    fireEvent.click(toggle)
+    expect(acp.setConfig).toHaveBeenCalledWith('s1', 'fast', true)
+  })
+
+  it('renders the usage readout and cost', async () => {
+    setup()
+    await waitReady()
+    emit({ kind: 'usage', sessionId: 's1', used: 12_300, size: 200_000, cost: 0.42 })
+    const usage = await screen.findByLabelText('usage')
+    expect(usage.textContent).toMatch(/12\.3k \/ 200k tokens/)
+    expect(usage.textContent).toMatch(/\$0\.42/)
+  })
+
+  it('shows the session title when set', async () => {
+    setup()
+    await waitReady()
+    emit({ kind: 'session-info', sessionId: 's1', title: 'Refactoring the reducer' })
+    expect(await screen.findByText('Refactoring the reducer')).toBeTruthy()
+  })
+
+  it('no config bar until config / usage / title arrive', async () => {
+    setup()
+    await waitReady()
+    expect(screen.queryByLabelText('usage')).toBeNull()
+    expect(screen.queryByLabelText('Model')).toBeNull()
   })
 })
 

@@ -21,6 +21,12 @@ import {
  */
 const acpApi = (): AcpApi => window.astrolabe.acp
 
+/** Compact token count: 12_300 → "12.3k", 200_000 → "200k", 940 → "940". */
+function formatTokens(n: number): string {
+  if (n < 1000) return String(n)
+  return `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k`
+}
+
 type Action =
   | { type: 'reset'; sessionId: string }
   | { type: 'restart'; sessionId: string }
@@ -266,6 +272,51 @@ export function DialoguePane({
           </button>
         )}
       </header>
+
+      {!historyOpen &&
+        (transcript.configOptions.length > 0 || transcript.usage || transcript.sessionTitle) && (
+          <div className="flex flex-wrap items-center gap-2 border-b border-zinc-800 px-3 py-1.5 text-xs">
+            {transcript.sessionTitle && (
+              <span className="max-w-[12rem] truncate font-medium text-zinc-300" title={transcript.sessionTitle}>
+                {transcript.sessionTitle}
+              </span>
+            )}
+            {transcript.configOptions.map((opt) =>
+              opt.type === 'select' ? (
+                <select
+                  key={opt.id}
+                  aria-label={opt.name}
+                  title={opt.description ?? opt.name}
+                  value={String(opt.currentValue)}
+                  onChange={(e) => sessionId && void acpApi().setConfig(sessionId, opt.id, e.target.value)}
+                  className="rounded border border-zinc-700 bg-zinc-900 px-1.5 py-0.5 text-xs text-zinc-200 outline-none focus:border-zinc-500"
+                >
+                  {(opt.values ?? []).map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <label key={opt.id} className="flex items-center gap-1 text-zinc-400" title={opt.description ?? opt.name}>
+                  <input
+                    type="checkbox"
+                    aria-label={opt.name}
+                    checked={opt.currentValue === true}
+                    onChange={(e) => sessionId && void acpApi().setConfig(sessionId, opt.id, e.target.checked)}
+                  />
+                  {opt.name}
+                </label>
+              ),
+            )}
+            {transcript.usage && (
+              <span className="ml-auto whitespace-nowrap text-zinc-500" aria-label="usage">
+                {formatTokens(transcript.usage.used)} / {formatTokens(transcript.usage.size)} tokens
+                {transcript.usage.cost != null ? ` · $${transcript.usage.cost.toFixed(2)}` : ''}
+              </span>
+            )}
+          </div>
+        )}
 
       {historyOpen ? (
         reading ? (

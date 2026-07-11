@@ -1,20 +1,23 @@
 import type {
   ContentBlock,
+  SessionConfigOption,
+  SessionConfigSelectOptions,
   SessionUpdate,
   ToolCall,
   ToolCallContent,
   ToolCallLocation,
   ToolCallUpdate,
 } from '@agentclientprotocol/sdk'
-import type { AcpToolContentItem, AcpToolEvent, AcpUpdateEvent } from '../../shared/db-ipc'
+import type { AcpConfigOption, AcpToolContentItem, AcpToolEvent, AcpUpdateEvent } from '../../shared/db-ipc'
 
 /**
  * PURE mapping from the SDK's `session/update` notification variants into the renderer contract
  * (`AcpUpdateEvent`, src/shared/db-ipc.ts — the frozen wire contract). Side-effect-free and
  * exhaustively unit-tested: the parallel renderer agent codes against the OUTPUT shape exactly.
  * `turn-end` and `error` are NOT update variants; the manager synthesizes those from the prompt
- * lifecycle, so anything not surfaced here (usage, session_info, config-option, plan_removed, the
- * user echo, unknown variants) returns null.
+ * lifecycle. Everything the adapter emits is surfaced: config-option / usage / session-info now map
+ * to their own events; only genuinely-unrenderable variants (the user echo, plan_update/plan_removed,
+ * any unknown future variant) return null.
  */
 
 /** Text-bearing surface of a content block (the LLM text, a resource_link's uri, or an embedded
@@ -106,6 +109,31 @@ function toToolEvent(sessionId: string, tc: ToolCall | ToolCallUpdate): AcpToolE
   return event
 }
 
+/** Flatten a select option's selectable values (a flat list OR groups) into the wire's `{id,name}[]`,
+ *  mapping the SDK's value-id field (`value`) to `id`. Group structure is UX-only, so we flatten. */
+function flattenSelectValues(options: SessionConfigSelectOptions): { id: string; name: string }[] {
+  const out: { id: string; name: string }[] = []
+  for (const el of options) {
+    if ('options' in el) {
+      for (const o of el.options) out.push({ id: o.value, name: o.name })
+    } else {
+      out.push({ id: el.value, name: el.name })
+    }
+  }
+  return out
+}
+
+/** Map one SDK `SessionConfigOption` into the frozen `AcpConfigOption` (select carries flattened
+ *  `values`; boolean omits them). Exported so the manager can map the initial options from
+ *  session/new and the updated set from a `session/set_config_option` response. */
+export function mapConfigOption(opt: SessionConfigOption): AcpConfigOption {
+  const base = { id: opt.id, name: opt.name, ...(opt.description ? { description: opt.description } : {}) }
+  if (opt.type === 'boolean') {
+    return { ...base, type: 'boolean', currentValue: opt.currentValue }
+  }
+  return { ...base, type: 'select', currentValue: opt.currentValue, values: flattenSelectValues(opt.options) }
+}
+
 /** Map one update, or null when it carries nothing the transcript renders. */
 export function mapSessionUpdate(sessionId: string, update: SessionUpdate): AcpUpdateEvent | null {
   switch (update.sessionUpdate) {
@@ -137,9 +165,29 @@ export function mapSessionUpdate(sessionId: string, update: SessionUpdate): AcpU
       }
     case 'current_mode_update':
       return { sessionId, kind: 'mode', currentModeId: update.currentModeId }
+    case 'config_option_update':
+      return { sessionId, kind: 'config', options: update.configOptions.map(mapConfigOption) }
+    case 'usage_update':
+      return {
+        sessionId,
+        kind: 'usage',
+        used: update.used,
+        size: update.size,
+        // The SDK Cost is {amount, currency}; the wire keeps the numeric amount the UI renders.
+        ...(update.cost != null ? { cost: update.cost.amount } : {}),
+      }
+    case 'session_info_update':
+      // title is a partial field: present (incl. explicit null → clear) means "set"; absent means
+      // "leave". updatedAt rides along the same way. The reducer keys off which fields are present.
+      return {
+        sessionId,
+        kind: 'session-info',
+        ...('title' in update ? { title: update.title } : {}),
+        ...('updatedAt' in update ? { updatedAt: update.updatedAt } : {}),
+      }
     default:
-      // user_message_chunk (the echo), plan_update/plan_removed (unstable), config_option_update,
-      // session_info_update, usage_update, and any unknown future variant.
+      // user_message_chunk (the echo), plan_update/plan_removed (unstable), and any unknown future
+      // variant carry nothing the transcript renders.
       return null
   }
 }

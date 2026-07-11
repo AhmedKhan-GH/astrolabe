@@ -12,6 +12,7 @@ import {
   type RequestPermissionResponse,
   type SessionModeState,
   type SessionNotification,
+  type SetSessionConfigOptionRequest,
   type StopReason,
 } from '@agentclientprotocol/sdk'
 import type {
@@ -29,7 +30,7 @@ import {
   type AcpSpawn,
   type WhichFn,
 } from './adapters'
-import { mapSessionUpdate } from './update-map'
+import { mapConfigOption, mapSessionUpdate } from './update-map'
 import type { DialogueStore, DialogueWriter } from './dialogue-store'
 
 /**
@@ -122,6 +123,9 @@ export interface AcpManager {
   respondPermission(requestId: string, optionId: string): void
   /** Switch a live session's operational mode (one of its advertised availableModes). */
   setMode(sessionId: string, modeId: string): void
+  /** Set one of a live session's config options (model / effort / thinking / fast-mode). The value
+   *  is a value-id string for a `select` option or a boolean for a toggle. */
+  setConfig(sessionId: string, configId: string, value: string | boolean): void
   disposeAll(): void
 }
 
@@ -330,6 +334,11 @@ export function createAcpManager(deps: AcpManagerDeps): AcpManager {
           ...(session.availableModes ? { availableModes: session.availableModes } : {}),
         })
       }
+      // Surface the initial config options (model / effort / thinking / fast-mode), if the agent
+      // reported them on session/new, as a `config` event — the header config bar opens filled.
+      if (res.configOptions && res.configOptions.length > 0) {
+        deps.onUpdate({ sessionId: acpSessionId, kind: 'config', options: res.configOptions.map(mapConfigOption) })
+      }
       return { sessionId: acpSessionId }
     } catch (err) {
       channel.kill()
@@ -377,6 +386,24 @@ export function createAcpManager(deps: AcpManagerDeps): AcpManager {
       .catch(() => {}) // a rejected set_mode leaves the mode unchanged; the pane keeps its state
   }
 
+  function setConfig(sessionId: string, configId: string, value: string | boolean): void {
+    const session = sessions.get(sessionId)
+    if (!session || session.closed) return
+    // The SDK request is discriminated: a boolean carries `type: 'boolean'`; a select value carries
+    // the value-id alone. The response echoes the FULL updated option set, which we re-emit as a
+    // `config` event so the header reflects the new value (mirror setMode's re-emit).
+    const params: SetSessionConfigOptionRequest =
+      typeof value === 'boolean'
+        ? { sessionId, configId, value, type: 'boolean' }
+        : { sessionId, configId, value }
+    void session.conn.agent
+      .request('session/set_config_option', params)
+      .then((res) => {
+        deps.onUpdate({ sessionId, kind: 'config', options: res.configOptions.map(mapConfigOption) })
+      })
+      .catch(() => {}) // a rejected set leaves the config unchanged; the pane keeps its state
+  }
+
   function respondPermission(requestId: string, optionId: string): void {
     const p = pending.get(requestId)
     if (!p) return
@@ -402,5 +429,5 @@ export function createAcpManager(deps: AcpManagerDeps): AcpManager {
     sessions.clear()
   }
 
-  return { agents, newSession, prompt, cancel, respondPermission, setMode, disposeAll }
+  return { agents, newSession, prompt, cancel, respondPermission, setMode, setConfig, disposeAll }
 }
