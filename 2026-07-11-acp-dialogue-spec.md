@@ -26,7 +26,7 @@ agent picker. Same socket, same pane, same permissions — nothing built here is
 
 ### Main process — `src/main/acp/`
 - **`adapters.ts`** — the agent registry as DATA: `{key, label, command, args, env}` per
-  adapter. v1 ships two: `claude` (claude-code-acp, bundled as a dependency, spawned via
+  adapter. v1 ships two: `claude` (claude-agent-acp, bundled as a dependency, spawned via
   Electron's node — ELECTRON_RUN_AS_NODE — pointing at the package bin) and `codex` (the
   Codex ACP adapter; resolved from PATH/config). An adapter appears in the picker only if
   its binary resolves (availability probe, mirrors connector checkAvailable).
@@ -81,7 +81,7 @@ markdown-adjacent JSON meanwhile.
   over stdio (this pins the packaging risk).
 - **E2E:** allowlist gains `acp`; boot stays clean with no adapter installed (pane shows
   "no agents available" — degrade like a missing connector, never a crash).
-- **Live (manual gate):** `ASTROLABE_LIVE_ACP=1` — real claude-code-acp session answering
+- **Live (manual gate):** `ASTROLABE_LIVE_ACP=1` — real claude-agent-acp session answering
   one library question end-to-end; the canary for adapter upgrades.
 
 ## Out of scope v1 (recorded)
