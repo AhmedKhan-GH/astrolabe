@@ -88,6 +88,20 @@ describe('createDialogueStore', () => {
     w.flush()
     expect(onlyFile().name).toBe('2026-07-11T13-00-00-000Z-claude.json')
   })
+
+  it('round-trips the ACP sessionId when one is supplied (v1.2 resumability)', () => {
+    const w = store.open('claude', '2026-07-11T14:00:00.000Z', 'acp-session-abc')
+    w.addMessage({ role: 'user', text: 'resume me later', at: 't1' })
+    w.flush()
+    expect(onlyFile().body.sessionId).toBe('acp-session-abc')
+  })
+
+  it('omits the sessionId key entirely when none is supplied (pre-v1.2 shape unchanged)', () => {
+    const w = store.open('claude', '2026-07-11T15:00:00.000Z')
+    w.addMessage({ role: 'user', text: 'no session id', at: 't1' })
+    w.flush()
+    expect('sessionId' in onlyFile().body).toBe(false)
+  })
 })
 
 describe('createDialogueStore — history browser (v1.1)', () => {
@@ -140,6 +154,21 @@ describe('createDialogueStore — history browser (v1.1)', () => {
       documentIds: [42],
     })
     expect(body.messages.map((m) => m.text)).toEqual(['what did I highlight?', 'this passage'])
+  })
+
+  it('list() surfaces a stored sessionId, and leaves it undefined for a file without one', () => {
+    // A resumable dialogue (has a sessionId) …
+    const resumableWriter = store.open('claude', '2026-07-11T16:00:00.000Z', 'sess-live')
+    resumableWriter.addMessage({ role: 'user', text: 'resumable', at: 't1' })
+    resumableWriter.flush()
+    // … and a pre-v1.2 one (no sessionId).
+    seed('codex', '2026-07-11T15:00:00.000Z', 'not resumable')
+
+    const list = store.list()
+    const resumable = list.find((d) => d.firstPrompt === 'resumable')!
+    const legacy = list.find((d) => d.firstPrompt === 'not resumable')!
+    expect(resumable.sessionId).toBe('sess-live')
+    expect(legacy.sessionId).toBeUndefined()
   })
 
   it('read() rejects path traversal and non-pattern names', () => {

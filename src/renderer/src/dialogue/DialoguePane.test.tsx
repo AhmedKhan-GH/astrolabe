@@ -13,6 +13,7 @@ let permCb: ((r: AcpPermissionRequest) => void) | null = null
 const makeAcp = (agents: AcpAgent[]) => ({
   agents: vi.fn().mockResolvedValue(agents),
   newSession: vi.fn().mockResolvedValue({ sessionId: 's1' }),
+  loadSession: vi.fn().mockResolvedValue({ sessionId: 'resumed-1' }),
   prompt: vi.fn().mockResolvedValue(undefined),
   cancel: vi.fn().mockResolvedValue(undefined),
   respondPermission: vi.fn().mockResolvedValue(undefined),
@@ -409,6 +410,66 @@ describe('DialoguePane — history browser (v1.1)', () => {
     await screen.findByText(/read-only/i)
     fireEvent.click(screen.getByRole('button', { name: /back to live/i }))
     await waitFor(() => expect(screen.getByPlaceholderText(/ask/i)).toBeTruthy())
+  })
+})
+
+describe('DialoguePane — continue a past chat (v1.2 resume)', () => {
+  // A resumable claude agent (installed + supports session/load).
+  const loadReady: AcpAgent[] = [{ key: 'claude', label: 'Claude', available: true, authenticated: true, loadSupported: true }]
+  const resumable = [
+    { file: '2026-07-11T10-00-00-000Z-past-question.json', agentKey: 'claude', startedAt: '2026-07-11T10:00:00.000Z', firstPrompt: 'past question', messageCount: 2, sessionId: 'acp-stored-1' },
+  ]
+  const notResumable = [
+    { file: '2026-07-10T09-00-00-000Z-legacy.json', agentKey: 'claude', startedAt: '2026-07-10T09:00:00.000Z', firstPrompt: 'legacy chat', messageCount: 2 },
+  ]
+
+  const openReading = async (dialogues: unknown[], extra: Partial<Acp> = {}) => {
+    const ctx = setup(loadReady, { dialogues: vi.fn().mockResolvedValue(dialogues), ...extra })
+    await waitReady()
+    fireEvent.click(screen.getByRole('button', { name: /history/i }))
+    fireEvent.click(await screen.findByText(dialogues === notResumable ? 'legacy chat' : 'past question'))
+    await screen.findByText(/read-only/i)
+    return ctx
+  }
+
+  it('shows "Continue this chat" only for a resumable dialogue (sessionId + loadSupported)', async () => {
+    await openReading(resumable)
+    expect(await screen.findByRole('button', { name: /continue this chat/i })).toBeTruthy()
+  })
+
+  it('no Continue button when the stored dialogue has no sessionId', async () => {
+    await openReading(notResumable)
+    expect(screen.queryByRole('button', { name: /continue this chat/i })).toBeNull()
+  })
+
+  it('no Continue button when the agent does not support session/load', async () => {
+    const noLoad: AcpAgent[] = [{ key: 'claude', label: 'Claude', available: true, authenticated: true, loadSupported: false }]
+    const ctx = setup(noLoad, { dialogues: vi.fn().mockResolvedValue(resumable) })
+    await waitReady()
+    fireEvent.click(screen.getByRole('button', { name: /history/i }))
+    fireEvent.click(await screen.findByText('past question'))
+    await screen.findByText(/read-only/i)
+    expect(screen.queryByRole('button', { name: /continue this chat/i })).toBeNull()
+    void ctx
+  })
+
+  it('clicking Continue loads the session and switches to the live prompt box', async () => {
+    const { acp } = await openReading(resumable)
+    fireEvent.click(await screen.findByRole('button', { name: /continue this chat/i }))
+    expect(acp.loadSession).toHaveBeenCalledWith('claude', 'acp-stored-1')
+    // Back in the live view: the prompt box returns and read-only is gone.
+    await waitFor(() => expect(screen.getByPlaceholderText(/ask/i)).toBeTruthy())
+    expect(screen.queryByText(/read-only/i)).toBeNull()
+  })
+
+  it('a failed resume surfaces the error inline and stays read-only', async () => {
+    const loadSession = vi.fn().mockResolvedValue({ error: 'This chat could not be resumed — the agent no longer has it.' })
+    await openReading(resumable, { loadSession } as Partial<Acp>)
+    fireEvent.click(await screen.findByRole('button', { name: /continue this chat/i }))
+    expect(await screen.findByText(/could not be resumed/i)).toBeTruthy()
+    // Still read-only, no live prompt box.
+    expect(screen.getByText(/read-only/i)).toBeTruthy()
+    expect(screen.queryByPlaceholderText(/ask/i)).toBeNull()
   })
 })
 

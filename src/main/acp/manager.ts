@@ -6,10 +6,12 @@ import {
   PROTOCOL_VERSION,
   type ClientApp,
   type ClientConnection,
+  type InitializeResponse,
   type McpServerStdio,
   type PermissionOption,
   type RequestPermissionRequest,
   type RequestPermissionResponse,
+  type SessionConfigOption,
   type SessionModeState,
   type SessionNotification,
   type SetSessionConfigOptionRequest,
@@ -121,6 +123,10 @@ export interface AcpManagerDeps {
 export interface AcpManager {
   agents(): AcpAgentDescriptor[]
   newSession(agentKey: AcpAgentKey): Promise<AcpSessionResult>
+  /** Resume a stored dialogue: `session/load` the given ACP session id back into a fresh live
+   *  connection (the adapter replays the transcript as `session/update` notifications). Rejected
+   *  with a user-renderable error if the adapter can't load or no longer has the session. */
+  loadSession(agentKey: AcpAgentKey, sessionId: string): Promise<AcpSessionResult>
   prompt(sessionId: string, text: string): { ok: true } | { error: string }
   cancel(sessionId: string): void
   /** Answer a pending permission request with the option the user chose. */
@@ -169,6 +175,9 @@ export function createAcpManager(deps: AcpManagerDeps): AcpManager {
 
   const sessions = new Map<string, Session>()
   const pending = new Map<string, PendingPermission>()
+  // Per-agent `loadSession` capability, learned from each initialize response (session/new OR
+  // session/load) and surfaced via agents() so the history browser can gate the Continue affordance.
+  const loadCapable = new Map<AcpAgentKey, boolean>()
   let requestCounter = 0
 
   const nowIso = (): string => (deps.now ? deps.now() : new Date()).toISOString()
@@ -267,7 +276,14 @@ export function createAcpManager(deps: AcpManagerDeps): AcpManager {
       const available = adapter.resolve(which) !== null
       // `authenticated` is optimistic: a cheap probe can't know without spawning, so real auth is
       // enforced at session-new (which surfaces an `auth_required` error the pane renders).
-      return { key: adapter.key, label: adapter.label, available, authenticated: available }
+      // `loadSupported` reflects the last initialize (false until the agent has been spawned once).
+      return {
+        key: adapter.key,
+        label: adapter.label,
+        available,
+        authenticated: available,
+        loadSupported: loadCapable.get(adapter.key) ?? false,
+      }
     })
   }
 
@@ -285,82 +301,161 @@ export function createAcpManager(deps: AcpManagerDeps): AcpManager {
     }
   }
 
-  async function newSession(agentKey: AcpAgentKey): Promise<AcpSessionResult> {
+  /**
+   * Register + wire a freshly created/loaded session: store it, arm the death handler, override
+   * bypassPermissions → default so `session/request_permission` reaches the client, and emit the
+   * initial mode/config events from the session/new|load response. Shared by newSession + loadSession
+   * (both responses carry the same `modes`/`configOptions` shape). `acpSessionId` is the session/new
+   * result id for a new session, and the loaded id for a resume — the writer stamps it into the
+   * dialogue file so the (new) file itself is later resumable.
+   */
+  async function activateSession(
+    agentKey: AcpAgentKey,
+    acpSessionId: string,
+    conn: ClientConnection,
+    channel: AcpChannel,
+    res: { modes?: SessionModeState | null; configOptions?: SessionConfigOption[] | null },
+  ): Promise<void> {
+    const availableModes = res.modes?.availableModes?.map((m) => ({ id: m.id, name: m.name }))
+    const session: Session = {
+      acpSessionId,
+      agentKey,
+      conn,
+      channel,
+      writer: deps.dialogueStore?.open(agentKey, undefined, acpSessionId),
+      agentBuffer: '',
+      closed: false,
+      currentModeId: res.modes?.currentModeId,
+      availableModes,
+    }
+    sessions.set(acpSessionId, session)
+    // Adapter death mid-session → an error event, never a crash.
+    void conn.closed.then(
+      () => handleDeath(acpSessionId),
+      () => handleDeath(acpSessionId),
+    )
+    // Turn OFF bypassPermissions so `session/request_permission` reaches the client: the Claude
+    // adapter's permissionMode comes from its own settings; `bypassPermissions` fully SHADOWS
+    // canUseTool (the SDK auto-approves every tool and never calls the client), so the observed
+    // canary saw no prompts. The client's lever is `session/set_mode` — switch back to `default`
+    // ("Manual", which prompts) whenever a session opens in bypass. Other modes route through
+    // canUseTool, so we leave them (the user's own configurability, per the non-restrict goal).
+    await ensurePromptingMode(session, res.modes)
+    // Surface the initial mode (from the response) as a `mode` event.
+    if (session.currentModeId) {
+      deps.onUpdate({
+        sessionId: acpSessionId,
+        kind: 'mode',
+        currentModeId: session.currentModeId,
+        ...(session.availableModes ? { availableModes: session.availableModes } : {}),
+      })
+    }
+    // Surface the initial config options (model / effort / thinking / fast-mode), if the agent
+    // reported them, as a `config` event — the header config bar opens filled.
+    if (res.configOptions && res.configOptions.length > 0) {
+      deps.onUpdate({ sessionId: acpSessionId, kind: 'config', options: res.configOptions.map(mapConfigOption) })
+    }
+  }
+
+  /** Resolve + spawn an adapter and frame its stdio. No initialize yet — the caller owns the channel
+   *  so it can tear the child down if the handshake fails. Returns the live connection + channel, or
+   *  a user-renderable error (unknown/uninstalled adapter, spawn failure). */
+  function spawnAdapter(
+    agentKey: AcpAgentKey,
+  ): { conn: ClientConnection; channel: AcpChannel } | { error: string } {
     const adapter = adapterList.find((a) => a.key === agentKey)
     if (!adapter) return { error: `Unknown agent: ${agentKey}` }
     const spawn = adapter.resolve(which)
     if (!spawn) return { error: `${adapter.label} is not installed.` }
 
     let channel: AcpChannel | undefined
-    let conn: ClientConnection
     try {
       channel = deps.channelFactory(spawn)
-      conn = channel.connect(buildClientApp())
+      const conn = channel.connect(buildClientApp())
+      return { conn, channel }
     } catch (err) {
       return { error: withAdapterStderr(`Failed to start ${adapter.label}: ${String(err)}`, channel) }
     }
+  }
+
+  /** Run the shared `initialize` handshake (minimal client capabilities) and record the agent's
+   *  `loadSession` capability for agents(). */
+  async function initialize(agentKey: AcpAgentKey, conn: ClientConnection): Promise<void> {
+    const init = (await conn.agent.request('initialize', {
+      protocolVersion: PROTOCOL_VERSION,
+      clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
+      clientInfo,
+    })) as InitializeResponse
+    loadCapable.set(agentKey, !!init.agentCapabilities?.loadSession)
+  }
+
+  async function newSession(agentKey: AcpAgentKey): Promise<AcpSessionResult> {
+    const adapter = adapterList.find((a) => a.key === agentKey)
+    const spawned = spawnAdapter(agentKey)
+    if ('error' in spawned) return spawned
+    const { conn, channel } = spawned
 
     try {
-      await conn.agent.request('initialize', {
-        protocolVersion: PROTOCOL_VERSION,
-        clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
-        clientInfo,
-      })
+      await initialize(agentKey, conn)
       const res = await conn.agent.request('session/new', {
         // Escape the workspace root out of the asar if it ever resolves there (defensive — the
         // workspace lives in the user's home, but a session cwd must never point inside app.asar).
         cwd: unpackedPath(deps.cwd),
         mcpServers: [deps.mcpServer()],
       })
-      const acpSessionId = res.sessionId
-      const availableModes = res.modes?.availableModes?.map((m) => ({ id: m.id, name: m.name }))
-      const session: Session = {
-        acpSessionId,
-        agentKey,
-        conn,
-        channel,
-        writer: deps.dialogueStore?.open(agentKey),
-        agentBuffer: '',
-        closed: false,
-        currentModeId: res.modes?.currentModeId,
-        availableModes,
-      }
-      sessions.set(acpSessionId, session)
-      // Adapter death mid-session → an error event, never a crash.
-      void conn.closed.then(
-        () => handleDeath(acpSessionId),
-        () => handleDeath(acpSessionId),
-      )
-      // Turn OFF bypassPermissions so `session/request_permission` reaches the client: the Claude
-      // adapter's permissionMode comes from its own settings; `bypassPermissions` fully SHADOWS
-      // canUseTool (the SDK auto-approves every tool and never calls the client), so the observed
-      // canary saw no prompts. The client's lever is `session/set_mode` — switch back to `default`
-      // ("Manual", which prompts) whenever a session opens in bypass. Other modes route through
-      // canUseTool, so we leave them (the user's own configurability, per the non-restrict goal).
-      await ensurePromptingMode(session, res.modes)
-      // Surface the initial mode (from the session/new response) as a `mode` event.
-      if (session.currentModeId) {
-        deps.onUpdate({
-          sessionId: acpSessionId,
-          kind: 'mode',
-          currentModeId: session.currentModeId,
-          ...(session.availableModes ? { availableModes: session.availableModes } : {}),
-        })
-      }
-      // Surface the initial config options (model / effort / thinking / fast-mode), if the agent
-      // reported them on session/new, as a `config` event — the header config bar opens filled.
-      if (res.configOptions && res.configOptions.length > 0) {
-        deps.onUpdate({ sessionId: acpSessionId, kind: 'config', options: res.configOptions.map(mapConfigOption) })
-      }
-      return { sessionId: acpSessionId }
+      await activateSession(agentKey, res.sessionId, conn, channel, res)
+      return { sessionId: res.sessionId }
     } catch (err) {
       channel.kill()
       const message = String(err)
       if (/auth/i.test(message)) {
         const cmd = agentKey === 'claude' ? '`claude`' : '`codex login`'
-        return { error: `${adapter.label} needs sign-in. Run ${cmd} in a terminal, then retry.` }
+        return { error: `${adapter!.label} needs sign-in. Run ${cmd} in a terminal, then retry.` }
       }
-      return { error: withAdapterStderr(`${adapter.label} failed to start a session: ${message}`, channel) }
+      return { error: withAdapterStderr(`${adapter!.label} failed to start a session: ${message}`, channel) }
+    }
+  }
+
+  async function loadSession(agentKey: AcpAgentKey, sessionId: string): Promise<AcpSessionResult> {
+    const adapter = adapterList.find((a) => a.key === agentKey)
+    const spawned = spawnAdapter(agentKey)
+    if ('error' in spawned) return spawned
+    const { conn, channel } = spawned
+
+    try {
+      await initialize(agentKey, conn)
+    } catch (err) {
+      channel.kill()
+      return { error: withAdapterStderr(`${adapter!.label} failed to start a session: ${String(err)}`, channel) }
+    }
+
+    // Capability gate: an agent that never advertised loadSession cannot resume — tear the child
+    // down and say so (the renderer normally disables Continue, but a stale capability could slip).
+    if (!loadCapable.get(agentKey)) {
+      channel.kill()
+      return { error: `${adapter!.label} cannot resume past chats — it does not support session loading.` }
+    }
+
+    try {
+      // The adapter REPLAYS the conversation as `session/update` notifications during this call; they
+      // are forwarded to the renderer immediately (onSessionUpdate emits before the session is
+      // registered) and buffered there until activation. A resume APPENDS to a NEW dialogue file —
+      // the old file is never rewritten (simplest correct choice; the replay reconstructs the pane).
+      const res = await conn.agent.request('session/load', {
+        sessionId,
+        cwd: unpackedPath(deps.cwd),
+        mcpServers: [deps.mcpServer()],
+      })
+      await activateSession(agentKey, sessionId, conn, channel, res ?? {})
+      return { sessionId }
+    } catch (err) {
+      channel.kill()
+      return {
+        error: withAdapterStderr(
+          'This chat could not be resumed — the agent no longer has it. It may have expired or been cleared. Start a fresh chat to continue.',
+          channel,
+        ),
+      }
     }
   }
 
@@ -442,5 +537,5 @@ export function createAcpManager(deps: AcpManagerDeps): AcpManager {
     sessions.clear()
   }
 
-  return { agents, newSession, prompt, cancel, respondPermission, setMode, setConfig, disposeAll }
+  return { agents, newSession, loadSession, prompt, cancel, respondPermission, setMode, setConfig, disposeAll }
 }

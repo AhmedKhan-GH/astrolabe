@@ -38,6 +38,9 @@ export interface DialogueFile {
   schemaVersion: 1
   agentKey: AcpAgentKey
   startedAt: string
+  /** The ACP session id this dialogue ran as — the handle `session/load` resumes by (v1.2). Absent
+   *  on pre-v1.2 files (simply not resumable). */
+  sessionId?: string
   messages: DialogueMessage[]
   toolCalls: DialogueToolCall[]
   documentIds: number[]
@@ -55,7 +58,9 @@ export interface DialogueWriter {
 }
 
 export interface DialogueStore {
-  open(agentKey: AcpAgentKey, startedAt?: string): DialogueWriter
+  /** `sessionId` is the live ACP session id (known after session/new or session/load resolves) so a
+   *  resumed dialogue can later be continued — it is stamped into the file at first flush. */
+  open(agentKey: AcpAgentKey, startedAt?: string, sessionId?: string): DialogueWriter
   /** Past dialogues as summaries, newest first (the v1.1 history browser). */
   list(): AcpDialogueSummary[]
   /** The full stored dialogue for a listed `file`. Throws on any name that isn't one of ours. */
@@ -65,11 +70,14 @@ export interface DialogueStore {
 /** `dialoguesDir` is injected (the workspace's `.astrolabe/dialogues/`) so tests run in a tmp dir.
  *  The dir is created lazily on first flush — a session with no completed turn writes nothing. */
 export function createDialogueStore(dialoguesDir: string): DialogueStore {
-  function open(agentKey: AcpAgentKey, startedAt = new Date().toISOString()): DialogueWriter {
+  function open(agentKey: AcpAgentKey, startedAt = new Date().toISOString(), sessionId?: string): DialogueWriter {
     const state: DialogueFile = {
       schemaVersion: 1,
       agentKey,
       startedAt,
+      // Only stamp a sessionId when one is known — `undefined` is dropped by JSON.stringify, so a
+      // file lacking the key is simply not resumable (pre-v1.2 dialogues).
+      ...(sessionId ? { sessionId } : {}),
       messages: [],
       toolCalls: [],
       documentIds: [],
@@ -121,6 +129,9 @@ export function createDialogueStore(dialoguesDir: string): DialogueStore {
           startedAt: body.startedAt,
           firstPrompt: firstPrompt(body.messages),
           messageCount: body.messages.length,
+          // Surfaced so the history browser can gate the "Continue" affordance (undefined = a
+          // pre-v1.2 file with no session id → not resumable).
+          ...(body.sessionId ? { sessionId: body.sessionId } : {}),
         })
       } catch {
         // A corrupt/partial file is skipped rather than sinking the whole list.

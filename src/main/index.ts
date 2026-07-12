@@ -23,6 +23,7 @@ import {
   ACP_CANCEL_CHANNEL,
   ACP_DIALOGUES_LIST_CHANNEL,
   ACP_DIALOGUES_READ_CHANNEL,
+  ACP_LOAD_SESSION_CHANNEL,
   ACP_PERMISSION_REQUEST_EVENT,
   ACP_PERMISSION_RESPONSE_CHANNEL,
   ACP_PROMPT_CHANNEL,
@@ -32,6 +33,7 @@ import {
   ACP_UPDATE_EVENT,
   acpCancelSchema,
   acpDialogueReadSchema,
+  acpLoadSessionSchema,
   acpPermissionResponseSchema,
   acpPromptSchema,
   acpSessionNewSchema,
@@ -266,6 +268,11 @@ app.whenReady().then(() => {
     ipcMain.handle(ACP_SESSION_NEW_CHANNEL, (_event, raw: unknown) =>
       acpManager.newSession(acpSessionNewSchema.parse(raw).agentKey),
     )
+    // Resume a past dialogue (v1.2): session/load the stored session id into a fresh live session.
+    ipcMain.handle(ACP_LOAD_SESSION_CHANNEL, (_event, raw: unknown) => {
+      const req = acpLoadSessionSchema.parse(raw)
+      return acpManager.loadSession(req.agentKey, req.sessionId)
+    })
     ipcMain.handle(ACP_PROMPT_CHANNEL, (_event, raw: unknown) => {
       const req = acpPromptSchema.parse(raw)
       return acpManager.prompt(req.sessionId, req.text)

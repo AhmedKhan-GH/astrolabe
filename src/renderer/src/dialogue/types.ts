@@ -108,6 +108,8 @@ export interface AcpAgent {
   label: string
   available: boolean
   authenticated: boolean
+  /** Whether this agent supports `session/load` (v1.2) — gates the history "Continue" affordance. */
+  loadSupported?: boolean
 }
 
 /** How a permission option resolves — drives the button styling (allow → emerald, reject → zinc). */
@@ -140,6 +142,8 @@ export interface AcpDialogueSummary {
   startedAt: string
   firstPrompt: string
   messageCount: number
+  /** The stored ACP session id (v1.2), if recorded — the "Continue" handle (absent = not resumable). */
+  sessionId?: string
 }
 
 /** A stored dialogue read back for read-only rendering (mirrors the on-disk shape). */
@@ -147,6 +151,8 @@ export interface AcpStoredDialogue {
   schemaVersion: 1
   agentKey: string
   startedAt: string
+  /** The stored ACP session id (v1.2), if recorded — absent on pre-v1.2 files. */
+  sessionId?: string
   messages: { role: 'user' | 'agent'; text: string; at: string }[]
   toolCalls: { name: string; at: string }[]
   documentIds: number[]
@@ -156,6 +162,8 @@ export interface AcpStoredDialogue {
 export interface AcpApi {
   agents(): Promise<AcpAgent[]>
   newSession(agentKey: string): Promise<{ sessionId: string } | { error: string }>
+  /** Resume a stored dialogue (v1.2): session/load the stored session id into a live session. */
+  loadSession(agentKey: string, sessionId: string): Promise<{ sessionId: string } | { error: string }>
   prompt(sessionId: string, text: string): Promise<void>
   cancel(sessionId: string): Promise<void>
   /** Answer a permission request with the chosen option (frozen contract: optionId, not a boolean). */

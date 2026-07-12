@@ -5,6 +5,7 @@ import {
   ACP_CANCEL_CHANNEL,
   ACP_DIALOGUES_LIST_CHANNEL,
   ACP_DIALOGUES_READ_CHANNEL,
+  ACP_LOAD_SESSION_CHANNEL,
   ACP_PERMISSION_REQUEST_EVENT,
   ACP_PERMISSION_RESPONSE_CHANNEL,
   ACP_PROMPT_CHANNEL,
@@ -144,6 +145,9 @@ const api = {
     agents: (): Promise<AcpAgentDescriptor[]> => ipcRenderer.invoke(ACP_AGENTS_CHANNEL),
     newSession: (agentKey: AcpAgentKey): Promise<AcpSessionResult> =>
       ipcRenderer.invoke(ACP_SESSION_NEW_CHANNEL, { agentKey }),
+    // Resume a past dialogue (v1.2): session/load the stored session id back into a live session.
+    loadSession: (agentKey: AcpAgentKey, sessionId: string): Promise<AcpSessionResult> =>
+      ipcRenderer.invoke(ACP_LOAD_SESSION_CHANNEL, { agentKey, sessionId }),
     // Ack only — the turn's output streams back via onUpdate (spec §Wire); the renderer ignores
     // the resolved value, so the surface is typed as a bare ack.
     prompt: (sessionId: string, text: string): Promise<void> =>

@@ -38,7 +38,7 @@ const testAdapter: Adapter = {
 
 interface ScriptedAgent {
   app: AgentApp
-  captured: { initialize?: unknown; newSession?: unknown; setMode: unknown[]; setConfig: unknown[] }
+  captured: { initialize?: unknown; newSession?: unknown; loadSession?: unknown; setMode: unknown[]; setConfig: unknown[] }
 }
 
 interface ScriptOpts {
@@ -46,6 +46,12 @@ interface ScriptOpts {
   newSessionResponse?: NewSessionResponse
   /** The option set a `session/set_config_option` response echoes back (the updated config). */
   setConfigResponse?: SetSessionConfigOptionResponse
+  /** Advertise `agentCapabilities.loadSession` on initialize (default false — like a session-load-less
+   *  adapter such as codex). */
+  loadSession?: boolean
+  /** Drive `session/load`: replay updates back to the client during the load, or throw to simulate a
+   *  session the agent no longer has. */
+  onLoad?: (client: AgentContext, sessionId: string) => Promise<void>
 }
 
 function scriptedAgent(opts: ScriptOpts = {}): ScriptedAgent {
@@ -53,11 +59,16 @@ function scriptedAgent(opts: ScriptOpts = {}): ScriptedAgent {
   const app = agent({ name: 'scripted' })
     .onRequest('initialize', ({ params }) => {
       captured.initialize = params
-      return { protocolVersion: PROTOCOL_VERSION }
+      return { protocolVersion: PROTOCOL_VERSION, ...(opts.loadSession ? { agentCapabilities: { loadSession: true } } : {}) }
     })
     .onRequest('session/new', ({ params }) => {
       captured.newSession = params
       return opts.newSessionResponse ?? { sessionId: 'sess-1' }
+    })
+    .onRequest('session/load', async ({ params, client }) => {
+      captured.loadSession = params
+      if (opts.onLoad) await opts.onLoad(client, (params as { sessionId: string }).sessionId)
+      return {}
     })
     .onRequest('session/set_mode', ({ params }) => {
       captured.setMode.push(params)
@@ -137,7 +148,9 @@ describe('createAcpManager — initialization', () => {
   it('agents() reports availability from the adapter probe', () => {
     const scripted = scriptedAgent()
     const { manager } = harness(scripted)
-    expect(manager.agents()).toEqual([{ key: 'claude', label: 'Claude', available: true, authenticated: true }])
+    expect(manager.agents()).toEqual([
+      { key: 'claude', label: 'Claude', available: true, authenticated: true, loadSupported: false },
+    ])
   })
 })
 
@@ -577,6 +590,65 @@ describe('createAcpManager — permissions', () => {
     manager.prompt(sessionId, 'go')
     await vi.waitFor(() => expect(events.some((e) => e.kind === 'turn-end')).toBe(true))
     expect(outcome).toEqual({ outcome: { outcome: 'cancelled' } })
+  })
+})
+
+describe('createAcpManager — loadSession (resume)', () => {
+  it('session/load replays the transcript as forwarded update events and mounts the index MCP', async () => {
+    const scripted = scriptedAgent({
+      loadSession: true,
+      onLoad: async (client, sessionId) => {
+        // The adapter replays the prior conversation as session/update notifications.
+        await client.notify('session/update', {
+          sessionId,
+          update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'earlier answer' } },
+        })
+      },
+    })
+    const { manager, events } = harness(scripted)
+
+    const res = await manager.loadSession('claude', 'sess-42')
+    expect(res).toEqual({ sessionId: 'sess-42' })
+    // The load request carried the stored session id, the workspace cwd, and the index MCP mount.
+    expect(scripted.captured.loadSession).toMatchObject({ sessionId: 'sess-42', cwd: '/ws', mcpServers: [MCP_SPEC] })
+    // The replayed agent chunk was forwarded to the renderer under the loaded session id.
+    expect(events).toContainEqual({ sessionId: 'sess-42', kind: 'chunk', text: 'earlier answer' })
+    // The resumed session is live: a prompt is accepted (bookkeeping mirrors newSession).
+    expect(manager.prompt('sess-42', 'continue')).toEqual({ ok: true })
+    // agents() now reports the learned loadSession capability.
+    expect(manager.agents()[0]!.loadSupported).toBe(true)
+  })
+
+  it('returns an actionable error and kills the child when the agent no longer has the session', async () => {
+    const scripted = scriptedAgent({
+      loadSession: true,
+      onLoad: async () => {
+        throw new Error('unknown session')
+      },
+    })
+    const { manager, kill } = harness(scripted, { stderr: () => 'session sess-gone not found\n' })
+
+    const res = await manager.loadSession('claude', 'sess-gone')
+    expect('error' in res).toBe(true)
+    const { error } = res as { error: string }
+    expect(error).toContain('could not be resumed')
+    expect(error).toContain('--- adapter stderr ---')
+    expect(kill).toHaveBeenCalled()
+    // No live session was registered — a later prompt rejects cleanly.
+    expect(manager.prompt('sess-gone', 'hi')).toEqual({ error: 'No such session.' })
+  })
+
+  it('refuses to load for an adapter that does not advertise loadSession, and kills the child', async () => {
+    const scripted = scriptedAgent() // no loadSession capability (codex-like)
+    const { manager, kill } = harness(scripted)
+
+    const res = await manager.loadSession('claude', 'sess-1')
+    expect('error' in res).toBe(true)
+    expect((res as { error: string }).error).toContain('cannot resume past chats')
+    // The child was torn down and session/load was never attempted.
+    expect(kill).toHaveBeenCalled()
+    expect(scripted.captured.loadSession).toBeUndefined()
+    expect(manager.agents()[0]!.loadSupported).toBe(false)
   })
 })
 

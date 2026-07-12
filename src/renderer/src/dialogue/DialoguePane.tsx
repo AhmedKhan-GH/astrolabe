@@ -97,6 +97,8 @@ export function DialoguePane({
   const [historyOpen, setHistoryOpen] = useState(false)
   const [dialogues, setDialogues] = useState<AcpDialogueSummary[] | null>(null)
   const [reading, setReading] = useState<{ summary: AcpDialogueSummary; entries: TranscriptEntry[] } | null>(null)
+  // A failed resume (adapter no longer has the session) surfaces inline in the read-only view.
+  const [continueError, setContinueError] = useState<string | null>(null)
 
   // Load the agent registry and subscribe to the update / permission streams once, up front, so
   // no notification is missed between session-start and the first render.
@@ -218,6 +220,10 @@ export function DialoguePane({
     setHistoryOpen(true)
     setReading(null)
     setDialogues(null)
+    setContinueError(null)
+    // Re-fetch agents so `loadSupported` reflects the live agent's just-learned capability (it is
+    // only known post-initialize, so the mount-time agents() call may predate it).
+    void acpApi().agents().then(setAgents)
     void acpApi().dialogues().then(setDialogues)
   }
   const backToLive = (): void => {
@@ -225,11 +231,42 @@ export function DialoguePane({
     setReading(null)
   }
   const openPast = (summary: AcpDialogueSummary): void => {
+    setContinueError(null)
     void acpApi()
       .readDialogue(summary.file)
       .then((d) => setReading({ summary, entries: entriesFromDialogue(d) }))
   }
 
+  // Resume a past dialogue into a live session (v1.2): session/load, then run the SAME activation
+  // path as newSession — the adapter's replayed updates rebuild a fresh live transcript. On failure
+  // (the agent no longer has the session) surface it inline and stay read-only.
+  const continuePast = (): void => {
+    const summary = reading?.summary
+    if (!summary?.sessionId) return
+    setContinueError(null)
+    void acpApi()
+      .loadSession(summary.agentKey, summary.sessionId)
+      .then((res) => {
+        if ('sessionId' in res) {
+          setHistoryOpen(false)
+          setReading(null)
+          setDeadReason(null)
+          setSessionError(null)
+          sessionRef.current = res.sessionId
+          setSessionId(res.sessionId)
+          dispatch({ type: 'reset', sessionId: res.sessionId })
+          flushPending(res.sessionId)
+        } else {
+          setContinueError(res.error)
+        }
+      })
+  }
+
+  // A past dialogue is resumable only if it recorded a sessionId AND its agent is installed and
+  // advertises session/load. Codex (resume/close, not loadSession) stays disabled.
+  const readingAgent = reading ? agents?.find((a) => a.key === reading.summary.agentKey) : null
+  const canContinue =
+    !!reading?.summary.sessionId && !!readingAgent && readingAgent.available && !!readingAgent.loadSupported
   const availableCount = agents?.filter((a) => a.available).length ?? 0
   const canSend = !!sessionId && !transcript.streaming && !deadReason && !sessionError
   // The blocking error banner unifies mid-session death and a failed session-new (spec §2).
@@ -348,12 +385,27 @@ export function DialoguePane({
               {new Date(reading.summary.startedAt).toLocaleString()}
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 text-sm">
-              <button
-                onClick={() => setReading(null)}
-                className="mb-3 rounded border border-zinc-700 px-2 py-0.5 text-xs text-zinc-300 hover:bg-zinc-800"
-              >
-                ← all dialogues
-              </button>
+              <div className="mb-3 flex items-center gap-2">
+                <button
+                  onClick={() => setReading(null)}
+                  className="rounded border border-zinc-700 px-2 py-0.5 text-xs text-zinc-300 hover:bg-zinc-800"
+                >
+                  ← all dialogues
+                </button>
+                {canContinue && (
+                  <button
+                    onClick={continuePast}
+                    className="rounded border border-emerald-700 bg-emerald-900/30 px-2 py-0.5 text-xs text-emerald-200 hover:bg-emerald-800/40"
+                  >
+                    Continue this chat ↗
+                  </button>
+                )}
+              </div>
+              {continueError && (
+                <p className="mb-3 whitespace-pre-wrap rounded border border-red-900/60 bg-red-950/30 px-2 py-1.5 text-xs text-red-300">
+                  {continueError}
+                </p>
+              )}
               <TranscriptBody entries={reading.entries} onOpenUri={onOpenUri} onOpenHub={onOpenHub} />
             </div>
           </>

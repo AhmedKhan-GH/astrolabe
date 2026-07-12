@@ -135,6 +135,10 @@ export const ACP_SET_CONFIG_CHANNEL = 'acp:set-config'
 /** History browser (v1.1): list past dialogues + read one back read-only. */
 export const ACP_DIALOGUES_LIST_CHANNEL = 'acp:dialogues-list'
 export const ACP_DIALOGUES_READ_CHANNEL = 'acp:dialogues-read'
+/** Resume a past dialogue (v1.2): `session/load` the stored ACP session id into a fresh live
+ *  session, whose replayed transcript rebuilds the pane. Gated on the adapter's `loadSession`
+ *  capability + a stored sessionId. */
+export const ACP_LOAD_SESSION_CHANNEL = 'acp:load-session'
 /** Push events (main → renderer via webContents.send). */
 export const ACP_UPDATE_EVENT = 'acp:update'
 export const ACP_PERMISSION_REQUEST_EVENT = 'acp:permission-request'
@@ -150,6 +154,10 @@ export interface AcpAgentDescriptor {
   label: string
   available: boolean
   authenticated: boolean
+  /** Whether this agent advertised `agentCapabilities.loadSession` on its most recent initialize
+   *  (v1.2) — gates the history browser's "Continue" affordance. False until the agent has been
+   *  spawned at least once (its capability is only known post-initialize). */
+  loadSupported?: boolean
 }
 
 /** session-new request: which adapter to spawn. */
@@ -179,6 +187,15 @@ export const acpPermissionResponseSchema = z.object({
   optionId: z.string().min(1).max(200),
 })
 export type AcpPermissionResponse = z.infer<typeof acpPermissionResponseSchema>
+
+/** load-session: resume a stored dialogue's ACP session (`session/load`). Which adapter + the
+ *  stored session id. Result is the same `AcpSessionResult` as session-new: the (same) live session
+ *  id, or a user-renderable error (adapter no longer has it / doesn't support load). */
+export const acpLoadSessionSchema = z.object({
+  agentKey: acpAgentKeySchema,
+  sessionId: z.string().min(1).max(200),
+})
+export type AcpLoadSessionRequest = z.infer<typeof acpLoadSessionSchema>
 
 /** set-mode: switch a live session's operational mode (one of its advertised `availableModes`). */
 export const acpSetModeSchema = z.object({
@@ -390,6 +407,9 @@ export interface AcpDialogueSummary {
   /** First user message, truncated (~80 chars) — the card's subject line. */
   firstPrompt: string
   messageCount: number
+  /** The stored ACP session id, if this dialogue recorded one (v1.2) — the "Continue" handle.
+   *  Absent on pre-v1.2 files (not resumable). */
+  sessionId?: string
 }
 
 /** A stored dialogue read back for read-only rendering (mirrors the on-disk DialogueFile shape). */
@@ -397,6 +417,8 @@ export interface AcpStoredDialogue {
   schemaVersion: 1
   agentKey: AcpAgentKey
   startedAt: string
+  /** The stored ACP session id (v1.2), if recorded — absent on pre-v1.2 files. */
+  sessionId?: string
   messages: { role: 'user' | 'agent'; text: string; at: string }[]
   toolCalls: { name: string; at: string }[]
   documentIds: number[]
