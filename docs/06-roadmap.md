@@ -1,13 +1,82 @@
 # 06 — Roadmap
 
-**Status:** Living document — phase status updated as work lands · **Date:** 2026-07-07 (Phase 0 pending)
+**Status:** Living document · **Founding plan:** 2026-07-07 · **As-built rewrite:** 2026-07-12
 
-Sequencing law, derived from the audit: **every phase ends with something the builder personally
-uses that week.** Infrastructure exists only in service of the phase it ships in. The previous
-iterations inverted this and died; this ordering is load-bearing.
+Sequencing law, derived from the audit: **every step ends with something the builder personally
+uses.** Infrastructure exists only in service of what ships with it. The previous iterations
+inverted this and died; this ordering is load-bearing. (Durations are omitted — with AI-assisted
+implementation, wall-clock estimates are meaningless; sequence by dependency only.)
 
-Durations are honest solo-developer estimates with AI-assisted development; they compound to a
-sellable beta in roughly 5–7 months.
+---
+
+## Where we actually are (2026-07-12)
+
+The founding plan (below, preserved for record) was strictly linear: library → graph → agent →
+ink → reader → commercialize. **Reality diverged, deliberately and successfully:** Phase 1 (the
+library) shipped in full, then the build *jumped to the agent* (founding Phase 3) ahead of the
+graph (Phase 2), because the ACP agent only needed the already-built MCP seed. The reconciler,
+notes, hub, and Canvas grew as Phase-1.5 additions. Nothing was wasted; every piece shipped usable.
+The one conspicuous gap: **the knowledge graph — the founding v1-essential (D4) — is still unbuilt.**
+We have the library and the agent; not yet the mind.
+
+### Done (on `main`, tested green: ~497 unit / ~167 integration / 6 e2e)
+
+- **Shell** — Electron 3-process, strict TS, better-sqlite3 + Drizzle, typed-IPC allowlist, macOS
+  TCC flow, signed dev-install, CI.
+- **Connectors** (`src/main/connectors/`) — Zotero, Eagle, Obsidian: incremental sync, content-hash
+  identity, removal sweep + orphan-source prune. (GoodNotes built then removed — Excalidraw is the
+  ink surface; see [[ink-decision]] / docs/2026-07-10-implementation-plan-notes-hub-ink.md.)
+- **Derived index** (`src/main/index/`) — upsert, sync, FTS, queries (browse/search/nav/document/
+  page-annotations), the wiki-link `links` graph, reconcile (Eagle↔Zotero writes), removals.
+- **Workspace artifacts** (`.astrolabe/`) — saved views, virtual collections, dialogues (first-party).
+- **Library lens** (`src/renderer/src/lens/`) — nav rail, recency river, boolean filtering, presence
+  facet, saved views, virtual collections; **Canvas** (PDF-at-a-glance + annotation heat); **NoteView**
+  (markdown + live wiki-links + backlinks); **Excalidraw** read-only; the **Document Hub**.
+- **The agent** (`src/mcp/` + `src/main/acp/` + `src/renderer/src/dialogue/`) — MCP server (8 read
+  tools) mounted into a CLI-grade **ACP client**: Claude + Codex on the user's subscriptions,
+  thinking/tool-cards/diffs/plans, model+effort config, real permissions, history browser, packaged.
+
+## Forward roadmap — three tracks (dependency-ordered)
+
+### Track 0 — Consolidation (in progress)
+Merge to `main` (done). Then the parked agent-polish items:
+- **Safe-reads permission allowlist** — auto-approve read-only index/fetch tools, keep prompting on
+  Bash/writes. Serves the open-agent decision ([[agent-isolation-decision]]) by keeping permission
+  prompts *meaningful* instead of fatiguing.
+- **Continuable past chats** — ACP `session/load` / `fork`; the v1.2 of the history browser.
+- **Command enrichment** — surface MCP prompts + app commands (`/canvas`, `/hub`) so Claude's slash
+  menu isn't empty (its `supportedCommands` set is near-empty without `~/.claude/commands`).
+
+### Track A — Experience (independent of the graph)
+Raises daily-driver feel: **navigation redesign** (three-pane spine / ⌘K quick-switcher / command
+palette — the intuitive nav the incumbent apps perfected), then appearance polish. "Make what
+exists feel like a product."
+
+### Track B — The mind (the deferred founding core, D4)
+The knowledge graph, sequenced with a low-friction on-ramp:
+1. **Embeddings + semantic search** (sqlite-vec) — meaning-based edges Obsidian structurally can't
+   produce; no extraction pipeline needed. The cheapest first taste of the differentiated graph.
+2. **Graphify connector** — the machine edge layer joining the human wiki-link layer in one
+   origin-tagged substrate (intelligence-layer roadmap Layer 1).
+3. **Graph lens + curation** — see and shape the second brain (Layer 2); embeddings join FTS.
+4. **Learner model** (Layer 5) — the user as objective function; fully spec'd
+   (docs/2026-07-12-learner-model-pedagogy-spec.md); gated on the graph + reading-state.
+
+Full detail: docs/2026-07-10-intelligence-layer-roadmap.md.
+
+### Track C — Commercialization
+The `alidade` licensing backend (founding Phase 6, last). Open decision: one-time vs. subscription
+pricing. See docs/05-licensing-and-commercialization.md.
+
+**Recommended next fork after Track 0:** Track A if daily friction is the priority, Track B if
+building the differentiated core is — with Track B's embeddings step as the lowest-risk graph start.
+
+---
+
+## The founding phase plan (2026-07-07, preserved for record)
+
+The original linear plan. Superseded by the as-built reality above, but kept because its
+per-phase detail (especially Phases 2/5 — the graph and the reader) still informs Tracks A/B.
 
 ---
 
