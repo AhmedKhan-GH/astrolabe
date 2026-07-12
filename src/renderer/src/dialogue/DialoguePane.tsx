@@ -300,20 +300,25 @@ export function DialoguePane({
             )}
             {transcript.configOptions.map((opt) =>
               opt.type === 'select' ? (
-                <select
-                  key={opt.id}
-                  aria-label={opt.name}
-                  title={opt.description ?? opt.name}
-                  value={String(opt.currentValue)}
-                  onChange={(e) => sessionId && void acpApi().setConfig(sessionId, opt.id, e.target.value)}
-                  className="rounded border border-zinc-700 bg-zinc-900 px-1.5 py-0.5 text-xs text-zinc-200 outline-none focus:border-zinc-500"
-                >
-                  {(opt.values ?? []).map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name}
-                    </option>
-                  ))}
-                </select>
+                // Visible name label: a bare dropdown shows only its value ("On", "medium"),
+                // which says nothing about WHAT it controls. The name goes on-screen, not just
+                // in aria-label.
+                <label key={opt.id} className="flex items-center gap-1 text-zinc-500" title={opt.description ?? opt.name}>
+                  <span className="text-zinc-400">{opt.name}</span>
+                  <select
+                    aria-label={opt.name}
+                    title={opt.description ?? opt.name}
+                    value={String(opt.currentValue)}
+                    onChange={(e) => sessionId && void acpApi().setConfig(sessionId, opt.id, e.target.value)}
+                    className="rounded border border-zinc-700 bg-zinc-900 px-1.5 py-0.5 text-xs text-zinc-200 outline-none focus:border-zinc-500"
+                  >
+                    {(opt.values ?? []).map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               ) : (
                 <label key={opt.id} className="flex items-center gap-1 text-zinc-400" title={opt.description ?? opt.name}>
                   <input
