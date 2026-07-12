@@ -36,40 +36,92 @@ We have the library and the agent; not yet the mind.
   tools) mounted into a CLI-grade **ACP client**: Claude + Codex on the user's subscriptions,
   thinking/tool-cards/diffs/plans, model+effort config, real permissions, history browser, packaged.
 
-## Forward roadmap — three tracks (dependency-ordered)
+## Forward roadmap — seven tracks
 
-### Track 0 — Consolidation (in progress)
-Merge to `main` (done). Then the parked agent-polish items:
-- **Safe-reads permission allowlist** — auto-approve read-only index/fetch tools, keep prompting on
-  Bash/writes. Serves the open-agent decision ([[agent-isolation-decision]]) by keeping permission
-  prompts *meaningful* instead of fatiguing.
-- **Continuable past chats** — ACP `session/load` / `fork`; the v1.2 of the history browser.
-- **Command enrichment** — surface MCP prompts + app commands (`/canvas`, `/hub`) so Claude's slash
-  menu isn't empty (its `supportedCommands` set is near-empty without `~/.claude/commands`).
+Tracks are parallelizable except where a dependency is noted (→). Phases inside a track are
+ordered; each ends usable (the sequencing law). Statuses: ✅ done · ◐ in progress · ○ planned.
 
-### Track A — Experience (independent of the graph)
-Raises daily-driver feel: **navigation redesign** (three-pane spine / ⌘K quick-switcher / command
-palette — the intuitive nav the incumbent apps perfected), then appearance polish. "Make what
-exists feel like a product."
+### Track 0 — Consolidation ◐ (nearly done)
+- ✅ Merge to `main`; branch cleanup; roadmap grounded (this rewrite).
+- ✅ **Safe-reads permission allowlist** — auto-approve read-only index/fetch tools, keep prompting
+  on Bash/writes; keeps permission prompts meaningful, not fatiguing ([[agent-isolation-decision]]).
+- ✅ **Continuable past chats** — resume a history dialogue via ACP `session/load` (Claude + Codex).
+- ○ **Command enrichment** (the last item; lowest value) — an app-command registry surfaced in the
+  slash palette: *action commands* handled locally (`/canvas`, `/hub`, `/note`, `/search`) and
+  *prompt-template commands* that expand into a grounded prompt (`/synthesize`, `/contradict`).
+  (NOT "MCP prompts as commands" — in ACP the agent is the MCP client, so those don't surface here.)
 
-### Track B — The mind (the deferred founding core, D4)
-The knowledge graph, sequenced with a low-friction on-ramp:
-1. **Embeddings + semantic search** (sqlite-vec) — meaning-based edges Obsidian structurally can't
-   produce; no extraction pipeline needed. The cheapest first taste of the differentiated graph.
-2. **Graphify connector** — the machine edge layer joining the human wiki-link layer in one
-   origin-tagged substrate (intelligence-layer roadmap Layer 1).
-3. **Graph lens + curation** — see and shape the second brain (Layer 2); embeddings join FTS.
-4. **Learner model** (Layer 5) — the user as objective function; fully spec'd
-   (docs/2026-07-12-learner-model-pedagogy-spec.md); gated on the graph + reading-state.
+### Track A — Experience / Navigation ○ (independent of everything)
+Make what exists feel like a product you navigate fluidly. Replaces the overlay-panel model (no
+persistent spatial model, no back/forward) with:
+- A1. **Three-pane spine** — source/tree → item list → inspector (the panels become inspector
+  contents). A2. **⌘K quick-switcher** + **command palette**. A3. Appearance polish.
 
-Full detail: docs/2026-07-10-intelligence-layer-roadmap.md.
+### Track R — The Reader ○ (founding Phase 5, pulled forward; independent)
+The in-app PDF experience, spanning effortless navigation and deep focused reading. Salvages
+iteration-1's `buildPageMap` / `findTocPathsForPages` / lazy-thumbnail algorithms.
+- R1. **Fix the Canvas (small, high-value):** relative/continuous annotation heat (kill the
+  saturation), a **depth** layer weighted by annotation substance (comments/highlighted length,
+  not just count), grid **zoom** (cell-size), lightbox **zoom + fit-width/page**.
+- R2. **Continuous scroll reader** — stacked pages, pdf.js text layer, in-document search, and
+  **reading-state** (dwell + scrolled-through → an *exposure* heat layer). → feeds Track L.
+- R3. **Structure + Views** — TOC/outline sidebar, the "Views" saved page-range subsets, two-page
+  spread, thumbnail+pane, focus/immersive mode. Heat layers render across all modes (grid tint +
+  scroll minimap).
 
-### Track C — Commercialization
-The `alidade` licensing backend (founding Phase 6, last). Open decision: one-time vs. subscription
-pricing. See docs/05-licensing-and-commercialization.md.
+### Track O — OCR / Scanned-document extraction ○ (→ prerequisite for Track B on scanned PDFs)
+Make picture-scan PDFs first-class, extracted ONCE and stored durably (extract-once / query-forever).
+- O1. **Text-layer detection + local OCR** — reuse any existing hidden text layer (free); else a
+  modern *local* engine (PaddleOCR/Surya, NOT Tesseract) on-device. Benchmark on real scans; keep
+  the engine swappable.
+- O2. **Cheap text-only LLM correction** (BYOK) — fix OCR typos from the text alone (no image → far
+  cheaper than vision).
+- O3. **Confidence-gated escalation** — send ONLY low-confidence pages to a cloud OCR API / cheap
+  vision model. 90% resolve free/local; you pay only for the hard 10%.
+- O4. **Durable OCR cache + integrations** — cache per-page text (+ bounding boxes) keyed by content
+  hash in `.astrolabe/ocr/` (a Rebuild never re-OCRs; the same scan in Eagle+Zotero is OCR'd once);
+  render OCR as a selectable text layer over the scan in the Reader (in-view OCR); optional
+  vision-describe-figures-once for image content. Feeds FTS → embeddings → graph. Local-first by
+  default; cloud/vision tiers are opt-in BYOK (D5).
 
-**Recommended next fork after Track 0:** Track A if daily friction is the priority, Track B if
-building the differentiated core is — with Track B's embeddings step as the lowest-risk graph start.
+### Track B — The Mind (the deferred founding core, D4) ○
+The knowledge graph, low-friction on-ramp first. Full detail: docs/2026-07-10-intelligence-layer-roadmap.md.
+- B1. **Embeddings + semantic search** (sqlite-vec) — meaning-based edges Obsidian can't make; no
+  extraction pipeline. The cheapest first taste of the differentiated graph.
+- B2. **Graphify connector** — the machine edge layer joining the human wiki-link layer in one
+  origin-tagged substrate (Layer 1).
+- B3. **Graph lens + curation** — see and shape the second brain (Layer 2).
+- B4. **Extraction pipeline** ("Orion", docs/09) — concepts/claims/entities as nodes. (OCR text from
+  Track O is what makes scanned pages embeddable/extractable.)
+
+### Track L — The Learner Model ○ (Layer 5; far horizon; fully spec'd)
+The user as objective function; cognitive-offloading-aware tutoring. Spec:
+docs/2026-07-12-learner-model-pedagogy-spec.md. **Gated on Track R2 (reading-state) + Track B (graph).**
+- L1. Passive knowledge-state overlay (a pure mirror). L2. The metacognitive mirror (fluency vs.
+  retrieval gap). L3. Retrieval + spacing on user-flagged internalize nodes. L4. Full adaptive loop.
+  L5. Reflexive grounding (ingest the pedagogy corpus).
+
+### Track C — Commercialization ○ (last)
+The `alidade` licensing backend (founding Phase 6). Open decision: one-time vs. subscription
+([[alidade-commercial-backend]], docs/05). Signing/notarization + updater + website.
+
+## Dependency map & recommended sequence
+
+```
+Track 0 (finish) ─┐
+Track A  ─────────┼─ independent, any time (experience)
+Track R  ─────────┘   R2 ─┐
+Track O  ────────────────┼→ Track B ──→ Track L
+                          │   (B needs OCR text for scanned PDFs)
+                     (L needs R2 reading-state + B graph)
+Track C  ── last
+```
+
+**Recommended:** close Track 0 (or skip command enrichment), then **Track R1** — it fixes the
+Canvas irritations you named, is small, and lays the heat/zoom/reading-state groundwork the rest of
+R (and L) builds on. In parallel or next, the fork you keep circling: **Track A** (daily-driver
+feel) vs. **Track B/O** (the differentiated mind). OCR (Track O) is the unlock that makes scanned
+material — currently dead weight — part of both search and the eventual graph.
 
 ---
 
