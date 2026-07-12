@@ -31,6 +31,7 @@ import {
   type WhichFn,
 } from './adapters'
 import { mapConfigOption, mapSessionUpdate } from './update-map'
+import { isAutoApprovableTool } from './permission-policy'
 import type { DialogueStore, DialogueWriter } from './dialogue-store'
 
 /**
@@ -112,6 +113,9 @@ export interface AcpManagerDeps {
   clientInfo?: { name: string; version: string }
   /** Injectable clock for deterministic dialogue timestamps in tests. */
   now?: () => Date
+  /** Auto-approve provably read-only tool calls instead of prompting (default true — the safe-reads
+   *  policy, see permission-policy.ts). Set false to prompt on every tool call. */
+  autoApproveReads?: boolean
 }
 
 export interface AcpManager {
@@ -161,6 +165,7 @@ export function createAcpManager(deps: AcpManagerDeps): AcpManager {
   const which = deps.which ?? defaultWhich
   const permissionTimeoutMs = deps.permissionTimeoutMs ?? 30_000
   const clientInfo = deps.clientInfo ?? { name: 'Astrolabe', version: '0.1.0' }
+  const autoApproveReads = deps.autoApproveReads ?? true
 
   const sessions = new Map<string, Session>()
   const pending = new Map<string, PendingPermission>()
@@ -187,6 +192,14 @@ export function createAcpManager(deps: AcpManagerDeps): AcpManager {
   }
 
   function onPermission(params: RequestPermissionRequest): Promise<RequestPermissionResponse> {
+    // Safe-reads: a provably read-only tool call is auto-approved (no card) so the user isn't
+    // fatigued into rubber-stamping — the tool card still renders what ran. Mutations always prompt.
+    if (autoApproveReads && isAutoApprovableTool(params.toolCall)) {
+      const allow =
+        params.options.find((o) => o.kind === 'allow_once') ??
+        params.options.find((o) => o.kind === 'allow_always')
+      if (allow) return Promise.resolve({ outcome: { outcome: 'selected', optionId: allow.optionId } })
+    }
     const requestId = `perm-${++requestCounter}`
     return new Promise<RequestPermissionResponse>((resolve) => {
       const timer = setTimeout(() => {

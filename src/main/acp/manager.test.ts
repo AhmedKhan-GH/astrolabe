@@ -490,6 +490,49 @@ describe('createAcpManager — permissions', () => {
     expect(outcome).toEqual({ outcome: { outcome: 'selected', optionId: 'deny' } })
   })
 
+  it('auto-approves a read-only tool (safe-reads) with NO permission card', async () => {
+    let outcome: RequestPermissionResponse | undefined
+    const scripted = scriptedAgent({
+      onPrompt: async (client, sessionId) => {
+        outcome = await client.request('session/request_permission', {
+          sessionId,
+          toolCall: { toolCallId: 't1', title: 'search', kind: 'search' },
+          options: [
+            { optionId: 'allow', name: 'Allow', kind: 'allow_once' },
+            { optionId: 'deny', name: 'Deny', kind: 'reject_once' },
+          ],
+        })
+        return 'end_turn'
+      },
+    })
+    const { manager, events, permRequests } = harness(scripted)
+    const { sessionId } = (await manager.newSession('claude')) as { sessionId: string }
+    manager.prompt(sessionId, 'find X')
+    await vi.waitFor(() => expect(events.some((e) => e.kind === 'turn-end')).toBe(true))
+    expect(permRequests).toHaveLength(0) // no card — auto-approved
+    expect(outcome).toEqual({ outcome: { outcome: 'selected', optionId: 'allow' } })
+  })
+
+  it('still prompts for a mutating tool (execute) even with safe-reads on', async () => {
+    const scripted = scriptedAgent({
+      onPrompt: async (client, sessionId) => {
+        void client.request('session/request_permission', {
+          sessionId,
+          toolCall: { toolCallId: 't1', title: 'bash', kind: 'execute' },
+          options: [
+            { optionId: 'allow', name: 'Allow', kind: 'allow_once' },
+            { optionId: 'deny', name: 'Deny', kind: 'reject_once' },
+          ],
+        })
+        return 'end_turn'
+      },
+    })
+    const { manager, permRequests } = harness(scripted, { permissionTimeoutMs: 15 })
+    const { sessionId } = (await manager.newSession('claude')) as { sessionId: string }
+    manager.prompt(sessionId, 'run it')
+    await vi.waitFor(() => expect(permRequests).toHaveLength(1)) // still gated
+  })
+
   it('returns the chosen optionId from an explicit response', async () => {
     let outcome: RequestPermissionResponse | undefined
     const scripted = scriptedAgent({
