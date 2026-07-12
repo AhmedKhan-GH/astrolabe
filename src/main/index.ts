@@ -132,6 +132,9 @@ app.whenReady().then(() => {
     const handle = openDb(ws.dbPath)
     const dispatch = createDbDispatcher(handle.db)
     const upsert = createUpsertApi(handle.db)
+    // Self-heal: drop derived data for any source no longer backed by a registered connector
+    // (e.g. the removed GoodNotes connector) so a decommissioned source never lingers in the UI.
+    upsert.pruneUnknownSources(connectors.map((c) => c.key))
     const queries = createIndexQueries(handle.db)
     const syncApi = createSyncApi(handle.db, connectors, upsert)
     // Eagle↔Zotero write gestures: the two write clients (default localhost bases) + the gate/dispatch

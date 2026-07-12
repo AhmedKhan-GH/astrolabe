@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDb, type DbHandle } from '../db'
 import { createUpsertApi, type UpsertApi } from './upsert'
+import * as s from '../db/schema'
 import { createIndexQueries, type IndexQueries } from './queries'
 
 /**
@@ -113,5 +114,42 @@ describe('upsertDocument', () => {
     expect(queries.search({ q: 'probabilistic' })).toHaveLength(1)
     upsert.wipeDerived()
     expect(queries.search({ q: 'probabilistic' })).toHaveLength(0)
+  })
+})
+
+describe('pruneUnknownSources — decommissioned-connector self-heal', () => {
+  const keyset = () => new Set(handle.db.select().from(s.sources).all().map((r) => r.key))
+
+  it('drops a data-less orphan source (the GoodNotes case) and leaves known sources', () => {
+    upsert.ensureSource('goodnotes') // a source row with no documents (never synced)
+    upsert.upsertDocument(zoteroDoc())
+    expect(keyset().has('goodnotes')).toBe(true)
+
+    const pruned = upsert.pruneUnknownSources(['zotero', 'eagle', 'obsidian'])
+    expect(pruned).toBeGreaterThanOrEqual(1)
+    expect(keyset().has('goodnotes')).toBe(false)
+    expect(queries.search({ q: 'Probabilistic' })).toHaveLength(1) // known source untouched
+  })
+
+  it('cascades an orphan source WITH data: sole-instance doc + FTS pruned', () => {
+    upsert.upsertDocument({
+      sourceKey: 'legacy',
+      externalKey: 'L1',
+      uri: 'legacy://x',
+      title: 'Legacy Only Doc',
+      kind: 'pdf' as const,
+      modifiedAt: 1,
+    })
+    expect(queries.search({ q: 'Legacy' })).toHaveLength(1)
+
+    upsert.pruneUnknownSources(['zotero', 'eagle', 'obsidian'])
+    expect(keyset().has('legacy')).toBe(false)
+    expect(queries.search({ q: 'Legacy' })).toHaveLength(0) // orphaned document + its FTS row gone
+  })
+
+  it('returns 0 and changes nothing when every present source is registered', () => {
+    upsert.upsertDocument(zoteroDoc())
+    expect(upsert.pruneUnknownSources([...keyset()])).toBe(0)
+    expect(queries.search({ q: 'Probabilistic' })).toHaveLength(1)
   })
 })

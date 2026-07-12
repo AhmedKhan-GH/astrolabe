@@ -264,7 +264,46 @@ export function createUpsertApi(db: Db) {
     })
   }
 
-  return { ensureSource, upsertDocument, upsertCollections, wipeDerived, refreshFtsRow }
+  /**
+   * Delete `sources` rows whose key is not a currently-registered connector, cascading their
+   * instances/collections and pruning any documents left with zero instances (+ their FTS rows).
+   * Called at boot with the registry keys so removing a connector fully self-heals — a stale row
+   * (e.g. a decommissioned GoodNotes source) never lingers in the derived index. Returns the count
+   * of sources pruned.
+   */
+  function pruneUnknownSources(knownKeys: string[]): number {
+    const known = new Set(knownKeys)
+    const unknown = db.select().from(s.sources).all().filter((row) => !known.has(row.key))
+    if (unknown.length === 0) return 0
+    db.transaction(() => {
+      for (const src of unknown) {
+        const affectedDocs = db
+          .select({ documentId: s.documentInstances.documentId })
+          .from(s.documentInstances)
+          .where(eq(s.documentInstances.sourceId, src.id))
+          .all()
+          .map((r) => r.documentId)
+        db.delete(s.documentInstances).where(eq(s.documentInstances.sourceId, src.id)).run()
+        db.delete(s.collections).where(eq(s.collections.sourceId, src.id)).run()
+        db.delete(s.sources).where(eq(s.sources.id, src.id)).run()
+        for (const documentId of new Set(affectedDocs)) {
+          const remaining =
+            db
+              .select({ c: sql<number>`count(*)` })
+              .from(s.documentInstances)
+              .where(eq(s.documentInstances.documentId, documentId))
+              .get()?.c ?? 0
+          if (remaining === 0) {
+            db.delete(s.documents).where(eq(s.documents.id, documentId)).run()
+            db.run(sql`DELETE FROM search_fts WHERE rowid = ${documentId}`)
+          }
+        }
+      }
+    })
+    return unknown.length
+  }
+
+  return { ensureSource, upsertDocument, upsertCollections, wipeDerived, refreshFtsRow, pruneUnknownSources }
 }
 
 export type UpsertApi = ReturnType<typeof createUpsertApi>
