@@ -354,6 +354,24 @@ describe('DialoguePane — config bar', () => {
     expect(screen.queryByLabelText('usage')).toBeNull()
     expect(screen.queryByLabelText('Model')).toBeNull()
   })
+
+  it('surfaces config that arrives BEFORE the session resolves (the init race — no prompt needed)', async () => {
+    // Real-world timing: session/new emits the initial config event before newSession()'s promise
+    // resolves. A controllable newSession lets us reproduce that exact order.
+    let resolveSession: (r: { sessionId: string }) => void = () => {}
+    const newSession = vi.fn(() => new Promise<{ sessionId: string }>((r) => (resolveSession = r)))
+    setup(ready, { newSession } as unknown as Partial<Acp>)
+    await waitFor(() => expect(newSession).toHaveBeenCalled())
+    // Config lands while the session is still pending → must be buffered, not dropped.
+    emitConfig()
+    expect(screen.queryByLabelText('Model')).toBeNull() // not active yet
+    await act(async () => {
+      resolveSession({ sessionId: 's1' })
+    })
+    // The model dropdown is present with NO prompt ever sent.
+    const select = (await screen.findByLabelText('Model')) as HTMLSelectElement
+    expect(select.value).toBe('sonnet')
+  })
 })
 
 describe('DialoguePane — history browser (v1.1)', () => {

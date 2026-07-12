@@ -74,6 +74,17 @@ export function DialoguePane({
   const [transcript, dispatch] = useReducer(reduce, emptyTranscript(''))
   const sessionRef = useRef<string | null>(null)
   const promptRef = useRef<HTMLTextAreaElement | null>(null)
+  // Updates that arrive for a session not yet active. The initial mode/config/commands events fire
+  // the instant session/new returns — BEFORE newSession()'s promise resolves and sets sessionRef —
+  // so we buffer them here and replay on activation (see flushPending). This is what makes the
+  // config bar appear before the first prompt, with zero extra tokens.
+  const pending = useRef<AcpUpdate[]>([])
+
+  const flushPending = (id: string): void => {
+    const buffered = pending.current
+    pending.current = []
+    for (const u of buffered) if (u.sessionId === id) dispatch({ type: 'update', u })
+  }
 
   // Slash palette (spec §Track B/3): opens when the draft starts with `/`, filtered by the token
   // after the slash. `slashOpen` lets Esc dismiss it without clearing the draft; `slashIndex` is
@@ -93,10 +104,14 @@ export function DialoguePane({
     const acp = acpApi()
     void acp.agents().then(setAgents)
     const offUpdate = acp.onUpdate((u) => {
-      dispatch({ type: 'update', u })
-      // A mid-session error marks the session dead — surface the restart banner.
-      if (u.kind === 'error' && sessionRef.current && u.sessionId === sessionRef.current) {
-        setDeadReason(u.reason ?? 'The agent stopped unexpectedly.')
+      if (sessionRef.current && u.sessionId === sessionRef.current) {
+        dispatch({ type: 'update', u })
+        // A mid-session error marks the session dead — surface the restart banner.
+        if (u.kind === 'error') setDeadReason(u.reason ?? 'The agent stopped unexpectedly.')
+      } else {
+        // Not yet active (or already-dead) session → buffer; flushPending replays on activation.
+        pending.current.push(u)
+        if (pending.current.length > 500) pending.current.shift()
       }
     })
     const offPerm = acp.onPermissionRequest((r) => {
@@ -132,6 +147,7 @@ export function DialoguePane({
           setSessionId(res.sessionId)
           setSessionError(null)
           dispatch({ type: 'reset', sessionId: res.sessionId })
+          flushPending(res.sessionId)
         } else {
           sessionRef.current = null
           setSessionId(null)
@@ -190,6 +206,7 @@ export function DialoguePane({
           sessionRef.current = res.sessionId
           setSessionId(res.sessionId)
           dispatch({ type: 'restart', sessionId: res.sessionId })
+          flushPending(res.sessionId)
         } else {
           sessionRef.current = null
           setSessionError(res.error)
