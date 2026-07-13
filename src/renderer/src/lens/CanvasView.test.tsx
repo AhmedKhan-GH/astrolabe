@@ -160,6 +160,49 @@ describe('CanvasView heat layer', () => {
     expect(overlayIntensity(bareHighlights)!).toBeLessThan(1)
   })
 
+  it('a read layer appears when reading-state exists and re-ranks by dwell', () => {
+    // Dwell inverts the annotation ranking: page i (no annotations) was read longest.
+    setup({
+      reading: {
+        contentSha256: 'h',
+        pages: {
+          '0': { dwellMs: 300_000, visits: 4, firstSeenAt: 'x', lastSeenAt: 'y' },
+          '3': { dwellMs: 30_000, visits: 1, firstSeenAt: 'x', lastSeenAt: 'y' },
+        },
+        finished: false,
+        finishedAt: null,
+        updatedAt: 'y',
+      },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'read' }))
+    const mostRead = screen.getByRole('button', { name: 'page i' }) // pageIndex 0
+    const skimmed = screen.getByRole('button', { name: 'page 2' }) // pageIndex 3
+    expect(overlayIntensity(mostRead)).toBe(1)
+    expect(overlayIntensity(skimmed)!).toBeLessThan(1)
+    // Exposure is not an annotation count — no count badge in read mode.
+    expect(within(mostRead).queryByText(/^\d+$/)).toBeNull()
+  })
+
+  it('offers no read layer without reading-state (null or empty)', () => {
+    setup()
+    expect(screen.queryByRole('button', { name: 'read' })).toBeNull()
+    cleanup()
+    setup({
+      reading: { contentSha256: 'h', pages: {}, finished: false, finishedAt: null, updatedAt: 'y' },
+    })
+    expect(screen.queryByRole('button', { name: 'read' })).toBeNull()
+  })
+
+  it('fires onOpenReader from the header read affordance when wired; hidden otherwise', () => {
+    const onOpenReader = vi.fn()
+    setup({ onOpenReader })
+    fireEvent.click(screen.getByRole('button', { name: 'open reader' }))
+    expect(onOpenReader).toHaveBeenCalledOnce()
+    cleanup()
+    setup()
+    expect(screen.queryByRole('button', { name: 'open reader' })).toBeNull()
+  })
+
   it('count|depth mode buttons are exclusive and disappear with the heat layer off', () => {
     setup()
     const count = screen.getByRole('button', { name: 'count' })

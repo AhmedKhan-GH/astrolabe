@@ -13,6 +13,7 @@ import { createReconcileApi } from './index/reconcile'
 import { createZoteroWrite } from './lib/zotero-write'
 import { createEagleWrite } from './lib/eagle-write'
 import { createViewsApi } from './lib/views'
+import { createReadingStateApi } from './lib/reading-state'
 import { createVCollectionsApi, syncVirtualCollections } from './lib/vcollections'
 import { connectors } from './connectors/registry'
 import { createAcpManager, nodeChannelFactory } from './acp/manager'
@@ -50,6 +51,9 @@ import {
   INDEX_SOURCES_CHANNEL,
   INDEX_STATS_CHANNEL,
   INDEX_SYNC_CHANNEL,
+  READING_FINISH_CHANNEL,
+  READING_GET_CHANNEL,
+  READING_RECORD_CHANNEL,
   RECONCILE_TRANSFER_CHANNEL,
   SYSTEM_OPEN_CHANNEL,
   SYSTEM_REQUEST_ACCESS_CHANNEL,
@@ -153,6 +157,10 @@ app.whenReady().then(() => {
     // workspace, mirrored into SQLite for facet filtering (docs/2026-07-10-lens-virtual-collections).
     const collectionsDir = join(ws.astroDir, 'collections')
     const vcollectionsApi = createVCollectionsApi(collectionsDir, handle.db)
+    // Reading-state: per-document reading exposure as a first-party artifact, one JSON file per
+    // document under the workspace keyed by content hash so a rebuild never loses it and the same
+    // PDF in two tools accrues one state (docs/2026-07-13-r2-reader-reading-state-spec).
+    const readingStateApi = createReadingStateApi(join(ws.astroDir, 'reading'), handle.db)
     // Bring the mirror current from the files at boot (it is derived — the files are truth).
     syncVirtualCollections(handle.db, collectionsDir)
     // Wiki-link resolution re-pass at boot too: link targets are derived (a prior run may have
@@ -216,6 +224,12 @@ app.whenReady().then(() => {
     ipcMain.handle(VIEWS_LIST_CHANNEL, () => viewsApi.list())
     ipcMain.handle(VIEWS_SAVE_CHANNEL, (_event, raw: unknown) => viewsApi.save(raw))
     ipcMain.handle(VIEWS_DELETE_CHANNEL, (_event, raw: unknown) => viewsApi.remove(raw))
+    // Reading-state read/write (validation at the module boundary via zod, like the query handlers).
+    // Each channel takes a documentId; the store resolves the content hash internally. A document
+    // that is unknown or hashless returns null (get) / no-op null (record/finish) — never a throw.
+    ipcMain.handle(READING_GET_CHANNEL, (_event, raw: unknown) => readingStateApi.get(raw))
+    ipcMain.handle(READING_RECORD_CHANNEL, (_event, raw: unknown) => readingStateApi.record(raw))
+    ipcMain.handle(READING_FINISH_CHANNEL, (_event, raw: unknown) => readingStateApi.finish(raw))
     // Virtual-collection CRUD + membership (validation at the module boundary via zod). Each
     // mutation rewrites its file atomically then re-mirrors, so reads stay consistent.
     ipcMain.handle(VCOLLECTIONS_LIST_CHANNEL, () => vcollectionsApi.list())

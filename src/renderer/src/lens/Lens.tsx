@@ -17,6 +17,7 @@ import {
 } from './selection'
 import { toStoredFilter, resolveStoredFilter, selectionFromFilterSet } from './viewRefs'
 import { CanvasView } from './CanvasView'
+import { ReaderView } from './reader/ReaderView'
 import { NoteView, type NoteNavTarget } from './NoteView'
 import { ExcalidrawView } from './excalidraw/ExcalidrawView'
 import { isExcalidrawNote, parseExcalidrawScene } from './excalidraw/parse'
@@ -33,6 +34,7 @@ import type {
   NavData,
   NavNode,
   PageAnnotations,
+  ReadingState,
   SavedView,
   TransferDirection,
   VCollectionSummary,
@@ -77,10 +79,12 @@ function useDebounced<T>(value: T, ms: number): T {
  */
 function CanvasHost({
   hit,
+  onOpenReader,
   onOpenDetails,
   onClose,
 }: {
   hit: CanvasHostHit
+  onOpenReader: () => void
   onOpenDetails: () => void
   onClose: () => void
 }) {
@@ -98,6 +102,11 @@ function CanvasHost({
   const heat = useQuery<PageAnnotations>({
     queryKey: ['pageAnnotations', hit.documentId],
     queryFn: () => window.astrolabe.index.pageAnnotations(hit.documentId),
+  })
+  // Exposure for the `read` heat layer (null until anything was ever read).
+  const reading = useQuery<ReadingState | null>({
+    queryKey: ['reading', hit.documentId],
+    queryFn: () => window.astrolabe.reading.get(hit.documentId),
   })
   // Page-targeted deep link: when main indexed an open-pdf base for this instance (built from
   // the zotero attachmentKey), rewrite its page to the clicked one — that lands on the page,
@@ -118,8 +127,49 @@ function CanvasHost({
       title={hit.title}
       pdf={pdf}
       heat={heat.data ?? null}
+      reading={reading.data ?? null}
       onOpenPage={openPage}
+      onOpenReader={onOpenReader}
       onOpenDetails={onOpenDetails}
+      onClose={onClose}
+    />
+  )
+}
+
+/**
+ * Owns the pdf.js hook + reading-state queries for one open Reader, so ReaderView stays a
+ * pure, fully-testable component. Exposure events flow renderer → `reading.record` → the
+ * merged state back into the query cache (the Canvas `read` layer shares the same key).
+ */
+function ReaderHost({ hit, onClose }: { hit: CanvasHostHit; onClose: () => void }) {
+  const queryClient = useQueryClient()
+  const candidates = canvasCandidates(hit.instances)
+  const [candidateIndex, setCandidateIndex] = useState(0)
+  const instance = candidates[candidateIndex] ?? null
+  const pdf = usePdfDocument(`astro://doc/${instance?.instanceId ?? 0}`)
+  useEffect(() => {
+    if (pdf.status === 'error' && candidateIndex < candidates.length - 1)
+      setCandidateIndex((i) => i + 1)
+  }, [pdf.status, candidateIndex, candidates.length])
+  const reading = useQuery<ReadingState | null>({
+    queryKey: ['reading', hit.documentId],
+    queryFn: () => window.astrolabe.reading.get(hit.documentId),
+  })
+  // record/finish return the merged state — write it straight into the cache (no refetch).
+  const putState = (state: ReadingState | null): void => {
+    if (state) queryClient.setQueryData(['reading', hit.documentId], state)
+  }
+  return (
+    <ReaderView
+      title={hit.title}
+      pdf={pdf}
+      reading={reading.data ?? null}
+      onRecordExposure={(events) => {
+        void window.astrolabe.reading.record(hit.documentId, events).then(putState)
+      }}
+      onToggleFinished={(finished) => {
+        void window.astrolabe.reading.finish(hit.documentId, finished).then(putState)
+      }}
       onClose={onClose}
     />
   )
@@ -210,6 +260,7 @@ function NoteHost({
 function DocumentHost({
   documentId,
   onOpenCanvas,
+  onOpenReader,
   onOpenNote,
   onOpenBacklink,
   onAfterTransfer,
@@ -217,6 +268,7 @@ function DocumentHost({
 }: {
   documentId: number
   onOpenCanvas: (hit: CanvasHostHit) => void
+  onOpenReader: (hit: CanvasHostHit) => void
   onOpenNote: (hit: NoteSource) => void
   onOpenBacklink: (target: NoteNavTarget) => void
   // Invalidate the shared index queries after a successful transfer (owned by Lens).
@@ -263,6 +315,9 @@ function DocumentHost({
       onOpenCanvas={() =>
         d && onOpenCanvas({ documentId: d.documentId, title: d.title, instances: d.instances })
       }
+      onOpenReader={() =>
+        d && onOpenReader({ documentId: d.documentId, title: d.title, instances: d.instances })
+      }
       onOpenNote={() =>
         d && onOpenNote({ documentId: d.documentId, title: d.title, tags: d.tags, instances: d.instances })
       }
@@ -279,17 +334,25 @@ export function Lens() {
   const [q, setQ] = useState('')
   const [selection, setSelection] = useState<LensSelection>(emptySelection())
   const [canvasFor, setCanvasFor] = useState<CanvasHostHit | null>(null)
-  // Canvas, Note, and Hub share ONE mutually-exclusive panel slot: opening any one nulls the
-  // other two (docs/2026-07-10-implementation-plan-notes-hub-ink §Step 2 — one panel slot).
+  // Canvas, Reader, Note, and Hub share ONE mutually-exclusive panel slot: opening any one
+  // nulls the others (docs/2026-07-10-implementation-plan-notes-hub-ink §Step 2 — one slot).
+  const [readerFor, setReaderFor] = useState<CanvasHostHit | null>(null)
   const [noteFor, setNoteFor] = useState<NoteRef | null>(null)
   const [hubFor, setHubFor] = useState<number | null>(null)
   // The dialogue pane is a LEFT column that coexists with the lens — independent of the
-  // Canvas/Note/Hub slot (which the three setters above share).
+  // Canvas/Reader/Note/Hub slot (which the setters above share).
   const [dialogueOpen, setDialogueOpen] = useState(false)
   const openCanvas = (hit: CanvasHostHit): void => {
+    setReaderFor(null)
     setNoteFor(null)
     setHubFor(null)
     setCanvasFor(hit)
+  }
+  const openReader = (hit: CanvasHostHit): void => {
+    setCanvasFor(null)
+    setNoteFor(null)
+    setHubFor(null)
+    setReaderFor(hit)
   }
   const openNote = (hit: NoteSource): void => {
     const inst = hit.instances.find((i) => i.sourceKey === 'obsidian' && i.filePath !== null)
@@ -305,11 +368,13 @@ export function Lens() {
   // Navigate straight to a note by reference (a followed wiki-link / backlink, or a hub note).
   const openNoteRef = (note: NoteRef): void => {
     setCanvasFor(null)
+    setReaderFor(null)
     setHubFor(null)
     setNoteFor(note)
   }
   const openHub = (documentId: number): void => {
     setCanvasFor(null)
+    setReaderFor(null)
     setNoteFor(null)
     setHubFor(documentId)
   }
@@ -685,8 +750,16 @@ export function Lens() {
         <CanvasHost
           key={canvasFor.documentId}
           hit={canvasFor}
+          onOpenReader={() => openReader(canvasFor)}
           onOpenDetails={() => openHub(canvasFor.documentId)}
           onClose={() => setCanvasFor(null)}
+        />
+      )}
+      {readerFor && (
+        <ReaderHost
+          key={readerFor.documentId}
+          hit={readerFor}
+          onClose={() => setReaderFor(null)}
         />
       )}
       {noteFor && (
@@ -703,6 +776,7 @@ export function Lens() {
           key={hubFor}
           documentId={hubFor}
           onOpenCanvas={openCanvas}
+          onOpenReader={openReader}
           onOpenNote={openNote}
           onOpenBacklink={openNoteRef}
           onAfterTransfer={invalidateAfterTransfer}

@@ -75,6 +75,16 @@ export const VIEWS_DELETE_CHANNEL = 'views:delete'
 export const deleteViewRequestSchema = z.object({ slug: z.string().min(1).max(200) })
 export type DeleteViewRequest = z.infer<typeof deleteViewRequestSchema>
 
+// Reading-state (docs/2026-07-13-r2-reader-reading-state-spec §2): per-document reading exposure,
+// one JSON file per document under `<workspace>/.astrolabe/reading/` keyed by content hash. All
+// three channels take a documentId; main resolves the hash internally (the renderer never handles
+// hashes). get → ReadingState | null; record({events}) merges; finish({finished}) sets the marker.
+// The request schemas live WITH the module (`src/main/lib/reading-state.ts`, views precedent) — the
+// module also owns the `ReadingState`/`PageExposure` types — so only the channel names live here.
+export const READING_GET_CHANNEL = 'reading:get'
+export const READING_RECORD_CHANNEL = 'reading:record'
+export const READING_FINISH_CHANNEL = 'reading:finish'
+
 // Virtual collections (docs/2026-07-10-lens-virtual-collections-spec): M:N, source-independent
 // grouping persisted as one JSON file per collection under `<workspace>/.astrolabe/collections/`.
 // list → summaries; create({name}) upserts by slug; delete({slug}); add/remove-members take

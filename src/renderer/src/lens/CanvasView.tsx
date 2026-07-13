@@ -3,7 +3,7 @@ import clsx from 'clsx'
 import type { PdfDocumentState } from './pdf/usePdfDocument'
 import { depthValue, normalizeHeat } from './pdf/heat'
 import { nextZoom, type ZoomAction, type ZoomState } from './pdf/zoom'
-import type { PageAnnotations } from './types'
+import type { PageAnnotations, ReadingState } from './types'
 
 /** The grid cell-size ladder (CSS px); index 1 is the spec's original ~140px column. */
 const CELL_SIZES = [100, 140, 200, 280] as const
@@ -19,7 +19,7 @@ const MAX_ALPHA = 0.45
 const heatTint = (intensity: number): string =>
   `rgba(245, 158, 11, ${(MIN_ALPHA + (MAX_ALPHA - MIN_ALPHA) * intensity).toFixed(3)})`
 
-type HeatMode = 'breadth' | 'depth'
+type HeatMode = 'breadth' | 'depth' | 'read'
 
 const clampPage = (index: number, numPages: number): number =>
   Math.min(numPages - 1, Math.max(0, index))
@@ -35,7 +35,9 @@ export function CanvasView({
   title,
   pdf,
   heat,
+  reading,
   onOpenPage,
+  onOpenReader,
   onOpenDetails,
   onClose,
 }: {
@@ -43,7 +45,11 @@ export function CanvasView({
   pdf: PdfDocumentState
   /** Per-page annotation aggregates; null while the query is in flight (no heat layer yet). */
   heat: PageAnnotations | null
+  /** Persisted exposure (engagement, never comprehension) — enables the `read` heat layer. */
+  reading?: ReadingState | null
   onOpenPage: (pageIndex: number) => void
+  /** Opens the continuous-scroll Reader for this document (panel swap); hidden when unwired. */
+  onOpenReader?: () => void
   /** Cross-link to the Document Hub for this document (panel swap); hidden when unwired. */
   onOpenDetails?: () => void
   onClose: () => void
@@ -77,18 +83,26 @@ export function CanvasView({
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose, lightbox, numPages])
 
+  // The read layer exists only when exposure has actually been recorded.
+  const hasRead = !!reading && Object.keys(reading.pages).length > 0
+  const mode: HeatMode = heatMode === 'read' && !hasRead ? 'breadth' : heatMode
+
   // Continuous intensities, relative to THIS document under the active layer: breadth =
-  // annotation count, depth = substance (levels-of-processing weighting in pdf/heat.ts).
-  const intensities = useMemo(
-    () =>
-      normalizeHeat(
-        (heat?.pages ?? []).map((p) => ({
-          pageIndex: p.pageIndex,
-          value: heatMode === 'breadth' ? p.count : depthValue(p),
-        })),
-      ),
-    [heat, heatMode],
-  )
+  // annotation count, depth = substance (levels-of-processing weighting in pdf/heat.ts),
+  // read = accumulated dwell (exposure — engagement, never comprehension).
+  const intensities = useMemo(() => {
+    const values =
+      mode === 'read'
+        ? Object.entries(reading?.pages ?? {}).map(([pageIndex, e]) => ({
+            pageIndex: Number(pageIndex),
+            value: e.dwellMs,
+          }))
+        : (heat?.pages ?? []).map((p) => ({
+            pageIndex: p.pageIndex,
+            value: mode === 'breadth' ? p.count : depthValue(p),
+          }))
+    return normalizeHeat(values)
+  }, [heat, reading, mode])
   const counts = useMemo(() => {
     const m = new Map<number, number>()
     for (const p of heat?.pages ?? []) m.set(p.pageIndex, p.count)
@@ -182,22 +196,32 @@ export function CanvasView({
           </button>
           {heatOn && (
             <span className="flex overflow-hidden rounded border border-zinc-700 text-xs">
-              {(['breadth', 'depth'] as const).map((mode) => (
-                <button
-                  key={mode}
-                  aria-pressed={heatMode === mode}
-                  onClick={() => setHeatMode(mode)}
-                  className={clsx(
-                    'px-2 py-1',
-                    heatMode === mode
-                      ? 'bg-amber-950 text-amber-300'
-                      : 'text-zinc-500 hover:bg-zinc-800',
-                  )}
-                >
-                  {mode === 'breadth' ? 'count' : 'depth'}
-                </button>
-              ))}
+              {(['breadth', 'depth', ...(hasRead ? (['read'] as const) : [])] as HeatMode[]).map(
+                (m) => (
+                  <button
+                    key={m}
+                    aria-pressed={mode === m}
+                    onClick={() => setHeatMode(m)}
+                    className={clsx(
+                      'px-2 py-1',
+                      mode === m ? 'bg-amber-950 text-amber-300' : 'text-zinc-500 hover:bg-zinc-800',
+                    )}
+                  >
+                    {m === 'breadth' ? 'count' : m}
+                  </button>
+                ),
+              )}
             </span>
+          )}
+          {onOpenReader && (
+            <button
+              aria-label="open reader"
+              title="Read this document"
+              onClick={onOpenReader}
+              className="rounded border border-emerald-800 bg-emerald-950 px-2 py-1 text-xs text-emerald-300 hover:bg-emerald-900"
+            >
+              read
+            </button>
           )}
           {onOpenDetails && (
             <button
@@ -236,7 +260,7 @@ export function CanvasView({
                 pageIndex={pageIndex}
                 label={pdf.pageLabels?.[pageIndex] ?? String(pageIndex + 1)}
                 intensity={intensities.get(pageIndex) ?? null}
-                count={counts.get(pageIndex) ?? 0}
+                count={mode === 'read' ? null : (counts.get(pageIndex) ?? 0)}
                 heatOn={heatOn}
                 cellWidth={cellWidth}
                 rendered={rendered.has(pageIndex)}
@@ -422,7 +446,8 @@ function PageCell({
   label: string
   /** Continuous heat intensity (0, 1], or null when the page carries no heat. */
   intensity: number | null
-  count: number
+  /** Annotation count for the badge; null = badge-less layer (read/exposure). */
+  count: number | null
   heatOn: boolean
   cellWidth: number
   rendered: boolean
@@ -459,9 +484,11 @@ function PageCell({
             className="pointer-events-none absolute inset-0"
             style={{ backgroundColor: heatTint(intensity) }}
           />
-          <span className="absolute right-1 top-1 rounded-full bg-amber-500/90 px-1.5 text-[10px] font-semibold leading-4 text-zinc-950">
-            {count}
-          </span>
+          {count !== null && (
+            <span className="absolute right-1 top-1 rounded-full bg-amber-500/90 px-1.5 text-[10px] font-semibold leading-4 text-zinc-950">
+              {count}
+            </span>
+          )}
         </>
       )}
     </button>

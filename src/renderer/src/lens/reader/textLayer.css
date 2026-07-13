@@ -1,0 +1,50 @@
+/*
+ * Minimal pdf.js v6 text-layer rules, scoped to `.textLayer` (extracted from
+ * pdfjs-dist/web/pdf_viewer.css). The Reader overlays this transparent, selectable text on the
+ * page canvas so users can select/copy and the find bar can align. pdf.js's TextLayer sets each
+ * span's `--font-height`, `--scale-x`, `--rotate` inline and the container's width/height +
+ * `--total-scale-factor` (via renderPage); these rules turn those custom properties into real
+ * geometry. Kept as a tiny stylesheet — as excalidraw/ imports its vendor CSS — because the
+ * calc()/transform expressions over CSS variables can't be expressed as Tailwind utilities on
+ * pdf.js-generated spans. Only the selection-critical subset is included (no editor/highlight).
+ */
+.textLayer {
+  position: absolute;
+  text-align: initial;
+  inset: 0;
+  overflow: clip;
+  opacity: 1;
+  line-height: 1;
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  z-index: 0;
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+}
+
+.textLayer :is(span, br) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.textLayer > :not(.markedContent),
+.textLayer .markedContent span:not(.markedContent) {
+  z-index: 1;
+  --font-height: 0;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  --scale-x: 1;
+  --rotate: 0deg;
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+
+.textLayer .markedContent {
+  display: contents;
+}

@@ -14,6 +14,25 @@ export interface PdfDocumentState {
   error: string | null
   /** Rasterize page `pageIndex` (0-based) into `canvas` at CSS width `width` (× dpr). */
   renderThumb: (pageIndex: number, canvas: HTMLCanvasElement, width: number) => Promise<void>
+  /**
+   * Rasterize page `pageIndex` into `canvas` at CSS `width` AND — when `textLayerEl` is
+   * given — lay a selectable pdf.js TextLayer over it (absolute-positioned, sized to match).
+   * Pass `null` for the text layer to rasterize only. The Reader's per-page surface.
+   *
+   * These three are OPTIONAL only so the existing CanvasView test fixture — which predates
+   * them and which this agent must not edit — still type-checks; the real hook below always
+   * returns them, and ReaderView treats them as present.
+   */
+  renderPage?: (
+    pageIndex: number,
+    canvas: HTMLCanvasElement,
+    textLayerEl: HTMLElement | null,
+    width: number,
+  ) => Promise<void>
+  /** Full plain-text of a page (items joined), cached after first call. Powers find. */
+  getPageText?: (pageIndex: number) => Promise<string>
+  /** Base (scale-1) viewport size of a page, cached — drives placeholder aspect ratios. */
+  getPageSize?: (pageIndex: number) => Promise<{ width: number; height: number }>
 }
 
 /**
@@ -28,9 +47,14 @@ export function usePdfDocument(url: string): PdfDocumentState {
   const [pageLabels, setPageLabels] = useState<string[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const docRef = useRef<PDFDocumentProxy | null>(null)
+  // Per-document caches (promises, so concurrent callers dedupe); reset when the url changes.
+  const textCache = useRef(new Map<number, Promise<string>>())
+  const sizeCache = useRef(new Map<number, Promise<{ width: number; height: number }>>())
 
   useEffect(() => {
     let cancelled = false
+    textCache.current.clear()
+    sizeCache.current.clear()
     // The loading task owns cleanup: destroying it tears down the document AND its worker.
     let task: ReturnType<typeof import('pdfjs-dist/legacy/build/pdf.mjs').getDocument> | null = null
     setStatus('loading')
@@ -121,5 +145,103 @@ export function usePdfDocument(url: string): PdfDocumentState {
     [],
   )
 
-  return { status, numPages, pageLabels, error, renderThumb }
+  // One in-flight TextLayer per container element — same rationale as the canvas guard:
+  // a re-raster (zoom/scroll) must cancel the previous text layer before starting a new one.
+  const textLayerInFlight = useRef(new WeakMap<HTMLElement, { cancel: () => void }>())
+
+  const renderPage = useCallback(
+    async (
+      pageIndex: number,
+      canvas: HTMLCanvasElement,
+      textLayerEl: HTMLElement | null,
+      width: number,
+    ): Promise<void> => {
+      const doc = docRef.current
+      if (!doc) return
+      const page = await doc.getPage(pageIndex + 1)
+      const dpr = window.devicePixelRatio || 1
+      const base = page.getViewport({ scale: 1 })
+      const displayScale = width / base.width
+      const viewport = page.getViewport({ scale: displayScale * dpr })
+      inFlight.current.get(canvas)?.cancel()
+      canvas.width = Math.floor(viewport.width)
+      canvas.height = Math.floor(viewport.height)
+      const task = page.render({ canvas, viewport })
+      inFlight.current.set(canvas, task)
+      try {
+        await task.promise
+      } catch (e) {
+        if ((e as Error | null)?.name !== 'RenderingCancelledException') {
+          console.warn('pdf page render failed', e)
+        }
+      } finally {
+        if (inFlight.current.get(canvas) === task) inFlight.current.delete(canvas)
+      }
+
+      if (!textLayerEl) return
+      // The text layer positions its spans as percentages of the raw page box and scales
+      // font sizes by the CSS var `--total-scale-factor`; setting it to the DISPLAY scale
+      // (not × dpr) makes the layer size itself to match the canvas's CSS box exactly.
+      textLayerInFlight.current.get(textLayerEl)?.cancel()
+      textLayerEl.replaceChildren()
+      textLayerEl.style.setProperty('--total-scale-factor', String(displayScale))
+      const { TextLayer } = await import('pdfjs-dist/legacy/build/pdf.mjs')
+      const layer = new TextLayer({
+        textContentSource: page.streamTextContent(),
+        container: textLayerEl,
+        viewport: page.getViewport({ scale: displayScale }),
+      })
+      textLayerInFlight.current.set(textLayerEl, layer)
+      try {
+        await layer.render()
+      } catch (e) {
+        // A superseded layer cancels with AbortException — expected, not an error.
+        if ((e as Error | null)?.name !== 'AbortException') {
+          console.warn('pdf text layer failed', e)
+        }
+      } finally {
+        if (textLayerInFlight.current.get(textLayerEl) === layer) {
+          textLayerInFlight.current.delete(textLayerEl)
+        }
+      }
+    },
+    [],
+  )
+
+  const getPageText = useCallback((pageIndex: number): Promise<string> => {
+    const hit = textCache.current.get(pageIndex)
+    if (hit) return hit
+    const p = (async () => {
+      const doc = docRef.current
+      if (!doc) return ''
+      const page = await doc.getPage(pageIndex + 1)
+      const content = await page.getTextContent()
+      let out = ''
+      for (const item of content.items) {
+        if ('str' in item) {
+          out += item.str
+          if (item.hasEOL) out += '\n'
+        }
+      }
+      return out
+    })()
+    textCache.current.set(pageIndex, p)
+    return p
+  }, [])
+
+  const getPageSize = useCallback((pageIndex: number): Promise<{ width: number; height: number }> => {
+    const hit = sizeCache.current.get(pageIndex)
+    if (hit) return hit
+    const p = (async () => {
+      const doc = docRef.current
+      if (!doc) return { width: 0, height: 0 }
+      const page = await doc.getPage(pageIndex + 1)
+      const vp = page.getViewport({ scale: 1 })
+      return { width: vp.width, height: vp.height }
+    })()
+    sizeCache.current.set(pageIndex, p)
+    return p
+  }, [])
+
+  return { status, numPages, pageLabels, error, renderThumb, renderPage, getPageText, getPageSize }
 }

@@ -183,6 +183,27 @@ export interface BrowsePage {
 }
 
 /**
+ * Renderer-local mirror of the main-process reading-state artifact
+ * (docs/2026-07-13-r2-reader-reading-state-spec §1). Per-page EXPOSURE — dwell time, visit
+ * count, first/last timestamps — plus a `finished` marker. Honest framing: this measures
+ * engagement (time a page was in view + focused), never comprehension. Kept renderer-local
+ * so ReaderView component tests never reach the preload seam (same convention as FilterSet).
+ */
+export interface PageExposure {
+  dwellMs: number // accumulated in-view, window-focused time
+  visits: number // times the page entered view
+  firstSeenAt: string // ISO
+  lastSeenAt: string // ISO
+}
+export interface ReadingState {
+  contentSha256: string
+  pages: Record<string, PageExposure> // key = String(pageIndex)
+  finished: boolean
+  finishedAt: string | null // ISO
+  updatedAt: string // ISO
+}
+
+/**
  * The wiki-link graph for one document (`index:links` wire contract). Outlinks are the
  * `[[target]]` references this note makes — each resolved to an indexed document when the
  * target exists in the vault (documentId/instanceId/title/kind non-null), else left null

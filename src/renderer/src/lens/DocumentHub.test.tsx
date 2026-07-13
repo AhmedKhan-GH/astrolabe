@@ -36,6 +36,7 @@ const setup = (over: Partial<Parameters<typeof DocumentHub>[0]> = {}) => {
     onOpenFile: vi.fn(),
     onReveal: vi.fn(),
     onOpenCanvas: vi.fn(),
+    onOpenReader: vi.fn(),
     onOpenNote: vi.fn(),
     onOpenBacklink: vi.fn(),
     onClose: vi.fn(),
@@ -44,6 +45,19 @@ const setup = (over: Partial<Parameters<typeof DocumentHub>[0]> = {}) => {
   render(<DocumentHub {...props} />)
   return props
 }
+
+describe('DocumentHub reader action', () => {
+  it('offers Read for a file-backed pdf, next to Canvas', () => {
+    const { onOpenReader } = setup()
+    fireEvent.click(screen.getByRole('button', { name: 'open reader' }))
+    expect(onOpenReader).toHaveBeenCalledOnce()
+  })
+
+  it('hides Read for a non-pdf document', () => {
+    setup({ detail: detail({ kind: 'note' }) })
+    expect(screen.queryByRole('button', { name: 'open reader' })).toBeNull()
+  })
+})
 
 describe('DocumentHub chrome', () => {
   it('is a dialog labelled "document details" with the title, kind, tags and VC chips', () => {

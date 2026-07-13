@@ -24,6 +24,9 @@ import {
   INDEX_STATS_CHANNEL,
   INDEX_SEARCH_CHANNEL,
   INDEX_SYNC_CHANNEL,
+  READING_FINISH_CHANNEL,
+  READING_GET_CHANNEL,
+  READING_RECORD_CHANNEL,
   RECONCILE_TRANSFER_CHANNEL,
   SYSTEM_OPEN_CHANNEL,
   SYSTEM_REQUEST_ACCESS_CHANNEL,
@@ -53,6 +56,7 @@ import type { DocumentLinks } from '../main/index/links'
 import type { AccessProbeResult } from '../main/system/access'
 import type { SourceKey } from '../main/connectors/types'
 import type { SavedView, SaveViewRequest } from '../main/lib/views'
+import type { ReadingState } from '../main/lib/reading-state'
 import type { VCollectionSummary } from '../main/lib/vcollections'
 import type {
   AcpAgentDescriptor,
@@ -126,6 +130,19 @@ const api = {
     save: (req: SaveViewRequest): Promise<SavedView> => ipcRenderer.invoke(VIEWS_SAVE_CHANNEL, req),
     remove: (slug: string): Promise<boolean> =>
       ipcRenderer.invoke(VIEWS_DELETE_CHANNEL, { slug }),
+  },
+  reading: {
+    // Reading-state (docs/2026-07-13-r2-reader-reading-state-spec §2). Each call names a documentId;
+    // main resolves the content hash (the renderer never handles hashes). A hashless/unknown document
+    // resolves to null. `record` merges a batch of dwell events; `finish` sets/clears the marker.
+    get: (documentId: number): Promise<ReadingState | null> =>
+      ipcRenderer.invoke(READING_GET_CHANNEL, { documentId }),
+    record: (
+      documentId: number,
+      events: { pageIndex: number; dwellMs: number; at: number }[],
+    ): Promise<ReadingState | null> => ipcRenderer.invoke(READING_RECORD_CHANNEL, { documentId, events }),
+    finish: (documentId: number, finished: boolean): Promise<ReadingState | null> =>
+      ipcRenderer.invoke(READING_FINISH_CHANNEL, { documentId, finished }),
   },
   collections: {
     list: (): Promise<VCollectionSummary[]> => ipcRenderer.invoke(VCOLLECTIONS_LIST_CHANNEL),

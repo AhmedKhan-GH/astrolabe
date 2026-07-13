@@ -36,6 +36,7 @@ export function DocumentHub({
   onOpenFile,
   onReveal,
   onOpenCanvas,
+  onOpenReader,
   onOpenNote,
   onOpenBacklink,
   onTransfer,
@@ -50,6 +51,8 @@ export function DocumentHub({
   onOpenFile: (path: string) => void
   onReveal: (path: string) => void
   onOpenCanvas: () => void
+  /** Opens the continuous-scroll Reader; same file-backed-pdf gate as Canvas. */
+  onOpenReader?: () => void
   onOpenNote: () => void
   onOpenBacklink: (target: { documentId: number; instanceId: number; title: string }) => void
   // Eagle↔Zotero sync gesture — the primary home for the affordance (spec §Renderer). Unwired =
@@ -231,6 +234,15 @@ export function DocumentHub({
                     className="rounded border border-amber-800 bg-amber-950 px-3 py-1.5 text-xs text-amber-300 hover:bg-amber-900"
                   >
                     Canvas
+                  </button>
+                )}
+                {canCanvas && onOpenReader && (
+                  <button
+                    aria-label="open reader"
+                    onClick={onOpenReader}
+                    className="rounded border border-emerald-800 bg-emerald-950 px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-900"
+                  >
+                    Read
                   </button>
                 )}
                 {canNote && (
