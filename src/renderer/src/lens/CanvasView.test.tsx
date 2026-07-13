@@ -221,26 +221,47 @@ describe('CanvasView grid zoom', () => {
   const gridColumns = (): string =>
     (document.querySelector('[data-testid="page-grid"]') as HTMLElement).style.gridTemplateColumns
 
+  const smallerBtn = () => screen.getByRole('button', { name: /smaller pages/i }) as HTMLButtonElement
+  const largerBtn = () => screen.getByRole('button', { name: /larger pages/i }) as HTMLButtonElement
+
   it('larger/smaller controls walk the cell-size ladder', () => {
     setup()
     expect(gridColumns()).toContain('140px')
-    fireEvent.click(screen.getByRole('button', { name: /larger pages/i }))
-    expect(gridColumns()).toContain('200px')
-    fireEvent.click(screen.getByRole('button', { name: /smaller pages/i }))
-    fireEvent.click(screen.getByRole('button', { name: /smaller pages/i }))
-    expect(gridColumns()).toContain('100px')
+    fireEvent.click(largerBtn())
+    expect(gridColumns()).toContain('210px')
+    fireEvent.click(smallerBtn())
+    fireEvent.click(smallerBtn())
+    expect(gridColumns()).toContain('84px')
+  })
+
+  it('reaches a much smaller whole-book size than a page thumbnail', () => {
+    setup()
+    fireEvent.click(smallerBtn()) // 140 → 84
+    fireEvent.click(smallerBtn()) // → 52
+    fireEvent.click(smallerBtn()) // → 32 (bottom)
+    expect(gridColumns()).toContain('32px')
   })
 
   it('the controls disable at the ladder ends', () => {
     setup()
-    const smaller = screen.getByRole('button', { name: /smaller pages/i }) as HTMLButtonElement
-    const larger = screen.getByRole('button', { name: /larger pages/i }) as HTMLButtonElement
-    fireEvent.click(smaller) // 140 → 100 (bottom)
+    const smaller = smallerBtn()
+    const larger = largerBtn()
+    fireEvent.click(smaller) // 140 → 84
+    fireEvent.click(smaller) // → 52
+    fireEvent.click(smaller) // → 32 (bottom)
     expect(smaller.disabled).toBe(true)
-    fireEvent.click(larger) // 100 → 140
-    fireEvent.click(larger) // → 200
-    fireEvent.click(larger) // → 280 (top)
+    for (let i = 0; i < 5; i++) fireEvent.click(larger) // 32 → 280 (top)
+    expect(gridColumns()).toContain('280px')
     expect(larger.disabled).toBe(true)
+  })
+
+  it('drops the per-page count badge at whole-book sizes, keeping the heat tint', () => {
+    setup()
+    fireEvent.click(smallerBtn()) // 140 → 84
+    fireEvent.click(smallerBtn()) // → 52 (compact)
+    const heavy = screen.getByRole('button', { name: 'page 2' }) // pageIndex 3, count 5
+    expect(overlayIntensity(heavy)).toBe(1) // still the hottest tint
+    expect(within(heavy).queryByText('5')).toBeNull() // badge suppressed
   })
 })
 

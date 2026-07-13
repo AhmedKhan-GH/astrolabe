@@ -5,9 +5,15 @@ import { depthValue, normalizeHeat } from './pdf/heat'
 import { nextZoom, type ZoomAction, type ZoomState } from './pdf/zoom'
 import type { PageAnnotations, ReadingState } from './types'
 
-/** The grid cell-size ladder (CSS px); index 1 is the spec's original ~140px column. */
-const CELL_SIZES = [100, 140, 200, 280] as const
-const DEFAULT_CELL = 1
+/**
+ * The grid cell-size ladder (CSS px). The default (140) is a readable page thumbnail; the
+ * smaller steps down to 32px are the "see the whole book at once" overview — every page
+ * tiled small enough to fit the annotation/heat pattern of an entire book on one screen.
+ */
+const CELL_SIZES = [32, 52, 84, 140, 210, 280] as const
+const DEFAULT_CELL = 3
+/** At/below this cell width the grid is a bird's-eye overview: tighter gaps, no count badges. */
+const COMPACT_BELOW = 90
 /** Lightbox base width when the container cannot be measured (jsdom, first paint). */
 const FALLBACK_BASE = 720
 /** Bounded canvas cache — beyond this, the oldest off-screen thumbnails revert to placeholders. */
@@ -66,6 +72,7 @@ export function CanvasView({
   const observerRef = useRef<IntersectionObserver | null>(null)
   const numPages = pdf.status === 'ready' ? pdf.numPages : 0
   const cellWidth = CELL_SIZES[cellIdx]!
+  const compact = cellWidth < COMPACT_BELOW
 
   // Escape closes the lightbox FIRST (canvas stays open), then the canvas — the two never
   // fight over one keypress. While the lightbox is open, ←/→ page through it (clamped).
@@ -251,7 +258,7 @@ export function CanvasView({
         {pdf.status === 'ready' && (
           <div
             data-testid="page-grid"
-            className="grid gap-2"
+            className={clsx('grid', compact ? 'gap-1' : 'gap-2')}
             style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${cellWidth}px, 1fr))` }}
           >
             {Array.from({ length: pdf.numPages }, (_, pageIndex) => (
@@ -260,9 +267,10 @@ export function CanvasView({
                 pageIndex={pageIndex}
                 label={pdf.pageLabels?.[pageIndex] ?? String(pageIndex + 1)}
                 intensity={intensities.get(pageIndex) ?? null}
-                count={mode === 'read' ? null : (counts.get(pageIndex) ?? 0)}
+                count={compact || mode === 'read' ? null : (counts.get(pageIndex) ?? 0)}
                 heatOn={heatOn}
                 cellWidth={cellWidth}
+                compact={compact}
                 rendered={rendered.has(pageIndex)}
                 renderThumb={pdf.renderThumb}
                 register={registerCell}
@@ -437,6 +445,7 @@ function PageCell({
   count,
   heatOn,
   cellWidth,
+  compact,
   rendered,
   renderThumb,
   register,
@@ -446,10 +455,12 @@ function PageCell({
   label: string
   /** Continuous heat intensity (0, 1], or null when the page carries no heat. */
   intensity: number | null
-  /** Annotation count for the badge; null = badge-less layer (read/exposure). */
+  /** Annotation count for the badge; null = badge-less layer (read/exposure, or compact). */
   count: number | null
   heatOn: boolean
   cellWidth: number
+  /** Bird's-eye overview size: page-aspect tiles, no label, hairline border. */
+  compact: boolean
   rendered: boolean
   renderThumb: PdfDocumentState['renderThumb']
   register: (pageIndex: number, el: HTMLElement | null) => void
@@ -468,14 +479,23 @@ function PageCell({
       aria-label={`page ${label}`}
       title={`page ${label} — open a larger view`}
       onClick={() => onSelect(pageIndex)}
-      className="relative min-h-32 overflow-hidden rounded border border-zinc-800 bg-zinc-900/60 hover:border-zinc-600"
+      // A placeholder cell has no intrinsic height, so give it the page aspect (US-Letter-ish)
+      // — that lets a compact grid shrink to true bird's-eye tiles instead of a 128px floor.
+      style={{ aspectRatio: '17 / 22' }}
+      className={clsx(
+        'relative overflow-hidden bg-zinc-900/60',
+        compact ? 'rounded-sm border border-zinc-800/70' : 'rounded border border-zinc-800 hover:border-zinc-600',
+      )}
     >
       {rendered ? (
         <canvas ref={canvasRef} className="block h-auto w-full" />
       ) : (
-        <span className="absolute inset-0 flex items-center justify-center text-xs text-zinc-600">
-          {label}
-        </span>
+        // In the compact overview the page number is illegible anyway — leave the tile bare.
+        !compact && (
+          <span className="absolute inset-0 flex items-center justify-center text-xs text-zinc-600">
+            {label}
+          </span>
+        )
       )}
       {heatOn && intensity !== null && (
         <>
