@@ -135,3 +135,49 @@ describe('NoteView backlinks', () => {
     expect(screen.queryByText(/backlinks/i)).toBeNull()
   })
 })
+
+// Mermaid is mocked: the real library is ~1.5 MB, loads lazily in production, and cannot
+// lay out SVG in jsdom. The mock proves the interception + async render wiring.
+vi.mock('mermaid', () => ({
+  default: {
+    initialize: vi.fn(),
+    render: vi.fn().mockResolvedValue({ svg: '<svg data-mock="mermaid"></svg>' }),
+  },
+}))
+
+describe('NoteView rich markdown (math, mermaid, ==highlight==)', () => {
+  it('renders inline $math$ through KaTeX', () => {
+    setup({ content: 'Euler: $e^{i\\pi} + 1 = 0$' })
+    expect(document.querySelector('.katex')).toBeTruthy()
+  })
+
+  it('renders a $$ block (own lines, the canonical Obsidian form) as display math', () => {
+    setup({ content: '$$\n\\int_0^1 x\\,dx\n$$' })
+    expect(document.querySelector('.katex-display')).toBeTruthy()
+  })
+
+  it('renders ==highlight== as a <mark>', () => {
+    setup({ content: 'this is ==the key point== here' })
+    const mark = screen.getByText('the key point')
+    expect(mark.tagName).toBe('MARK')
+  })
+
+  it('does NOT highlight inside inline code (text-node walk skips code)', () => {
+    setup({ content: 'literal `==x==` code' })
+    const code = screen.getByText('==x==')
+    expect(code.tagName).toBe('CODE')
+    expect(document.querySelector('mark')).toBeNull()
+  })
+
+  it('renders a ```mermaid fence as a diagram, not a code block', async () => {
+    setup({ content: '```mermaid\ngraph TD;A-->B;\n```' })
+    expect(await screen.findByRole('img', { name: /mermaid diagram/i })).toBeTruthy()
+    expect(document.querySelector('pre')).toBeNull()
+  })
+
+  it('ordinary fenced code still renders as a <pre> block', () => {
+    setup({ content: '```ts\nconst x = 1\n```' })
+    expect(document.querySelector('pre')).toBeTruthy()
+    expect(screen.queryByRole('img', { name: /mermaid/i })).toBeNull()
+  })
+})

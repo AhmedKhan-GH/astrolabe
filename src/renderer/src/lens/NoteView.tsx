@@ -1,8 +1,23 @@
-import { useEffect, useMemo } from 'react'
+import { isValidElement, useEffect, useMemo, type ReactNode } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
+import 'katex/dist/katex.min.css'
 import { stripFrontmatter, wikiLinksToMd } from './md/wiki'
+import { remarkObsidianHighlight } from './md/highlight'
+import { MermaidDiagram } from './md/MermaidDiagram'
 import type { DocumentLinks } from './types'
+
+/** Obsidian vault markdown carries GFM + $math$ + ==highlights== (docs task R-side polish). */
+const REMARK_PLUGINS = [remarkGfm, remarkMath, remarkObsidianHighlight]
+const REHYPE_PLUGINS = [rehypeKatex]
+
+/** A fenced block is a mermaid diagram when its <code> child carries language-mermaid. */
+const isMermaidCode = (node: ReactNode): boolean =>
+  isValidElement<{ className?: string }>(node) &&
+  typeof node.props.className === 'string' &&
+  node.props.className.includes('language-mermaid')
 
 /** The minimal reference NoteView hands back when a link is followed in-app. */
 export interface NoteNavTarget {
@@ -82,14 +97,27 @@ export function NoteView({
       hr: () => <hr className="my-4 border-zinc-800" />,
       strong: ({ children }) => <strong className="font-semibold text-zinc-100">{children}</strong>,
       em: ({ children }) => <em className="italic">{children}</em>,
-      code: ({ children }) => (
-        <code className="rounded bg-zinc-800 px-1 py-0.5 text-[0.85em] text-zinc-200">{children}</code>
+      mark: ({ children }) => (
+        <mark className="rounded bg-amber-400/25 px-0.5 text-amber-200">{children}</mark>
       ),
-      pre: ({ children }) => (
-        <pre className="my-2 overflow-x-auto rounded border border-zinc-800 bg-zinc-900 p-3 text-xs text-zinc-200">
-          {children}
-        </pre>
-      ),
+      code: ({ className, children }) => {
+        if (typeof className === 'string' && className.includes('language-mermaid')) {
+          return <MermaidDiagram source={String(children).trimEnd()} />
+        }
+        return (
+          <code className="rounded bg-zinc-800 px-1 py-0.5 text-[0.85em] text-zinc-200">{children}</code>
+        )
+      },
+      pre: ({ children }) => {
+        // The mermaid code renderer replaced the fence's <code> with a diagram — don't wrap
+        // the diagram in code-block chrome.
+        if (isMermaidCode(children)) return <>{children}</>
+        return (
+          <pre className="my-2 overflow-x-auto rounded border border-zinc-800 bg-zinc-900 p-3 text-xs text-zinc-200">
+            {children}
+          </pre>
+        )
+      },
       table: ({ children }) => (
         <table className="my-2 w-full border-collapse text-sm text-zinc-300">{children}</table>
       ),
@@ -196,7 +224,12 @@ export function NoteView({
           <p className="text-sm text-zinc-600">loading note…</p>
         ) : (
           <article className="max-w-none text-sm">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={(url) => url} components={components}>
+            <ReactMarkdown
+              remarkPlugins={REMARK_PLUGINS}
+              rehypePlugins={REHYPE_PLUGINS}
+              urlTransform={(url) => url}
+              components={components}
+            >
               {rendered}
             </ReactMarkdown>
           </article>
