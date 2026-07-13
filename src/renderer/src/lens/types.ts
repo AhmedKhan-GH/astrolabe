@@ -204,6 +204,21 @@ export interface ReadingState {
 }
 
 /**
+ * Renderer-local mirror of the main-process page-range View artifact
+ * (docs/2026-07-13-r3-structure-views-spec §3). A named page set over one document — the
+ * reading-state twin, hash-keyed per document. `pages` are 0-based pageIndexes (deduped +
+ * sorted server-side); `tocPaths` records the TOC cover it was created from (provenance, when
+ * created from a TOC selection). Kept renderer-local so component tests never reach the seam.
+ */
+export interface DocPageView {
+  slug: string
+  name: string
+  pages: number[]
+  tocPaths?: string[]
+  createdAt: string // ISO
+}
+
+/**
  * The wiki-link graph for one document (`index:links` wire contract). Outlinks are the
  * `[[target]]` references this note makes — each resolved to an indexed document when the
  * target exists in the vault (documentId/instanceId/title/kind non-null), else left null

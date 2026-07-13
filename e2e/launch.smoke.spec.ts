@@ -58,6 +58,7 @@ test('preload bridge exposes exactly its allowlist', async () => {
     'collections',
     'db',
     'index',
+    'pageViews',
     'reading',
     'system',
     'versions',

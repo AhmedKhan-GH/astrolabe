@@ -3,9 +3,20 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
 import { ReaderView } from './ReaderView'
 import type { PdfDocumentState } from '../pdf/usePdfDocument'
-import type { ReadingState } from '../types'
+import type { DocPageView, PageAnnotations, ReadingState } from '../types'
+import type { OutlineEntry } from './toc'
 
 afterEach(cleanup)
+
+// Intro [0,2] with child Background [1,2]; Methods [3,4] — over the 5-page fixture.
+const OUTLINE: OutlineEntry[] = [
+  {
+    title: 'Intro',
+    pageIndex: 0,
+    children: [{ title: 'Background', pageIndex: 1, children: [] }],
+  },
+  { title: 'Methods', pageIndex: 3, children: [] },
+]
 
 const PAGE_TEXT: Record<number, string> = {
   0: 'alpha beta',
@@ -171,5 +182,137 @@ describe('ReaderView find bar', () => {
       target: { value: 'zzzznope' },
     })
     expect(await screen.findByText(/no matches/i)).toBeTruthy()
+  })
+})
+
+describe('ReaderView TOC sidebar', () => {
+  const withOutline = (o: OutlineEntry[] = OUTLINE): Partial<PdfDocumentState> => ({
+    getOutline: vi.fn().mockResolvedValue(o),
+  })
+
+  it('shows a TOC sidebar when an outline resolves, and the header toggle hides it', async () => {
+    setup({ pdf: pdf(withOutline()) })
+    const toggle = await screen.findByRole('button', { name: /table of contents/i })
+    expect(toggle.getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('navigation', { name: /table of contents/i })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Intro' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Methods' })).toBeTruthy()
+    fireEvent.click(toggle)
+    expect(toggle.getAttribute('aria-pressed')).toBe('false')
+    expect(screen.queryByRole('navigation', { name: /table of contents/i })).toBeNull()
+  })
+
+  it('hides the TOC toggle entirely when the document has no outline', async () => {
+    setup({ pdf: pdf(withOutline([])) })
+    // Let the async getOutline settle, then confirm no toggle appeared.
+    await Promise.resolve()
+    expect(screen.queryByRole('button', { name: /table of contents/i })).toBeNull()
+    expect(screen.queryByRole('navigation', { name: /table of contents/i })).toBeNull()
+  })
+
+  it('reports a TOC selection upward with the union of its page ranges', async () => {
+    const onTocSelectionChange = vi.fn()
+    setup({ pdf: pdf(withOutline()), onTocSelectionChange })
+    const box = await screen.findByRole('checkbox', { name: /select Methods/i })
+    fireEvent.click(box) // Methods = /1, range [3,4]
+    expect(onTocSelectionChange).toHaveBeenCalledWith(new Set(['/1']), new Set([3, 4]))
+  })
+})
+
+describe('ReaderView page-range Views', () => {
+  const view = (over: Partial<DocPageView> = {}): DocPageView => ({
+    slug: 'intro',
+    name: 'Intro',
+    pages: [0, 1],
+    createdAt: '2026-07-13T00:00:00.000Z',
+    ...over,
+  })
+  const isDimmed = (label: string): boolean =>
+    screen.getByRole('group', { name: `page ${label}` }).className.includes('opacity-')
+
+  it('dims non-member pages while a view is applied, and restores them when cleared', () => {
+    const { rerender } = render(
+      <ReaderView
+        title="t"
+        pdf={pdf()}
+        reading={null}
+        views={[view({ pages: [0, 1] })]}
+        appliedView="intro"
+        onRecordExposure={vi.fn()}
+        onToggleFinished={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+    expect(isDimmed('i')).toBe(false) // pageIndex 0 — a member
+    expect(isDimmed('2')).toBe(true) // pageIndex 3 — not a member
+    rerender(
+      <ReaderView
+        title="t"
+        pdf={pdf()}
+        reading={null}
+        views={[view({ pages: [0, 1] })]}
+        appliedView={null}
+        onRecordExposure={vi.fn()}
+        onToggleFinished={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+    expect(isDimmed('2')).toBe(false) // cleared → all pages full-strength
+  })
+
+  it('the Views menu applies a saved view and clears it via callbacks', () => {
+    const onApplyView = vi.fn()
+    setup({ views: [view({ slug: 'intro', name: 'Intro', pages: [0, 1] })], onApplyView })
+    fireEvent.click(screen.getByRole('button', { name: /^views/i }))
+    fireEvent.click(screen.getByRole('button', { name: /apply Intro/i }))
+    expect(onApplyView).toHaveBeenCalledWith('intro')
+  })
+
+  it('deletes a saved view via callback', () => {
+    const onDeleteView = vi.fn()
+    setup({ views: [view({ slug: 'intro', name: 'Intro' })], onDeleteView })
+    fireEvent.click(screen.getByRole('button', { name: /^views/i }))
+    fireEvent.click(screen.getByRole('button', { name: /delete Intro/i }))
+    expect(onDeleteView).toHaveBeenCalledWith('intro')
+  })
+
+  it('saves the current TOC selection as a named view (pages + provenance paths)', async () => {
+    const onSaveView = vi.fn()
+    setup({ pdf: pdf({ getOutline: vi.fn().mockResolvedValue(OUTLINE) }), onSaveView })
+    const box = await screen.findByRole('checkbox', { name: /select Methods/i })
+    fireEvent.click(box) // Methods = /1, pages [3,4]
+    fireEvent.click(screen.getByRole('button', { name: /^views/i }))
+    fireEvent.change(screen.getByRole('textbox', { name: /new view name/i }), {
+      target: { value: 'Just methods' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save selection/i }))
+    expect(onSaveView).toHaveBeenCalledWith('Just methods', [3, 4], ['/1'])
+  })
+
+  it('disables save while nothing is selected', () => {
+    setup({ pdf: pdf({ getOutline: vi.fn().mockResolvedValue(OUTLINE) }) })
+    fireEvent.click(screen.getByRole('button', { name: /^views/i }))
+    expect(
+      (screen.getByRole('button', { name: /save selection/i }) as HTMLButtonElement).disabled,
+    ).toBe(true)
+  })
+})
+
+describe('ReaderView minimap', () => {
+  it('renders a right-edge minimap with a sliver per page', () => {
+    setup()
+    const strip = screen.getByRole('navigation', { name: /page minimap/i })
+    expect(within(strip).getAllByRole('button')).toHaveLength(5)
+  })
+
+  it('offers a heat-source toggle only when there is heat to show', () => {
+    const heat: PageAnnotations = {
+      pages: [{ pageIndex: 2, count: 3, commented: 0, textChars: 0, commentChars: 0 }],
+    }
+    setup({ heat })
+    expect(screen.getByRole('button', { name: /minimap annotations/i })).toBeTruthy()
+    cleanup()
+    setup() // no heat, no reading
+    expect(screen.queryByRole('button', { name: /minimap annotations/i })).toBeNull()
   })
 })

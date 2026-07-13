@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist/legacy/build/pdf.mjs'
+import type { OutlineEntry } from '../reader/toc'
 
 /**
  * The injectable prop-shape CanvasView consumes: components take this RESULT, never the
@@ -33,6 +34,28 @@ export interface PdfDocumentState {
   getPageText?: (pageIndex: number) => Promise<string>
   /** Base (scale-1) viewport size of a page, cached — drives placeholder aspect ratios. */
   getPageSize?: (pageIndex: number) => Promise<{ width: number; height: number }>
+  /**
+   * The document's table of contents (pdf.js `getOutline`), each item's destination resolved
+   * to a 0-based `pageIndex` (unresolvable dests → null, children still mapped); `[]` when the
+   * PDF carries no outline. Cached per document, cleared on url change. Optional for the same
+   * reason as the members above — the CanvasView test fixture predates it.
+   */
+  getOutline?: () => Promise<OutlineEntry[]>
+}
+
+/**
+ * pdf.js outline items carry a `dest` that is either a named destination (string) or an
+ * explicit `[pageRef, …]` array; resolve it to a 0-based page index, tolerating any missing or
+ * malformed dest (returns null) — mirrors iteration-1 `getPageForDestination`.
+ */
+async function destToPageIndex(doc: PDFDocumentProxy, dest: unknown): Promise<number | null> {
+  try {
+    const resolved = typeof dest === 'string' ? await doc.getDestination(dest) : dest
+    if (Array.isArray(resolved) && resolved[0]) return await doc.getPageIndex(resolved[0])
+  } catch {
+    // A dead named-dest or a ref pdf.js can't place → treat as page-less (heading only).
+  }
+  return null
 }
 
 /**
@@ -50,11 +73,13 @@ export function usePdfDocument(url: string): PdfDocumentState {
   // Per-document caches (promises, so concurrent callers dedupe); reset when the url changes.
   const textCache = useRef(new Map<number, Promise<string>>())
   const sizeCache = useRef(new Map<number, Promise<{ width: number; height: number }>>())
+  const outlineCache = useRef<Promise<OutlineEntry[]> | null>(null)
 
   useEffect(() => {
     let cancelled = false
     textCache.current.clear()
     sizeCache.current.clear()
+    outlineCache.current = null
     // The loading task owns cleanup: destroying it tears down the document AND its worker.
     let task: ReturnType<typeof import('pdfjs-dist/legacy/build/pdf.mjs').getDocument> | null = null
     setStatus('loading')
@@ -243,5 +268,43 @@ export function usePdfDocument(url: string): PdfDocumentState {
     return p
   }, [])
 
-  return { status, numPages, pageLabels, error, renderThumb, renderPage, getPageText, getPageSize }
+  const getOutline = useCallback((): Promise<OutlineEntry[]> => {
+    const hit = outlineCache.current
+    if (hit) return hit
+    const p = (async (): Promise<OutlineEntry[]> => {
+      const doc = docRef.current
+      if (!doc) return []
+      const raw = await doc.getOutline()
+      if (!raw) return []
+      // pdf.js gives an untyped tree ({ title, dest, items }); resolve dests depth-first.
+      const map = async (
+        items: { title: string; dest: unknown; items?: unknown[] }[],
+      ): Promise<OutlineEntry[]> => {
+        const out: OutlineEntry[] = []
+        for (const item of items) {
+          out.push({
+            title: item.title,
+            pageIndex: await destToPageIndex(doc, item.dest),
+            children: await map((item.items ?? []) as typeof items),
+          })
+        }
+        return out
+      }
+      return map(raw as { title: string; dest: unknown; items?: unknown[] }[])
+    })()
+    outlineCache.current = p
+    return p
+  }, [])
+
+  return {
+    status,
+    numPages,
+    pageLabels,
+    error,
+    renderThumb,
+    renderPage,
+    getPageText,
+    getPageSize,
+    getOutline,
+  }
 }

@@ -24,6 +24,9 @@ import {
   INDEX_STATS_CHANNEL,
   INDEX_SEARCH_CHANNEL,
   INDEX_SYNC_CHANNEL,
+  PAGE_VIEWS_DELETE_CHANNEL,
+  PAGE_VIEWS_LIST_CHANNEL,
+  PAGE_VIEWS_SAVE_CHANNEL,
   READING_FINISH_CHANNEL,
   READING_GET_CHANNEL,
   READING_RECORD_CHANNEL,
@@ -57,6 +60,7 @@ import type { AccessProbeResult } from '../main/system/access'
 import type { SourceKey } from '../main/connectors/types'
 import type { SavedView, SaveViewRequest } from '../main/lib/views'
 import type { ReadingState } from '../main/lib/reading-state'
+import type { DocPageView } from '../main/lib/page-views'
 import type { VCollectionSummary } from '../main/lib/vcollections'
 import type {
   AcpAgentDescriptor,
@@ -143,6 +147,21 @@ const api = {
     ): Promise<ReadingState | null> => ipcRenderer.invoke(READING_RECORD_CHANNEL, { documentId, events }),
     finish: (documentId: number, finished: boolean): Promise<ReadingState | null> =>
       ipcRenderer.invoke(READING_FINISH_CHANNEL, { documentId, finished }),
+  },
+  pageViews: {
+    // Page-range Views (docs/2026-07-13-r3-structure-views-spec §3). Each call names a documentId;
+    // main resolves the content hash (the renderer never handles hashes). A hashless/unknown document
+    // resolves to null. `save` upserts by slug (derived from `name`); `remove` deletes by slug — both
+    // return the full updated DocPageView[] (createdAt-ascending).
+    list: (documentId: number): Promise<DocPageView[] | null> =>
+      ipcRenderer.invoke(PAGE_VIEWS_LIST_CHANNEL, { documentId }),
+    save: (
+      documentId: number,
+      req: { name: string; pages: number[]; tocPaths?: string[] },
+    ): Promise<DocPageView[] | null> =>
+      ipcRenderer.invoke(PAGE_VIEWS_SAVE_CHANNEL, { documentId, ...req }),
+    remove: (documentId: number, slug: string): Promise<DocPageView[] | null> =>
+      ipcRenderer.invoke(PAGE_VIEWS_DELETE_CHANNEL, { documentId, slug }),
   },
   collections: {
     list: (): Promise<VCollectionSummary[]> => ipcRenderer.invoke(VCOLLECTIONS_LIST_CHANNEL),

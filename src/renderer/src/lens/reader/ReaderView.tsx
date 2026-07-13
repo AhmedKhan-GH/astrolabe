@@ -2,10 +2,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import './textLayer.css'
 import type { PdfDocumentState } from '../pdf/usePdfDocument'
+import { normalizeHeat } from '../pdf/heat'
 import { nextZoom, type ZoomAction, type ZoomState } from '../pdf/zoom'
-import type { ReadingState } from '../types'
+import type { DocPageView, PageAnnotations, ReadingState } from '../types'
 import { createDwellTracker, type DwellTracker } from './dwell'
 import { searchPages } from './search'
+import { currentTocPath, flattenOutline, tocPageRanges, type OutlineEntry } from './toc'
+import { TocSidebar } from './TocSidebar'
+import { Minimap } from './Minimap'
+
+/** Minimap heat source: annotation breadth ('ann', default) or reading dwell ('read'). */
+type HeatSource = 'ann' | 'read'
 
 /** Base width when the scroll container cannot be measured (jsdom, first paint) — matches R1. */
 const FALLBACK_BASE = 720
@@ -28,22 +35,47 @@ export function ReaderView({
   title,
   pdf,
   reading,
+  heat,
+  views = [],
+  appliedView = null,
   onRecordExposure,
   onToggleFinished,
+  onTocSelectionChange,
+  onSaveView,
+  onApplyView,
+  onDeleteView,
   onClose,
 }: {
   title: string
   pdf: PdfDocumentState
   /** Persisted per-page exposure + finished marker; null while the query is in flight. */
   reading: ReadingState | null
+  /** Per-page annotation aggregates for the minimap heat layer; null/absent = no annotation heat. */
+  heat?: PageAnnotations | null
+  /** Saved page-range Views for this document (host-provided). */
+  views?: DocPageView[]
+  /** The slug of the currently-applied View, or null — non-member pages dim while set. */
+  appliedView?: string | null
   onRecordExposure: (events: { pageIndex: number; dwellMs: number; at: number }[]) => void
   onToggleFinished: (finished: boolean) => void
+  /**
+   * Fires when the TOC multi-select changes: the chosen section paths plus the union of their
+   * page ranges (0-based). The integrator's Views UI consumes this to save a page-range View.
+   */
+  onTocSelectionChange?: (paths: Set<string>, pages: Set<number>) => void
+  /** Save the current selection as a named View: (name, 0-based pages sorted, TOC-path provenance). */
+  onSaveView?: (name: string, pages: number[], tocPaths: string[]) => void
+  /** Apply a View by slug, or null to clear (show all pages). */
+  onApplyView?: (slug: string | null) => void
+  onDeleteView?: (slug: string) => void
   onClose: () => void
 }) {
   const numPages = pdf.status === 'ready' ? pdf.numPages : 0
   const finished = reading?.finished ?? false
 
   const [findOpen, setFindOpen] = useState(false)
+  const [viewsOpen, setViewsOpen] = useState(false)
+  const [viewName, setViewName] = useState('')
   const [query, setQuery] = useState('')
   const [currentMatch, setCurrentMatch] = useState(0)
   const [pageTexts, setPageTexts] = useState<Map<number, string>>(new Map())
@@ -53,6 +85,10 @@ export function ReaderView({
   const [zoom, setZoom] = useState<ZoomState>({ mode: 'fit-width', scale: 1 })
   const [base, setBase] = useState(FALLBACK_BASE)
   const [containerH, setContainerH] = useState(FALLBACK_HEIGHT)
+  const [outline, setOutline] = useState<OutlineEntry[] | null>(null)
+  const [tocCollapsed, setTocCollapsed] = useState(false)
+  const [tocSelected, setTocSelected] = useState<Set<string>>(new Set())
+  const [heatSource, setHeatSource] = useState<HeatSource>('ann')
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -106,6 +142,47 @@ export function ReaderView({
 
   const pageLabel = (i: number): string => pdf.pageLabels?.[i] ?? String(i + 1)
 
+  // Load the outline once the document is ready (optional hook member — guarded). Async
+  // resolution mirrors the pageText load: the only setState is in the settled promise.
+  useEffect(() => {
+    if (pdf.status !== 'ready') return
+    const getOutline = pdf.getOutline
+    if (!getOutline) return
+    let cancelled = false
+    void getOutline().then((o) => {
+      if (!cancelled) setOutline(o)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [pdf.status, pdf.getOutline])
+
+  const ranges = useMemo(
+    () => tocPageRanges(flattenOutline(outline ?? []), numPages),
+    [outline, numPages],
+  )
+  const hasOutline = !!outline && outline.length > 0 && ranges.size > 0
+  const showToc = hasOutline && !tocCollapsed
+  const tocCurrentPath = useMemo(() => currentTocPath(currentPage, ranges), [currentPage, ranges])
+
+  // Minimap intensities under the active source, normalized document-relative (pdf/heat).
+  const hasAnnHeat = (heat?.pages?.length ?? 0) > 0
+  const hasReadHeat = reading ? Object.keys(reading.pages).length > 0 : false
+  const hasHeatSource = hasAnnHeat || hasReadHeat
+  // 'ann' is the default; fall back to whichever source actually has data.
+  const effectiveSource: HeatSource =
+    heatSource === 'read' ? (hasReadHeat ? 'read' : 'ann') : hasAnnHeat ? 'ann' : 'read'
+  const intensities = useMemo(() => {
+    const values =
+      effectiveSource === 'read'
+        ? Object.entries(reading?.pages ?? {}).map(([i, e]) => ({
+            pageIndex: Number(i),
+            value: e.dwellMs,
+          }))
+        : (heat?.pages ?? []).map((p) => ({ pageIndex: p.pageIndex, value: p.count }))
+    return normalizeHeat(values)
+  }, [effectiveSource, heat, reading])
+
   // Lazily fetch page text for the whole document once a search is active; cache in state.
   useEffect(() => {
     if (!findOpen || query === '' || pdf.status !== 'ready') return
@@ -121,6 +198,48 @@ export function ReaderView({
   const scrollToPage = useCallback((pageIndex: number) => {
     cellRefs.current.get(pageIndex)?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })
   }, [])
+
+  // Toggle one section's membership in the TOC selection, then report the new selection plus the
+  // union of its page ranges upward (the integrator's Views UI turns that into a saved View).
+  const handleToggleSelect = useCallback(
+    (path: string) => {
+      const next = new Set(tocSelected)
+      if (next.has(path)) next.delete(path)
+      else next.add(path)
+      setTocSelected(next)
+      const pages = new Set<number>()
+      for (const p of next) {
+        const r = ranges.get(p)
+        if (r) for (let i = r.start; i <= r.end; i++) pages.add(i)
+      }
+      onTocSelectionChange?.(next, pages)
+    },
+    [tocSelected, ranges, onTocSelectionChange],
+  )
+
+  // The union of the currently-selected sections' page ranges (0-based, sorted) — the payload a
+  // saved View captures, plus tocSelected as its provenance paths.
+  const selectedPages = useMemo(() => {
+    const pages = new Set<number>()
+    for (const p of tocSelected) {
+      const r = ranges.get(p)
+      if (r) for (let i = r.start; i <= r.end; i++) pages.add(i)
+    }
+    return [...pages].sort((a, b) => a - b)
+  }, [tocSelected, ranges])
+
+  // Member pages of the applied View — non-members render dimmed; null = no View applied.
+  const appliedPages = useMemo(() => {
+    const v = views.find((x) => x.slug === appliedView)
+    return v ? new Set(v.pages) : null
+  }, [views, appliedView])
+
+  const saveView = (): void => {
+    if (selectedPages.length === 0) return
+    onSaveView?.(viewName.trim() || 'Untitled view', selectedPages, [...tocSelected])
+    setViewName('')
+    setViewsOpen(false)
+  }
 
   const stepMatch = useCallback(
     (delta: number) => {
@@ -284,6 +403,116 @@ export function ReaderView({
           </span>
         )}
         <div className="ml-auto flex shrink-0 items-center gap-2">
+          {hasOutline && (
+            <button
+              aria-label="table of contents"
+              aria-pressed={showToc}
+              title="Table of contents"
+              onClick={() => setTocCollapsed((v) => !v)}
+              className={clsx(chip, showToc && 'border-amber-700 bg-amber-950 text-amber-300')}
+            >
+              ☰
+            </button>
+          )}
+          {pdf.status === 'ready' && (
+            <div className="relative">
+              <button
+                aria-label="views"
+                aria-pressed={appliedView !== null}
+                title="Page-range views"
+                onClick={() => setViewsOpen((v) => !v)}
+                className={clsx(chip, appliedView !== null && 'border-amber-700 bg-amber-950 text-amber-300')}
+              >
+                Views
+              </button>
+              {viewsOpen && (
+                <div className="absolute right-0 top-full z-40 mt-1 w-64 rounded border border-zinc-700 bg-zinc-900 p-2 shadow-xl">
+                  {views.length === 0 ? (
+                    <p className="px-1 py-1 text-xs text-zinc-500">No saved views yet.</p>
+                  ) : (
+                    <ul className="mb-2 flex flex-col gap-0.5">
+                      {appliedView !== null && (
+                        <li>
+                          <button
+                            aria-label="show all pages"
+                            onClick={() => onApplyView?.(null)}
+                            className="w-full rounded px-2 py-1 text-left text-xs text-zinc-400 hover:bg-zinc-800"
+                          >
+                            ▸ Show all pages
+                          </button>
+                        </li>
+                      )}
+                      {views.map((v) => (
+                        <li key={v.slug} className="flex items-center gap-1">
+                          <button
+                            aria-label={`apply ${v.name}`}
+                            aria-pressed={appliedView === v.slug}
+                            onClick={() => onApplyView?.(appliedView === v.slug ? null : v.slug)}
+                            className={clsx(
+                              'min-w-0 flex-1 truncate rounded px-2 py-1 text-left text-xs',
+                              appliedView === v.slug
+                                ? 'bg-amber-950 text-amber-300'
+                                : 'text-zinc-300 hover:bg-zinc-800',
+                            )}
+                          >
+                            {v.name} <span className="text-zinc-600">· {v.pages.length}p</span>
+                          </button>
+                          <button
+                            aria-label={`delete ${v.name}`}
+                            onClick={() => onDeleteView?.(v.slug)}
+                            className="rounded px-1.5 py-1 text-xs text-zinc-500 hover:bg-zinc-800 hover:text-red-400"
+                          >
+                            ×
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="flex items-center gap-1 border-t border-zinc-800 pt-2">
+                    <input
+                      type="text"
+                      aria-label="new view name"
+                      placeholder={selectedPages.length ? `${selectedPages.length} pages` : 'select in TOC'}
+                      value={viewName}
+                      onChange={(e) => setViewName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') saveView()
+                      }}
+                      className="min-w-0 flex-1 rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-xs text-zinc-100 outline-none focus:border-zinc-500"
+                    />
+                    <button
+                      aria-label="save selection"
+                      disabled={selectedPages.length === 0}
+                      onClick={saveView}
+                      className="rounded border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800 disabled:opacity-30"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {hasHeatSource && (
+            <span className="flex overflow-hidden rounded border border-zinc-700 text-xs">
+              {(['ann', ...(hasReadHeat ? (['read'] as const) : [])] as HeatSource[]).map((s) => (
+                <button
+                  key={s}
+                  aria-label={s === 'ann' ? 'minimap annotations' : 'minimap reading'}
+                  aria-pressed={effectiveSource === s}
+                  onClick={() => setHeatSource(s)}
+                  className={clsx(
+                    'px-2 py-1',
+                    effectiveSource === s
+                      ? 'bg-amber-950 text-amber-300'
+                      : 'text-zinc-500 hover:bg-zinc-800',
+                  )}
+                >
+                  {s === 'ann' ? 'notes' : 'read'}
+                </button>
+              ))}
+            </span>
+          )}
           <button aria-label="zoom out" title="Zoom out" onClick={() => applyZoom('out')} className={chip}>
             −
           </button>
@@ -377,26 +606,47 @@ export function ReaderView({
         </div>
       )}
 
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto p-4">
-        {pdf.status === 'loading' && <p className="text-sm text-zinc-600">loading PDF…</p>}
-        {pdf.status === 'error' && (
-          <p className="text-sm text-red-400">could not load PDF: {pdf.error}</p>
+      <div className="flex min-h-0 flex-1">
+        {showToc && (
+          <TocSidebar
+            outline={outline}
+            ranges={ranges}
+            currentPath={tocCurrentPath}
+            selected={tocSelected}
+            onToggleSelect={handleToggleSelect}
+            onNavigate={scrollToPage}
+          />
         )}
-        {pdf.status === 'ready' && (
-          <div className="mx-auto flex flex-col items-center gap-4">
-            {Array.from({ length: numPages }, (_, pageIndex) => (
-              <PageCell
-                key={pageIndex}
-                pageIndex={pageIndex}
-                label={pageLabel(pageIndex)}
-                rendered={rendered.has(pageIndex)}
-                width={displayWidth}
-                size={sizes.get(pageIndex) ?? null}
-                renderPage={pdf.renderPage}
-                register={registerCell}
-              />
-            ))}
-          </div>
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto p-4">
+          {pdf.status === 'loading' && <p className="text-sm text-zinc-600">loading PDF…</p>}
+          {pdf.status === 'error' && (
+            <p className="text-sm text-red-400">could not load PDF: {pdf.error}</p>
+          )}
+          {pdf.status === 'ready' && (
+            <div className="mx-auto flex flex-col items-center gap-4">
+              {Array.from({ length: numPages }, (_, pageIndex) => (
+                <PageCell
+                  key={pageIndex}
+                  pageIndex={pageIndex}
+                  label={pageLabel(pageIndex)}
+                  rendered={rendered.has(pageIndex)}
+                  width={displayWidth}
+                  size={sizes.get(pageIndex) ?? null}
+                  dimmed={appliedPages !== null && !appliedPages.has(pageIndex)}
+                  renderPage={pdf.renderPage}
+                  register={registerCell}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+        {pdf.status === 'ready' && numPages > 0 && (
+          <Minimap
+            numPages={numPages}
+            intensities={intensities}
+            currentPage={currentPage}
+            onJump={scrollToPage}
+          />
         )}
       </div>
     </div>
@@ -415,6 +665,7 @@ function PageCell({
   rendered,
   width,
   size,
+  dimmed,
   renderPage,
   register,
 }: {
@@ -423,6 +674,8 @@ function PageCell({
   rendered: boolean
   width: number
   size: { width: number; height: number } | null
+  /** Not a member of the applied page-range View — shown faint but still present. */
+  dimmed: boolean
   renderPage: PdfDocumentState['renderPage']
   register: (pageIndex: number, el: HTMLElement | null) => void
 }) {
@@ -442,7 +695,10 @@ function PageCell({
       role="group"
       aria-label={`page ${label}`}
       data-page-index={pageIndex}
-      className="relative bg-zinc-900/40 shadow ring-1 ring-zinc-800"
+      className={clsx(
+        'relative bg-zinc-900/40 shadow ring-1 ring-zinc-800 transition-opacity',
+        dimmed && 'opacity-35',
+      )}
       style={{ width, height: rendered ? undefined : Math.round(width * aspect) }}
     >
       {rendered ? (

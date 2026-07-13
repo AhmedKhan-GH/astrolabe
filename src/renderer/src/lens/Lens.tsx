@@ -33,6 +33,7 @@ import type {
   LensSelection,
   NavData,
   NavNode,
+  DocPageView,
   PageAnnotations,
   ReadingState,
   SavedView,
@@ -155,20 +156,46 @@ function ReaderHost({ hit, onClose }: { hit: CanvasHostHit; onClose: () => void 
     queryKey: ['reading', hit.documentId],
     queryFn: () => window.astrolabe.reading.get(hit.documentId),
   })
+  // Annotation heat feeds the minimap 'notes' layer — same key the Canvas already uses.
+  const heat = useQuery<PageAnnotations>({
+    queryKey: ['pageAnnotations', hit.documentId],
+    queryFn: () => window.astrolabe.index.pageAnnotations(hit.documentId),
+  })
+  // Saved page-range Views + the one currently applied (local to this open Reader).
+  const pageViews = useQuery<DocPageView[] | null>({
+    queryKey: ['pageViews', hit.documentId],
+    queryFn: () => window.astrolabe.pageViews.list(hit.documentId),
+  })
+  const [appliedView, setAppliedView] = useState<string | null>(null)
   // record/finish return the merged state — write it straight into the cache (no refetch).
   const putState = (state: ReadingState | null): void => {
     if (state) queryClient.setQueryData(['reading', hit.documentId], state)
+  }
+  // save/delete return the full updated list — cache it directly.
+  const putViews = (list: DocPageView[] | null): void => {
+    if (list) queryClient.setQueryData(['pageViews', hit.documentId], list)
   }
   return (
     <ReaderView
       title={hit.title}
       pdf={pdf}
       reading={reading.data ?? null}
+      heat={heat.data ?? null}
+      views={pageViews.data ?? []}
+      appliedView={appliedView}
       onRecordExposure={(events) => {
         void window.astrolabe.reading.record(hit.documentId, events).then(putState)
       }}
       onToggleFinished={(finished) => {
         void window.astrolabe.reading.finish(hit.documentId, finished).then(putState)
+      }}
+      onSaveView={(name, pages, tocPaths) => {
+        void window.astrolabe.pageViews.save(hit.documentId, { name, pages, tocPaths }).then(putViews)
+      }}
+      onApplyView={setAppliedView}
+      onDeleteView={(slug) => {
+        if (appliedView === slug) setAppliedView(null)
+        void window.astrolabe.pageViews.remove(hit.documentId, slug).then(putViews)
       }}
       onClose={onClose}
     />

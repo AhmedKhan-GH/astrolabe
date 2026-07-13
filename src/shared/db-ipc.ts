@@ -85,6 +85,17 @@ export const READING_GET_CHANNEL = 'reading:get'
 export const READING_RECORD_CHANNEL = 'reading:record'
 export const READING_FINISH_CHANNEL = 'reading:finish'
 
+// Page-range Views (docs/2026-07-13-r3-structure-views-spec §3): named page selections over one
+// document, one JSON file per document under `<workspace>/.astrolabe/page-views/` keyed by content
+// hash (the reading-state twin). All three channels take a documentId; main resolves the hash
+// internally (the renderer never handles hashes). list → DocPageView[] | null; save({name,pages,
+// tocPaths?}) upserts by slug; delete({slug}) removes — both return the full updated DocPageView[].
+// The request schemas + the `DocPageView` type live WITH the module (`src/main/lib/page-views.ts`,
+// views/reading precedent), so only the channel names live here.
+export const PAGE_VIEWS_LIST_CHANNEL = 'page-views:list'
+export const PAGE_VIEWS_SAVE_CHANNEL = 'page-views:save'
+export const PAGE_VIEWS_DELETE_CHANNEL = 'page-views:delete'
+
 // Virtual collections (docs/2026-07-10-lens-virtual-collections-spec): M:N, source-independent
 // grouping persisted as one JSON file per collection under `<workspace>/.astrolabe/collections/`.
 // list → summaries; create({name}) upserts by slug; delete({slug}); add/remove-members take

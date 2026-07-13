@@ -14,6 +14,7 @@ import { createZoteroWrite } from './lib/zotero-write'
 import { createEagleWrite } from './lib/eagle-write'
 import { createViewsApi } from './lib/views'
 import { createReadingStateApi } from './lib/reading-state'
+import { createPageViewsApi } from './lib/page-views'
 import { createVCollectionsApi, syncVirtualCollections } from './lib/vcollections'
 import { connectors } from './connectors/registry'
 import { createAcpManager, nodeChannelFactory } from './acp/manager'
@@ -51,6 +52,9 @@ import {
   INDEX_SOURCES_CHANNEL,
   INDEX_STATS_CHANNEL,
   INDEX_SYNC_CHANNEL,
+  PAGE_VIEWS_DELETE_CHANNEL,
+  PAGE_VIEWS_LIST_CHANNEL,
+  PAGE_VIEWS_SAVE_CHANNEL,
   READING_FINISH_CHANNEL,
   READING_GET_CHANNEL,
   READING_RECORD_CHANNEL,
@@ -161,6 +165,10 @@ app.whenReady().then(() => {
     // document under the workspace keyed by content hash so a rebuild never loses it and the same
     // PDF in two tools accrues one state (docs/2026-07-13-r2-reader-reading-state-spec).
     const readingStateApi = createReadingStateApi(join(ws.astroDir, 'reading'), handle.db)
+    // Page-range Views: named page selections over one document, one JSON file per document under
+    // the workspace keyed by content hash (the reading-state twin) so a rebuild never loses them and
+    // the same PDF in two tools accrues one set (docs/2026-07-13-r3-structure-views-spec §3).
+    const pageViewsApi = createPageViewsApi(join(ws.astroDir, 'page-views'), handle.db)
     // Bring the mirror current from the files at boot (it is derived — the files are truth).
     syncVirtualCollections(handle.db, collectionsDir)
     // Wiki-link resolution re-pass at boot too: link targets are derived (a prior run may have
@@ -230,6 +238,12 @@ app.whenReady().then(() => {
     ipcMain.handle(READING_GET_CHANNEL, (_event, raw: unknown) => readingStateApi.get(raw))
     ipcMain.handle(READING_RECORD_CHANNEL, (_event, raw: unknown) => readingStateApi.record(raw))
     ipcMain.handle(READING_FINISH_CHANNEL, (_event, raw: unknown) => readingStateApi.finish(raw))
+    // Page-range Views CRUD (validation at the module boundary via zod, like the reading handlers).
+    // Each channel takes a documentId; the store resolves the content hash internally. A document
+    // that is unknown or hashless returns null — never a throw. save/delete return the full list.
+    ipcMain.handle(PAGE_VIEWS_LIST_CHANNEL, (_event, raw: unknown) => pageViewsApi.list(raw))
+    ipcMain.handle(PAGE_VIEWS_SAVE_CHANNEL, (_event, raw: unknown) => pageViewsApi.save(raw))
+    ipcMain.handle(PAGE_VIEWS_DELETE_CHANNEL, (_event, raw: unknown) => pageViewsApi.remove(raw))
     // Virtual-collection CRUD + membership (validation at the module boundary via zod). Each
     // mutation rewrites its file atomically then re-mirrors, so reads stay consistent.
     ipcMain.handle(VCOLLECTIONS_LIST_CHANNEL, () => vcollectionsApi.list())
