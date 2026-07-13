@@ -80,11 +80,16 @@ function useDebounced<T>(value: T, ms: number): T {
  */
 function CanvasHost({
   hit,
+  appliedView,
+  onApplyView,
   onOpenReader,
   onOpenDetails,
   onClose,
 }: {
   hit: CanvasHostHit
+  // Session-scoped View applied to this document (lifted to Lens, shared with the Reader).
+  appliedView: string | null
+  onApplyView: (slug: string | null) => void
   onOpenReader: () => void
   onOpenDetails: () => void
   onClose: () => void
@@ -109,6 +114,11 @@ function CanvasHost({
     queryKey: ['reading', hit.documentId],
     queryFn: () => window.astrolabe.reading.get(hit.documentId),
   })
+  // Saved page-range Views — shared cache key with the Reader; the applied one dims non-members.
+  const pageViews = useQuery<DocPageView[] | null>({
+    queryKey: ['pageViews', hit.documentId],
+    queryFn: () => window.astrolabe.pageViews.list(hit.documentId),
+  })
   // Page-targeted deep link: when main indexed an open-pdf base for this instance (built from
   // the zotero attachmentKey), rewrite its page to the clicked one — that lands on the page,
   // not just the document. Older/non-zotero instances have no base, so we open the plain uri
@@ -129,9 +139,12 @@ function CanvasHost({
       pdf={pdf}
       heat={heat.data ?? null}
       reading={reading.data ?? null}
+      views={pageViews.data ?? []}
+      appliedView={appliedView}
       onOpenPage={openPage}
       onOpenReader={onOpenReader}
       onOpenDetails={onOpenDetails}
+      onApplyView={onApplyView}
       onClose={onClose}
     />
   )
@@ -142,7 +155,18 @@ function CanvasHost({
  * pure, fully-testable component. Exposure events flow renderer → `reading.record` → the
  * merged state back into the query cache (the Canvas `read` layer shares the same key).
  */
-function ReaderHost({ hit, onClose }: { hit: CanvasHostHit; onClose: () => void }) {
+function ReaderHost({
+  hit,
+  appliedView,
+  onApplyView,
+  onClose,
+}: {
+  hit: CanvasHostHit
+  // Session-scoped View applied to this document (lifted to Lens, shared with the Canvas).
+  appliedView: string | null
+  onApplyView: (slug: string | null) => void
+  onClose: () => void
+}) {
   const queryClient = useQueryClient()
   const candidates = canvasCandidates(hit.instances)
   const [candidateIndex, setCandidateIndex] = useState(0)
@@ -161,12 +185,11 @@ function ReaderHost({ hit, onClose }: { hit: CanvasHostHit; onClose: () => void 
     queryKey: ['pageAnnotations', hit.documentId],
     queryFn: () => window.astrolabe.index.pageAnnotations(hit.documentId),
   })
-  // Saved page-range Views + the one currently applied (local to this open Reader).
+  // Saved page-range Views; the applied slug is lifted to Lens (shared with the Canvas).
   const pageViews = useQuery<DocPageView[] | null>({
     queryKey: ['pageViews', hit.documentId],
     queryFn: () => window.astrolabe.pageViews.list(hit.documentId),
   })
-  const [appliedView, setAppliedView] = useState<string | null>(null)
   // record/finish return the merged state — write it straight into the cache (no refetch).
   const putState = (state: ReadingState | null): void => {
     if (state) queryClient.setQueryData(['reading', hit.documentId], state)
@@ -192,9 +215,9 @@ function ReaderHost({ hit, onClose }: { hit: CanvasHostHit; onClose: () => void 
       onSaveView={(name, pages, tocPaths) => {
         void window.astrolabe.pageViews.save(hit.documentId, { name, pages, tocPaths }).then(putViews)
       }}
-      onApplyView={setAppliedView}
+      onApplyView={onApplyView}
       onDeleteView={(slug) => {
-        if (appliedView === slug) setAppliedView(null)
+        if (appliedView === slug) onApplyView(null)
         void window.astrolabe.pageViews.remove(hit.documentId, slug).then(putViews)
       }}
       onClose={onClose}
@@ -369,6 +392,17 @@ export function Lens() {
   // The dialogue pane is a LEFT column that coexists with the lens — independent of the
   // Canvas/Reader/Note/Hub slot (which the setters above share).
   const [dialogueOpen, setDialogueOpen] = useState(false)
+  // Per-document applied page-range View (documentId → slug), session-scoped and lifted here so
+  // the Reader and the Canvas of the same document agree on which View dims non-member pages.
+  const [appliedViews, setAppliedViews] = useState<ReadonlyMap<number, string>>(new Map())
+  const applyDocView = (documentId: number, slug: string | null): void => {
+    setAppliedViews((prev) => {
+      const next = new Map(prev)
+      if (slug === null) next.delete(documentId)
+      else next.set(documentId, slug)
+      return next
+    })
+  }
   const openCanvas = (hit: CanvasHostHit): void => {
     setReaderFor(null)
     setNoteFor(null)
@@ -777,6 +811,8 @@ export function Lens() {
         <CanvasHost
           key={canvasFor.documentId}
           hit={canvasFor}
+          appliedView={appliedViews.get(canvasFor.documentId) ?? null}
+          onApplyView={(slug) => applyDocView(canvasFor.documentId, slug)}
           onOpenReader={() => openReader(canvasFor)}
           onOpenDetails={() => openHub(canvasFor.documentId)}
           onClose={() => setCanvasFor(null)}
@@ -786,6 +822,8 @@ export function Lens() {
         <ReaderHost
           key={readerFor.documentId}
           hit={readerFor}
+          appliedView={appliedViews.get(readerFor.documentId) ?? null}
+          onApplyView={(slug) => applyDocView(readerFor.documentId, slug)}
           onClose={() => setReaderFor(null)}
         />
       )}

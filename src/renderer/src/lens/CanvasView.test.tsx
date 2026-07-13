@@ -3,7 +3,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
 import { CanvasView } from './CanvasView'
 import type { PdfDocumentState } from './pdf/usePdfDocument'
-import type { PageAnnotations } from './types'
+import type { PageAnnotations, DocPageView } from './types'
 
 afterEach(cleanup)
 
@@ -315,6 +315,104 @@ describe('CanvasView lightbox', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: /next page/i })) // → pageIndex 2
     fireEvent.click(within(dialog).getByRole('button', { name: /open in source/i }))
     expect(onOpenPage).toHaveBeenCalledWith(2)
+  })
+})
+
+describe('CanvasView applied views', () => {
+  // A view over pageIndexes 0 and 2 → labels 'i' and '1' are members; 'ii','2','3' are not.
+  const view: DocPageView = { slug: 'intro', name: 'Intro', pages: [0, 2], createdAt: 'x' }
+  const isDimmed = (cell: HTMLElement): boolean => cell.className.includes('opacity-35')
+  const shrinkToCompact = (): void => {
+    fireEvent.click(screen.getByRole('button', { name: /smaller pages/i })) // 140 → 84
+    fireEvent.click(screen.getByRole('button', { name: /smaller pages/i })) // → 52 (compact)
+  }
+
+  it('dims non-member cells when a view is applied', () => {
+    setup({ views: [view], appliedView: 'intro', onApplyView: vi.fn() })
+    expect(isDimmed(screen.getByRole('button', { name: 'page i' }))).toBe(false) // index 0, member
+    expect(isDimmed(screen.getByRole('button', { name: 'page 1' }))).toBe(false) // index 2, member
+    expect(isDimmed(screen.getByRole('button', { name: 'page ii' }))).toBe(true) // index 1
+    expect(isDimmed(screen.getByRole('button', { name: 'page 2' }))).toBe(true) // index 3
+    expect(isDimmed(screen.getByRole('button', { name: 'page 3' }))).toBe(true) // index 4
+  })
+
+  it('keeps dimming non-members in the compact bird\'s-eye grid', () => {
+    setup({ views: [view], appliedView: 'intro', onApplyView: vi.fn() })
+    shrinkToCompact()
+    expect(isDimmed(screen.getByRole('button', { name: 'page ii' }))).toBe(true)
+    expect(isDimmed(screen.getByRole('button', { name: 'page i' }))).toBe(false)
+  })
+
+  it('dims nothing when no view is applied', () => {
+    setup({ views: [view], appliedView: null, onApplyView: vi.fn() })
+    expect(isDimmed(screen.getByRole('button', { name: 'page ii' }))).toBe(false)
+  })
+
+  it('the heat tint still renders on a dimmed non-member cell', () => {
+    // pageIndex 3 (label '2') is a hot, non-member page — dimmed but still tinted.
+    setup({ views: [view], appliedView: 'intro', onApplyView: vi.fn() })
+    const hotNonMember = screen.getByRole('button', { name: 'page 2' })
+    expect(isDimmed(hotNonMember)).toBe(true)
+    expect(overlayIntensity(hotNonMember)).toBe(1)
+  })
+
+  it('applies a view from the header menu', () => {
+    const onApplyView = vi.fn()
+    setup({ views: [view], appliedView: null, onApplyView })
+    fireEvent.click(screen.getByRole('button', { name: 'views' }))
+    fireEvent.click(screen.getByRole('button', { name: 'apply Intro' }))
+    expect(onApplyView).toHaveBeenCalledWith('intro')
+  })
+
+  it('clicking the applied view in the menu clears it', () => {
+    const onApplyView = vi.fn()
+    setup({ views: [view], appliedView: 'intro', onApplyView })
+    fireEvent.click(screen.getByRole('button', { name: 'views' }))
+    fireEvent.click(screen.getByRole('button', { name: 'apply Intro' }))
+    expect(onApplyView).toHaveBeenCalledWith(null)
+  })
+
+  it('offers a show-all-pages row that clears the view', () => {
+    const onApplyView = vi.fn()
+    setup({ views: [view], appliedView: 'intro', onApplyView })
+    fireEvent.click(screen.getByRole('button', { name: 'views' }))
+    fireEvent.click(screen.getByRole('button', { name: 'show all pages' }))
+    expect(onApplyView).toHaveBeenCalledWith(null)
+    // The show-all row is only present while a view is applied.
+    cleanup()
+    setup({ views: [view], appliedView: null, onApplyView })
+    fireEvent.click(screen.getByRole('button', { name: 'views' }))
+    expect(screen.queryByRole('button', { name: 'show all pages' })).toBeNull()
+  })
+
+  it('the views button reflects the applied state via aria-pressed', () => {
+    const onApplyView = vi.fn()
+    setup({ views: [view], appliedView: null, onApplyView })
+    expect(screen.getByRole('button', { name: 'views' }).getAttribute('aria-pressed')).toBe('false')
+    cleanup()
+    setup({ views: [view], appliedView: 'intro', onApplyView })
+    expect(screen.getByRole('button', { name: 'views' }).getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('shows an amber pill with the view name and clears via its ×', () => {
+    const onApplyView = vi.fn()
+    setup({ views: [view], appliedView: 'intro', onApplyView })
+    expect(screen.getByText('Intro')).toBeTruthy() // the pill (menu is closed)
+    fireEvent.click(screen.getByRole('button', { name: 'clear view' }))
+    expect(onApplyView).toHaveBeenCalledWith(null)
+  })
+
+  it('shows no pill when nothing is applied', () => {
+    setup({ views: [view], appliedView: null, onApplyView: vi.fn() })
+    expect(screen.queryByRole('button', { name: 'clear view' })).toBeNull()
+  })
+
+  it('hides the views menu when there are no views or onApplyView is unwired', () => {
+    setup({ views: [], appliedView: null, onApplyView: vi.fn() })
+    expect(screen.queryByRole('button', { name: 'views' })).toBeNull()
+    cleanup()
+    setup({ views: [view], appliedView: null }) // onApplyView unwired
+    expect(screen.queryByRole('button', { name: 'views' })).toBeNull()
   })
 })
 

@@ -48,3 +48,17 @@
 .textLayer .markedContent {
   display: contents;
 }
+
+/*
+ * Find-match highlighting (CSS Custom Highlight API — reader/highlight.ts). ::highlight() paints
+ * over the transparent text-layer spans without mutating pdf.js's DOM. `astro-find` marks every
+ * match (amber, translucent); `astro-find-active` marks the active one (solid amber + dark text).
+ */
+::highlight(astro-find) {
+  background-color: rgb(251 191 36 / 0.35);
+}
+
+::highlight(astro-find-active) {
+  background-color: rgb(251 191 36 / 0.85);
+  color: rgb(24 24 27);
+}

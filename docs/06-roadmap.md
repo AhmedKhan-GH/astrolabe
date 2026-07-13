@@ -57,17 +57,21 @@ persistent spatial model, no back/forward) with:
 - A1. **Three-pane spine** — source/tree → item list → inspector (the panels become inspector
   contents). A2. **⌘K quick-switcher** + **command palette**. A3. Appearance polish.
 
-### Track R — The Reader ○ (founding Phase 5, pulled forward; independent)
-The in-app PDF experience, spanning effortless navigation and deep focused reading. Salvages
-iteration-1's `buildPageMap` / `findTocPathsForPages` / lazy-thumbnail algorithms.
-- R1. **Fix the Canvas (small, high-value):** relative/continuous annotation heat (kill the
-  saturation), a **depth** layer weighted by annotation substance (comments/highlighted length,
-  not just count), grid **zoom** (cell-size), lightbox **zoom + fit-width/page**.
-- R2. **Continuous scroll reader** — stacked pages, pdf.js text layer, in-document search, and
-  **reading-state** (dwell + scrolled-through → an *exposure* heat layer). → feeds Track L.
-- R3. **Structure + Views** — TOC/outline sidebar, the "Views" saved page-range subsets, two-page
-  spread, thumbnail+pane, focus/immersive mode. Heat layers render across all modes (grid tint +
-  scroll minimap).
+### Track R — The Reader ✅ (shipped 2026-07-13; founding Phase 5)
+The in-app PDF experience, spanning effortless navigation and deep focused reading. Salvaged
+iteration-1's `buildPageMap` / `findTocPathsForPages` / lazy-thumbnail algorithms as pure fns.
+- R1 ✅ Canvas: continuous document-relative heat (count | **depth** by annotation substance |
+  **read** by dwell), grid cell-size ladder down to a 32px whole-book overview, lightbox
+  zoom + fit modes. Specs: `2026-07-13-r1-canvas-heat-zoom-spec.md`.
+- R2 ✅ Continuous-scroll Reader: pdf.js text layer, ⌘F find, zoom, Finished toggle, and
+  **reading-state** (`.astrolabe/reading/<sha>.json`, per-page dwell/visits/timestamps —
+  exposure, never comprehension) → feeds Track L. Spec: `2026-07-13-r2-reader-reading-state-spec.md`.
+- R3+R3c ✅ Structure: TOC sidebar (live current-section), minimap (notes|read heat), saveable
+  **page-range Views** (`.astrolabe/page-views/<sha>.json`, TOC-path provenance) applying across
+  Reader AND Canvas (non-members dimmed), two-page spread, thumbnail rail, focus mode, find-match
+  text-layer highlighting (CSS Custom Highlight API). Specs: `2026-07-13-r3-structure-views-spec.md`,
+  `2026-07-13-r3c-reader-completion-spec.md`. (Dropped: a Canvas heat minimap — the 32px grid IS
+  the overview.)
 
 ### Track O — OCR / Scanned-document extraction ○ (→ prerequisite for Track B on scanned PDFs)
 Make picture-scan PDFs first-class, extracted ONCE and stored durably (extract-once / query-forever).

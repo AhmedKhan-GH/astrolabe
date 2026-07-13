@@ -6,10 +6,12 @@ import { normalizeHeat } from '../pdf/heat'
 import { nextZoom, type ZoomAction, type ZoomState } from '../pdf/zoom'
 import type { DocPageView, PageAnnotations, ReadingState } from '../types'
 import { createDwellTracker, type DwellTracker } from './dwell'
+import { applyHighlights, clearHighlights, mapMatchesToSpans, readSpanTexts } from './highlight'
 import { searchPages } from './search'
 import { currentTocPath, flattenOutline, tocPageRanges, type OutlineEntry } from './toc'
 import { TocSidebar } from './TocSidebar'
 import { Minimap } from './Minimap'
+import { ThumbStrip } from './ThumbStrip'
 
 /** Minimap heat source: annotation breadth ('ann', default) or reading dwell ('read'). */
 type HeatSource = 'ann' | 'read'
@@ -74,6 +76,9 @@ export function ReaderView({
   const finished = reading?.finished ?? false
 
   const [findOpen, setFindOpen] = useState(false)
+  const [layout, setLayout] = useState<'single' | 'spread'>('single')
+  const [focus, setFocus] = useState(false)
+  const [thumbs, setThumbs] = useState(false)
   const [viewsOpen, setViewsOpen] = useState(false)
   const [viewName, setViewName] = useState('')
   const [query, setQuery] = useState('')
@@ -131,6 +136,18 @@ export function ReaderView({
     return base // fit-width
   }, [zoom, base, containerH])
   const applyZoom = (action: ZoomAction): void => setZoom(nextZoom(action, displayWidth / base))
+
+  // In a two-page spread each page renders at half the display width; the page stack groups
+  // into rows: the cover (pageIndex 0) alone, then facing pairs [1,2], [3,4], … Single layout
+  // is one page per row, so the same row-map renders both modes.
+  const pageWidth = layout === 'spread' ? Math.round(displayWidth / 2) : displayWidth
+  const rows = useMemo(() => {
+    if (layout !== 'spread') return Array.from({ length: numPages }, (_, i) => [i])
+    const out: number[][] = []
+    if (numPages > 0) out.push([0]) // the cover stands alone
+    for (let i = 1; i < numPages; i += 2) out.push(i + 1 < numPages ? [i, i + 1] : [i])
+    return out
+  }, [layout, numPages])
 
   const textsArray = useMemo(
     () => Array.from({ length: numPages }, (_, i) => pageTexts.get(i) ?? null),
@@ -194,6 +211,49 @@ export function ReaderView({
     }
   }, [findOpen, query, numPages, pdf.status, pdf.getPageText, pageTexts])
 
+  // Live text-layer elements of the currently-rendered pages (registered by PageCell). Find-match
+  // highlighting draws Ranges directly over these via the CSS Custom Highlight API (reader/
+  // highlight.ts), leaving pdf.js's spans untouched.
+  const textLayerEls = useRef(new Map<number, HTMLElement>())
+  const registerTextLayer = useCallback((pageIndex: number, el: HTMLElement | null) => {
+    if (el) textLayerEls.current.set(pageIndex, el)
+    else textLayerEls.current.delete(pageIndex)
+  }, [])
+
+  // Re-highlight one page from its OWN span concatenation (which may differ from getPageText, so
+  // the highlighted occurrences are best-effort vs the find bar's counts — the counts stay the
+  // navigation source of truth). Navigation is page-level: `currentMatch` indexes hit *pages*, so
+  // the active occurrence on the active page is its first (ordinal 0); other pages pass -1.
+  const applyPageHighlights = useCallback(
+    (pageIndex: number) => {
+      if (!findOpen || query === '') return
+      const el = textLayerEls.current.get(pageIndex)
+      if (!el) return
+      const slices = mapMatchesToSpans(readSpanTexts(el), query)
+      applyHighlights(el, slices, activeHit?.pageIndex === pageIndex ? 0 : -1)
+    },
+    [findOpen, query, activeHit],
+  )
+  // A stable handle so PageCell's render effect doesn't re-run every keystroke (refs, not deps).
+  const applyPageRef = useRef(applyPageHighlights)
+  useEffect(() => {
+    applyPageRef.current = applyPageHighlights
+  }, [applyPageHighlights])
+  const notifyTextLayerReady = useCallback((pageIndex: number) => {
+    applyPageRef.current(pageIndex)
+  }, [])
+
+  // On query/active-match change, re-apply to every already-rendered page; clear all when the find
+  // bar closes or the query empties. Pages rendered later apply via notifyTextLayerReady on render.
+  useEffect(() => {
+    if (!findOpen || query === '') {
+      clearHighlights()
+      return
+    }
+    for (const pageIndex of textLayerEls.current.keys()) applyPageHighlights(pageIndex)
+  }, [findOpen, query, applyPageHighlights])
+  // Belt-and-suspenders: drop every highlight when the Reader unmounts.
+  useEffect(() => () => clearHighlights(), [])
 
   const scrollToPage = useCallback((pageIndex: number) => {
     cellRefs.current.get(pageIndex)?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })
@@ -272,7 +332,9 @@ export function ReaderView({
         return
       }
       if (e.key === 'Escape') {
+        // Escape order: close the find bar first, else leave focus mode, else close the reader.
         if (findOpen) closeFind()
+        else if (focus) setFocus(false)
         else onClose()
         return
       }
@@ -281,6 +343,7 @@ export function ReaderView({
       else if (e.key === '-') applyZoom('out')
       else if (e.key === 'w') applyZoom('fit-width')
       else if (e.key === 'p') applyZoom('fit-page')
+      else if (e.key === 'f') setFocus((v) => !v)
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
@@ -395,6 +458,7 @@ export function ReaderView({
       aria-label="reader"
       className="fixed inset-y-0 right-0 z-20 flex w-[min(64rem,94vw)] flex-col border-l border-zinc-800 bg-zinc-950 shadow-2xl"
     >
+      {!focus && (
       <header className="flex items-center gap-3 border-b border-zinc-800 px-4 py-3">
         <h2 className="min-w-0 truncate font-medium text-zinc-100">{title}</h2>
         {pdf.status === 'ready' && (
@@ -513,6 +577,27 @@ export function ReaderView({
               ))}
             </span>
           )}
+          <button
+            aria-label="two-page spread"
+            aria-pressed={layout === 'spread'}
+            title="Two-page spread"
+            onClick={() => setLayout((l) => (l === 'spread' ? 'single' : 'spread'))}
+            className={clsx(chip, layout === 'spread' && 'border-amber-700 bg-amber-950 text-amber-300')}
+          >
+            ▤
+          </button>
+          <button
+            aria-label="thumbnail strip"
+            aria-pressed={thumbs}
+            title="Thumbnail strip"
+            onClick={() => setThumbs((v) => !v)}
+            className={clsx(chip, thumbs && 'border-amber-700 bg-amber-950 text-amber-300')}
+          >
+            ▥
+          </button>
+          <button aria-label="focus mode" title="Focus mode (f)" onClick={() => setFocus(true)} className={chip}>
+            ⛶
+          </button>
           <button aria-label="zoom out" title="Zoom out" onClick={() => applyZoom('out')} className={chip}>
             −
           </button>
@@ -557,6 +642,7 @@ export function ReaderView({
           </button>
         </div>
       </header>
+      )}
 
       {findOpen && (
         <div
@@ -607,7 +693,7 @@ export function ReaderView({
       )}
 
       <div className="flex min-h-0 flex-1">
-        {showToc && (
+        {showToc && !focus && (
           <TocSidebar
             outline={outline}
             ranges={ranges}
@@ -617,6 +703,15 @@ export function ReaderView({
             onNavigate={scrollToPage}
           />
         )}
+        {pdf.status === 'ready' && thumbs && !focus && (
+          <ThumbStrip
+            numPages={numPages}
+            pageLabel={pageLabel}
+            currentPage={currentPage}
+            renderThumb={pdf.renderThumb}
+            onJump={scrollToPage}
+          />
+        )}
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto p-4">
           {pdf.status === 'loading' && <p className="text-sm text-zinc-600">loading PDF…</p>}
           {pdf.status === 'error' && (
@@ -624,23 +719,29 @@ export function ReaderView({
           )}
           {pdf.status === 'ready' && (
             <div className="mx-auto flex flex-col items-center gap-4">
-              {Array.from({ length: numPages }, (_, pageIndex) => (
-                <PageCell
-                  key={pageIndex}
-                  pageIndex={pageIndex}
-                  label={pageLabel(pageIndex)}
-                  rendered={rendered.has(pageIndex)}
-                  width={displayWidth}
-                  size={sizes.get(pageIndex) ?? null}
-                  dimmed={appliedPages !== null && !appliedPages.has(pageIndex)}
-                  renderPage={pdf.renderPage}
-                  register={registerCell}
-                />
+              {rows.map((row) => (
+                <div key={row[0]} className="flex items-start justify-center gap-4">
+                  {row.map((pageIndex) => (
+                    <PageCell
+                      key={pageIndex}
+                      pageIndex={pageIndex}
+                      label={pageLabel(pageIndex)}
+                      rendered={rendered.has(pageIndex)}
+                      width={pageWidth}
+                      size={sizes.get(pageIndex) ?? null}
+                      dimmed={appliedPages !== null && !appliedPages.has(pageIndex)}
+                      renderPage={pdf.renderPage}
+                      register={registerCell}
+                      registerTextLayer={registerTextLayer}
+                      onTextLayerReady={notifyTextLayerReady}
+                    />
+                  ))}
+                </div>
               ))}
             </div>
           )}
         </div>
-        {pdf.status === 'ready' && numPages > 0 && (
+        {pdf.status === 'ready' && numPages > 0 && !focus && (
           <Minimap
             numPages={numPages}
             intensities={intensities}
@@ -649,6 +750,17 @@ export function ReaderView({
           />
         )}
       </div>
+
+      {focus && (
+        <button
+          aria-label="exit focus mode"
+          title="Exit focus mode (Esc)"
+          onClick={() => setFocus(false)}
+          className="fixed right-4 top-4 z-30 rounded-full border border-zinc-700 bg-zinc-900/80 px-3 py-1.5 text-xs text-zinc-200 shadow-lg backdrop-blur hover:bg-zinc-800"
+        >
+          ⛶ exit
+        </button>
+      )}
     </div>
   )
 }
@@ -668,6 +780,8 @@ function PageCell({
   dimmed,
   renderPage,
   register,
+  registerTextLayer,
+  onTextLayerReady,
 }: {
   pageIndex: number
   label: string
@@ -678,16 +792,28 @@ function PageCell({
   dimmed: boolean
   renderPage: PdfDocumentState['renderPage']
   register: (pageIndex: number, el: HTMLElement | null) => void
+  /** Register/deregister this page's text-layer element for find highlighting (optional). */
+  registerTextLayer?: (pageIndex: number, el: HTMLElement | null) => void
+  /** Fires once the text layer's spans are populated (renderPage resolved) so highlights apply. */
+  onTextLayerReady?: (pageIndex: number) => void
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const textRef = useRef<HTMLDivElement>(null)
+  const textRef = useRef<HTMLDivElement | null>(null)
   const aspect = size ? size.height / size.width : DEFAULT_ASPECT
 
   useEffect(() => {
     if (rendered && canvasRef.current && renderPage) {
-      void renderPage(pageIndex, canvasRef.current, textRef.current, width)
+      let cancelled = false
+      // renderPage resolves only AFTER the pdf.js TextLayer has rendered its spans, so this is the
+      // hook point to (re)apply find highlights over a now-populated layer.
+      void renderPage(pageIndex, canvasRef.current, textRef.current, width).then(() => {
+        if (!cancelled) onTextLayerReady?.(pageIndex)
+      })
+      return () => {
+        cancelled = true
+      }
     }
-  }, [rendered, renderPage, pageIndex, width])
+  }, [rendered, renderPage, pageIndex, width, onTextLayerReady])
 
   return (
     <div
@@ -705,7 +831,14 @@ function PageCell({
         <>
           <canvas ref={canvasRef} className="block h-auto w-full" />
           {/* pdf.js text layer: transparent, selectable spans over the canvas (see textLayer.css). */}
-          <div ref={textRef} aria-hidden className="textLayer" />
+          <div
+            ref={(el) => {
+              textRef.current = el
+              registerTextLayer?.(pageIndex, el)
+            }}
+            aria-hidden
+            className="textLayer"
+          />
         </>
       ) : (
         <span className="absolute inset-0 flex items-center justify-center text-xs text-zinc-600">

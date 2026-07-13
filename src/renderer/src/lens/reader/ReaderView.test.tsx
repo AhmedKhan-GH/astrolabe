@@ -298,6 +298,107 @@ describe('ReaderView page-range Views', () => {
   })
 })
 
+describe('ReaderView two-page spread', () => {
+  it('single by default, then lays the cover alone + facing pairs at half width', () => {
+    setup()
+    // Default single layout: full display width (fit-width fallback base 720).
+    expect(screen.getByRole('group', { name: 'page i' }).style.width).toBe('720px')
+
+    const toggle = screen.getByRole('button', { name: /two-page spread/i })
+    expect(toggle.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(toggle)
+    expect(toggle.getAttribute('aria-pressed')).toBe('true')
+
+    // Cover (pageIndex 0, label 'i') sits alone in its row, at half width (360).
+    const cover = screen.getByRole('group', { name: 'page i' })
+    expect(cover.style.width).toBe('360px')
+    expect(within(cover.parentElement!).getAllByRole('group')).toHaveLength(1)
+
+    // Facing pair after the cover: [ii, 1] (pageIndex 1 & 2) share a row.
+    const pairRow = screen.getByRole('group', { name: 'page ii' }).parentElement!
+    expect(within(pairRow).getAllByRole('group').map((g) => g.getAttribute('aria-label'))).toEqual([
+      'page ii',
+      'page 1',
+    ])
+  })
+})
+
+describe('ReaderView thumbnail strip', () => {
+  it('toggles a left rail with a button per page, current ringed, click jumps', () => {
+    const scrollIntoView = vi.fn()
+    // jsdom lacks scrollIntoView; stub it so the click-jump wiring is observable.
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      value: scrollIntoView,
+      writable: true,
+      configurable: true,
+    })
+    setup()
+    expect(screen.queryByRole('navigation', { name: /page thumbnails/i })).toBeNull()
+
+    const toggle = screen.getByRole('button', { name: /thumbnail strip/i })
+    expect(toggle.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(toggle)
+    expect(toggle.getAttribute('aria-pressed')).toBe('true')
+
+    const rail = screen.getByRole('navigation', { name: /page thumbnails/i })
+    expect(within(rail).getAllByRole('button')).toHaveLength(5)
+    // currentPage defaults to 0 (no dwell observer in jsdom) → page 'i' ringed.
+    expect(within(rail).getByRole('button', { name: 'go to page i' }).getAttribute('aria-current')).toBe('true')
+
+    fireEvent.click(within(rail).getByRole('button', { name: 'go to page 1' }))
+    expect(scrollIntoView).toHaveBeenCalled()
+  })
+})
+
+describe('ReaderView focus mode', () => {
+  const withOutline = { getOutline: vi.fn().mockResolvedValue(OUTLINE) }
+
+  it('hides chrome (header, minimap) and exits via the floating button', () => {
+    setup({ pdf: pdf(withOutline) })
+    fireEvent.click(screen.getByRole('button', { name: /focus mode/i }))
+    // Header gone (its buttons vanish), minimap gone.
+    expect(screen.queryByRole('button', { name: /close reader/i })).toBeNull()
+    expect(screen.queryByRole('navigation', { name: /page minimap/i })).toBeNull()
+    // Floating exit affordance restores the chrome.
+    fireEvent.click(screen.getByRole('button', { name: /exit focus mode/i }))
+    expect(screen.getByRole('button', { name: /close reader/i })).toBeTruthy()
+    expect(screen.getByRole('navigation', { name: /page minimap/i })).toBeTruthy()
+  })
+
+  it('the f key toggles focus, but not while typing in an input', () => {
+    setup()
+    fireEvent.keyDown(document, { key: 'f' })
+    expect(screen.queryByRole('button', { name: /close reader/i })).toBeNull() // focus on
+    fireEvent.keyDown(document, { key: 'f' })
+    expect(screen.getByRole('button', { name: /close reader/i })).toBeTruthy() // focus off
+
+    // Typing 'f' in the find field must not toggle focus (input-guarded).
+    fireEvent.keyDown(document, { key: 'f', metaKey: true })
+    fireEvent.keyDown(screen.getByRole('textbox', { name: /find/i }), { key: 'f' })
+    expect(screen.getByRole('button', { name: /close reader/i })).toBeTruthy() // still not focus
+  })
+
+  it('Escape order: find bar → exit focus → close', () => {
+    const { onClose } = setup()
+    fireEvent.keyDown(document, { key: 'f' }) // enter focus
+    expect(screen.queryByRole('button', { name: /close reader/i })).toBeNull()
+    fireEvent.keyDown(document, { key: 'f', metaKey: true }) // ⌘F still opens find in focus
+    expect(screen.getByRole('textbox', { name: /find/i })).toBeTruthy()
+
+    fireEvent.keyDown(document, { key: 'Escape' }) // 1 — closes find only
+    expect(screen.queryByRole('textbox', { name: /find/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /close reader/i })).toBeNull() // still in focus
+    expect(onClose).not.toHaveBeenCalled()
+
+    fireEvent.keyDown(document, { key: 'Escape' }) // 2 — exits focus
+    expect(screen.getByRole('button', { name: /close reader/i })).toBeTruthy()
+    expect(onClose).not.toHaveBeenCalled()
+
+    fireEvent.keyDown(document, { key: 'Escape' }) // 3 — closes reader
+    expect(onClose).toHaveBeenCalledOnce()
+  })
+})
+
 describe('ReaderView minimap', () => {
   it('renders a right-edge minimap with a sliver per page', () => {
     setup()

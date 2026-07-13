@@ -3,7 +3,7 @@ import clsx from 'clsx'
 import type { PdfDocumentState } from './pdf/usePdfDocument'
 import { depthValue, normalizeHeat } from './pdf/heat'
 import { nextZoom, type ZoomAction, type ZoomState } from './pdf/zoom'
-import type { PageAnnotations, ReadingState } from './types'
+import type { DocPageView, PageAnnotations, ReadingState } from './types'
 
 /**
  * The grid cell-size ladder (CSS px). The default (140) is a readable page thumbnail; the
@@ -42,9 +42,12 @@ export function CanvasView({
   pdf,
   heat,
   reading,
+  views = [],
+  appliedView = null,
   onOpenPage,
   onOpenReader,
   onOpenDetails,
+  onApplyView,
   onClose,
 }: {
   title: string
@@ -53,16 +56,23 @@ export function CanvasView({
   heat: PageAnnotations | null
   /** Persisted exposure (engagement, never comprehension) — enables the `read` heat layer. */
   reading?: ReadingState | null
+  /** Saved page-range Views for this document (host-provided); the applied one dims non-members. */
+  views?: DocPageView[]
+  /** The slug of the currently-applied View, or null — non-member cells dim while set. */
+  appliedView?: string | null
   onOpenPage: (pageIndex: number) => void
   /** Opens the continuous-scroll Reader for this document (panel swap); hidden when unwired. */
   onOpenReader?: () => void
   /** Cross-link to the Document Hub for this document (panel swap); hidden when unwired. */
   onOpenDetails?: () => void
+  /** Apply a View by slug, or null to clear; the menu/pill hide when unwired (save/delete live in the Reader). */
+  onApplyView?: (slug: string | null) => void
   onClose: () => void
 }) {
   const [heatOn, setHeatOn] = useState(true)
   const [heatMode, setHeatMode] = useState<HeatMode>('breadth')
   const [cellIdx, setCellIdx] = useState(DEFAULT_CELL)
+  const [viewsOpen, setViewsOpen] = useState(false)
   // The page shown in the in-canvas lightbox (0-based), or null when it is closed.
   const [lightbox, setLightbox] = useState<number | null>(null)
   // Pages whose thumbnail canvas currently exists (LRU-bounded, see markVisible).
@@ -115,6 +125,16 @@ export function CanvasView({
     for (const p of heat?.pages ?? []) m.set(p.pageIndex, p.count)
     return m
   }, [heat])
+
+  // The applied View (resolved to the loaded list) and its member pages — non-members dim.
+  const appliedViewObj = useMemo(
+    () => views.find((v) => v.slug === appliedView) ?? null,
+    [views, appliedView],
+  )
+  const appliedPages = useMemo(
+    () => (appliedViewObj ? new Set(appliedViewObj.pages) : null),
+    [appliedViewObj],
+  )
 
   const markVisible = useCallback((pageIndex: number) => {
     setRendered((prev) => {
@@ -220,6 +240,71 @@ export function CanvasView({
               )}
             </span>
           )}
+          {views.length > 0 && onApplyView && (
+            <div className="relative">
+              <button
+                aria-label="views"
+                aria-pressed={appliedView !== null}
+                title="Page-range views"
+                onClick={() => setViewsOpen((v) => !v)}
+                className={clsx(
+                  'rounded border px-2 py-1 text-xs',
+                  appliedView !== null
+                    ? 'border-amber-700 bg-amber-950 text-amber-300'
+                    : 'border-zinc-700 text-zinc-300 hover:bg-zinc-800',
+                )}
+              >
+                Views
+              </button>
+              {viewsOpen && (
+                <div className="absolute right-0 top-full z-40 mt-1 w-56 rounded border border-zinc-700 bg-zinc-900 p-2 shadow-xl">
+                  <ul className="flex flex-col gap-0.5">
+                    {views.map((v) => (
+                      <li key={v.slug}>
+                        <button
+                          aria-label={`apply ${v.name}`}
+                          aria-pressed={appliedView === v.slug}
+                          onClick={() => onApplyView(appliedView === v.slug ? null : v.slug)}
+                          className={clsx(
+                            'w-full truncate rounded px-2 py-1 text-left text-xs',
+                            appliedView === v.slug
+                              ? 'bg-amber-950 text-amber-300'
+                              : 'text-zinc-300 hover:bg-zinc-800',
+                          )}
+                        >
+                          {v.name} <span className="text-zinc-600">· {v.pages.length}p</span>
+                        </button>
+                      </li>
+                    ))}
+                    {appliedView !== null && (
+                      <li>
+                        <button
+                          aria-label="show all pages"
+                          onClick={() => onApplyView(null)}
+                          className="w-full rounded px-2 py-1 text-left text-xs text-zinc-400 hover:bg-zinc-800"
+                        >
+                          ▸ Show all pages
+                        </button>
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+          {appliedViewObj && onApplyView && (
+            <span className="flex items-center gap-1 rounded-full border border-amber-700 bg-amber-950 px-2 py-0.5 text-xs text-amber-300">
+              <span className="max-w-[8rem] truncate">{appliedViewObj.name}</span>
+              <button
+                aria-label="clear view"
+                title="Clear the applied view"
+                onClick={() => onApplyView(null)}
+                className="leading-none text-amber-400 hover:text-amber-200"
+              >
+                ×
+              </button>
+            </span>
+          )}
           {onOpenReader && (
             <button
               aria-label="open reader"
@@ -271,6 +356,7 @@ export function CanvasView({
                 heatOn={heatOn}
                 cellWidth={cellWidth}
                 compact={compact}
+                dimmed={appliedPages !== null && !appliedPages.has(pageIndex)}
                 rendered={rendered.has(pageIndex)}
                 renderThumb={pdf.renderThumb}
                 register={registerCell}
@@ -446,6 +532,7 @@ function PageCell({
   heatOn,
   cellWidth,
   compact,
+  dimmed,
   rendered,
   renderThumb,
   register,
@@ -461,6 +548,8 @@ function PageCell({
   cellWidth: number
   /** Bird's-eye overview size: page-aspect tiles, no label, hairline border. */
   compact: boolean
+  /** Not a member of the applied page-range View — shown faint but still present (heat included). */
+  dimmed: boolean
   rendered: boolean
   renderThumb: PdfDocumentState['renderThumb']
   register: (pageIndex: number, el: HTMLElement | null) => void
@@ -483,8 +572,9 @@ function PageCell({
       // — that lets a compact grid shrink to true bird's-eye tiles instead of a 128px floor.
       style={{ aspectRatio: '17 / 22' }}
       className={clsx(
-        'relative overflow-hidden bg-zinc-900/60',
+        'relative overflow-hidden bg-zinc-900/60 transition-opacity',
         compact ? 'rounded-sm border border-zinc-800/70' : 'rounded border border-zinc-800 hover:border-zinc-600',
+        dimmed && 'opacity-35',
       )}
     >
       {rendered ? (
