@@ -175,7 +175,7 @@ describe('mcp handlers over a read-only index', () => {
       },
     ])
     expect(d.annotations.total).toBe(1)
-    expect(d.annotations.pages).toEqual([{ pageIndex: 147, count: 1 }])
+    expect(d.annotations.pages).toEqual([{ pageIndex: 147, count: 1, commented: 0, textChars: 76, commentChars: 0 }])
     expect(d.presence).toBe('zotero-only')
     expect(d.virtualCollections).toEqual([])
     expect(d.backlinks).toEqual([])
@@ -205,7 +205,7 @@ describe('mcp handlers over a read-only index', () => {
 
   it('get_page_annotations returns per-page annotation counts', () => {
     const pa = handlers.getPageAnnotations({ documentId })
-    expect(pa.pages).toEqual([{ pageIndex: 147, count: 1 }])
+    expect(pa.pages).toEqual([{ pageIndex: 147, count: 1, commented: 0, textChars: 76, commentChars: 0 }])
   })
 
   it('get_annotations returns highlight text with the openPdfUri from positionJson', () => {

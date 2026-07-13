@@ -17,11 +17,19 @@ const pdf = (over: Partial<PdfDocumentState> = {}): PdfDocumentState => ({
   ...over,
 })
 
+// pageIndex 1: few annotations but COMMENTED (deep processing); pageIndex 3: many bare
+// highlights. Breadth ranks 3 hotter; depth ranks 1 hotter — the mode toggle must flip them.
 const heat: PageAnnotations = {
   pages: [
-    { pageIndex: 1, count: 1 },
-    { pageIndex: 3, count: 5 },
+    { pageIndex: 1, count: 1, commented: 1, textChars: 50, commentChars: 30 },
+    { pageIndex: 3, count: 5, commented: 0, textChars: 100, commentChars: 0 },
   ],
+}
+
+/** The amber tint overlay of a cell (carries its continuous intensity as data-heat). */
+const overlayIntensity = (cell: HTMLElement): number | null => {
+  const overlay = cell.querySelector('[data-heat]')
+  return overlay ? Number(overlay.getAttribute('data-heat')) : null
 }
 
 const setup = (over: Partial<Parameters<typeof CanvasView>[0]> = {}) => {
@@ -130,6 +138,67 @@ describe('CanvasView heat layer', () => {
     const cell = screen.getByRole('button', { name: 'page 2' }) // would carry count 5
     expect(within(cell).queryByText('5')).toBeNull()
   })
+
+  it('tints continuously, normalized to THIS document (hottest page = 1, others fractional)', () => {
+    setup()
+    const heavy = screen.getByRole('button', { name: 'page 2' }) // count 5 → breadth max
+    const light = screen.getByRole('button', { name: 'page ii' }) // count 1
+    const plain = screen.getByRole('button', { name: 'page i' })
+    expect(overlayIntensity(heavy)).toBe(1)
+    const lightIntensity = overlayIntensity(light)!
+    expect(lightIntensity).toBeGreaterThan(0)
+    expect(lightIntensity).toBeLessThan(1)
+    expect(overlayIntensity(plain)).toBeNull()
+  })
+
+  it('depth mode re-ranks by substance: the commented page becomes the hottest', () => {
+    setup()
+    fireEvent.click(screen.getByRole('button', { name: 'depth' }))
+    const commented = screen.getByRole('button', { name: 'page ii' })
+    const bareHighlights = screen.getByRole('button', { name: 'page 2' })
+    expect(overlayIntensity(commented)).toBe(1)
+    expect(overlayIntensity(bareHighlights)!).toBeLessThan(1)
+  })
+
+  it('count|depth mode buttons are exclusive and disappear with the heat layer off', () => {
+    setup()
+    const count = screen.getByRole('button', { name: 'count' })
+    const depth = screen.getByRole('button', { name: 'depth' })
+    expect(count.getAttribute('aria-pressed')).toBe('true')
+    expect(depth.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(depth)
+    expect(count.getAttribute('aria-pressed')).toBe('false')
+    expect(depth.getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: 'Annotations' })) // heat off
+    expect(screen.queryByRole('button', { name: 'depth' })).toBeNull()
+  })
+})
+
+describe('CanvasView grid zoom', () => {
+  const gridColumns = (): string =>
+    (document.querySelector('[data-testid="page-grid"]') as HTMLElement).style.gridTemplateColumns
+
+  it('larger/smaller controls walk the cell-size ladder', () => {
+    setup()
+    expect(gridColumns()).toContain('140px')
+    fireEvent.click(screen.getByRole('button', { name: /larger pages/i }))
+    expect(gridColumns()).toContain('200px')
+    fireEvent.click(screen.getByRole('button', { name: /smaller pages/i }))
+    fireEvent.click(screen.getByRole('button', { name: /smaller pages/i }))
+    expect(gridColumns()).toContain('100px')
+  })
+
+  it('the controls disable at the ladder ends', () => {
+    setup()
+    const smaller = screen.getByRole('button', { name: /smaller pages/i }) as HTMLButtonElement
+    const larger = screen.getByRole('button', { name: /larger pages/i }) as HTMLButtonElement
+    fireEvent.click(smaller) // 140 → 100 (bottom)
+    expect(smaller.disabled).toBe(true)
+    fireEvent.click(larger) // 100 → 140
+    fireEvent.click(larger) // → 200
+    fireEvent.click(larger) // → 280 (top)
+    expect(larger.disabled).toBe(true)
+  })
 })
 
 describe('CanvasView lightbox', () => {
@@ -182,5 +251,59 @@ describe('CanvasView lightbox', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: /next page/i })) // → pageIndex 2
     fireEvent.click(within(dialog).getByRole('button', { name: /open in source/i }))
     expect(onOpenPage).toHaveBeenCalledWith(2)
+  })
+})
+
+describe('CanvasView lightbox zoom', () => {
+  const openLightbox = () => {
+    fireEvent.click(screen.getByRole('button', { name: 'page i' }))
+    return screen.getByRole('dialog', { name: /page view/i })
+  }
+  const pageCanvas = (dialog: HTMLElement): HTMLCanvasElement =>
+    dialog.querySelector('canvas') as HTMLCanvasElement
+
+  it('opens fitted to the page (whole page visible — no more oversized fixed width)', () => {
+    setup()
+    const dialog = openLightbox()
+    expect(within(dialog).getByRole('button', { name: /fit page/i }).getAttribute('aria-pressed')).toBe('true')
+    expect(within(dialog).getByRole('button', { name: /fit width/i }).getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('zoom in leaves fit mode and sets an explicit larger width (measured base × 1.25)', () => {
+    setup()
+    const dialog = openLightbox()
+    fireEvent.click(within(dialog).getByRole('button', { name: /zoom in/i }))
+    expect(within(dialog).getByRole('button', { name: /fit page/i }).getAttribute('aria-pressed')).toBe('false')
+    // jsdom has no layout → the container measures 0 and the 720px fallback base applies.
+    expect(pageCanvas(dialog).style.width).toBe('900px')
+  })
+
+  it('zoom out from fit shrinks below the base width', () => {
+    setup()
+    const dialog = openLightbox()
+    fireEvent.click(within(dialog).getByRole('button', { name: /zoom out/i }))
+    expect(pageCanvas(dialog).style.width).toBe('576px')
+  })
+
+  it('keyboard: +/− zoom, w fits width, p fits page', () => {
+    setup()
+    const dialog = openLightbox()
+    fireEvent.keyDown(document, { key: '+' })
+    expect(pageCanvas(dialog).style.width).toBe('900px')
+    fireEvent.keyDown(document, { key: 'w' })
+    expect(within(dialog).getByRole('button', { name: /fit width/i }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.keyDown(document, { key: 'p' })
+    expect(within(dialog).getByRole('button', { name: /fit page/i }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.keyDown(document, { key: '-' })
+    expect(pageCanvas(dialog).style.width).toBe('576px')
+  })
+
+  it('re-rasterizes at the zoomed width so pixels stay sharp', () => {
+    const renderThumb = vi.fn().mockResolvedValue(undefined)
+    setup({ pdf: pdf({ renderThumb }) })
+    const dialog = openLightbox()
+    fireEvent.click(within(dialog).getByRole('button', { name: /zoom in/i }))
+    const widths = renderThumb.mock.calls.map((c) => c[2])
+    expect(widths.at(-1)).toBe(900)
   })
 })

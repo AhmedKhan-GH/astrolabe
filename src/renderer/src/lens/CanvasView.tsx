@@ -1,29 +1,33 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import type { PdfDocumentState } from './pdf/usePdfDocument'
-import { countsToTiers, type HeatTier } from './pdf/heat'
+import { depthValue, normalizeHeat } from './pdf/heat'
+import { nextZoom, type ZoomAction, type ZoomState } from './pdf/zoom'
 import type { PageAnnotations } from './types'
 
-/** CSS width of one page cell (the spec's ~140px thumbnail column). */
-const CELL_WIDTH = 140
-/** CSS width of the single-page lightbox render (a large, readable in-canvas preview). */
-const LIGHTBOX_WIDTH = 720
+/** The grid cell-size ladder (CSS px); index 1 is the spec's original ~140px column. */
+const CELL_SIZES = [100, 140, 200, 280] as const
+const DEFAULT_CELL = 1
+/** Lightbox base width when the container cannot be measured (jsdom, first paint). */
+const FALLBACK_BASE = 720
 /** Bounded canvas cache — beyond this, the oldest off-screen thumbnails revert to placeholders. */
 const MAX_RENDERED = 200
+
+/** Continuous amber tint: intensity 0..1 → alpha, floored so light pages stay visible. */
+const MIN_ALPHA = 0.08
+const MAX_ALPHA = 0.45
+const heatTint = (intensity: number): string =>
+  `rgba(245, 158, 11, ${(MIN_ALPHA + (MAX_ALPHA - MIN_ALPHA) * intensity).toFixed(3)})`
+
+type HeatMode = 'breadth' | 'depth'
 
 const clampPage = (index: number, numPages: number): number =>
   Math.min(numPages - 1, Math.max(0, index))
 
-/** Stepped tint per heat tier (existing Tailwind accent tones; amber = heat). */
-const TIER_TINT: Record<Exclude<HeatTier, 'none'>, string> = {
-  t1: 'bg-amber-500/10',
-  t2: 'bg-amber-500/25',
-  t3: 'bg-amber-500/40',
-}
-
 /**
- * Canvas view — every page of a PDF as a continuous thumbnail grid with an annotation
- * heat layer (docs/2026-07-10-canvas-view-spec §Renderer). Receives the pdf hook RESULT
+ * Canvas view — every page of a PDF as a continuous thumbnail grid with continuous,
+ * document-relative annotation heat in two layers: breadth (count) and depth (annotation
+ * substance) (docs/2026-07-13-r1-canvas-heat-zoom-spec §2–3). Receives the pdf hook RESULT
  * as a prop so tests drive it without pdf.js; thumbnails render lazily via
  * IntersectionObserver (absent in jsdom → cells stay placeholders, by design).
  */
@@ -37,7 +41,7 @@ export function CanvasView({
 }: {
   title: string
   pdf: PdfDocumentState
-  /** Per-page annotation counts; null while the query is in flight (no heat layer yet). */
+  /** Per-page annotation aggregates; null while the query is in flight (no heat layer yet). */
   heat: PageAnnotations | null
   onOpenPage: (pageIndex: number) => void
   /** Cross-link to the Document Hub for this document (panel swap); hidden when unwired. */
@@ -45,6 +49,8 @@ export function CanvasView({
   onClose: () => void
 }) {
   const [heatOn, setHeatOn] = useState(true)
+  const [heatMode, setHeatMode] = useState<HeatMode>('breadth')
+  const [cellIdx, setCellIdx] = useState(DEFAULT_CELL)
   // The page shown in the in-canvas lightbox (0-based), or null when it is closed.
   const [lightbox, setLightbox] = useState<number | null>(null)
   // Pages whose thumbnail canvas currently exists (LRU-bounded, see markVisible).
@@ -53,6 +59,7 @@ export function CanvasView({
   const visibleNow = useRef<Set<number>>(new Set()) // never evict what's on screen
   const observerRef = useRef<IntersectionObserver | null>(null)
   const numPages = pdf.status === 'ready' ? pdf.numPages : 0
+  const cellWidth = CELL_SIZES[cellIdx]!
 
   // Escape closes the lightbox FIRST (canvas stays open), then the canvas — the two never
   // fight over one keypress. While the lightbox is open, ←/→ page through it (clamped).
@@ -70,7 +77,18 @@ export function CanvasView({
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose, lightbox, numPages])
 
-  const tiers = useMemo(() => countsToTiers(heat?.pages ?? []), [heat])
+  // Continuous intensities, relative to THIS document under the active layer: breadth =
+  // annotation count, depth = substance (levels-of-processing weighting in pdf/heat.ts).
+  const intensities = useMemo(
+    () =>
+      normalizeHeat(
+        (heat?.pages ?? []).map((p) => ({
+          pageIndex: p.pageIndex,
+          value: heatMode === 'breadth' ? p.count : depthValue(p),
+        })),
+      ),
+    [heat, heatMode],
+  )
   const counts = useMemo(() => {
     const m = new Map<number, number>()
     for (const p of heat?.pages ?? []) m.set(p.pageIndex, p.count)
@@ -133,6 +151,24 @@ export function CanvasView({
         )}
         <div className="ml-auto flex shrink-0 items-center gap-2">
           <button
+            aria-label="smaller pages"
+            title="Smaller pages"
+            disabled={cellIdx === 0}
+            onClick={() => setCellIdx((i) => Math.max(0, i - 1))}
+            className="rounded border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800 disabled:opacity-30"
+          >
+            −
+          </button>
+          <button
+            aria-label="larger pages"
+            title="Larger pages"
+            disabled={cellIdx === CELL_SIZES.length - 1}
+            onClick={() => setCellIdx((i) => Math.min(CELL_SIZES.length - 1, i + 1))}
+            className="rounded border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800 disabled:opacity-30"
+          >
+            +
+          </button>
+          <button
             aria-pressed={heatOn}
             onClick={() => setHeatOn((v) => !v)}
             className={clsx(
@@ -144,6 +180,25 @@ export function CanvasView({
           >
             Annotations
           </button>
+          {heatOn && (
+            <span className="flex overflow-hidden rounded border border-zinc-700 text-xs">
+              {(['breadth', 'depth'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  aria-pressed={heatMode === mode}
+                  onClick={() => setHeatMode(mode)}
+                  className={clsx(
+                    'px-2 py-1',
+                    heatMode === mode
+                      ? 'bg-amber-950 text-amber-300'
+                      : 'text-zinc-500 hover:bg-zinc-800',
+                  )}
+                >
+                  {mode === 'breadth' ? 'count' : 'depth'}
+                </button>
+              ))}
+            </span>
+          )}
           {onOpenDetails && (
             <button
               aria-label="document details"
@@ -171,17 +226,19 @@ export function CanvasView({
         )}
         {pdf.status === 'ready' && (
           <div
+            data-testid="page-grid"
             className="grid gap-2"
-            style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${CELL_WIDTH}px, 1fr))` }}
+            style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${cellWidth}px, 1fr))` }}
           >
             {Array.from({ length: pdf.numPages }, (_, pageIndex) => (
               <PageCell
                 key={pageIndex}
                 pageIndex={pageIndex}
                 label={pdf.pageLabels?.[pageIndex] ?? String(pageIndex + 1)}
-                tier={tiers.get(pageIndex) ?? 'none'}
+                intensity={intensities.get(pageIndex) ?? null}
                 count={counts.get(pageIndex) ?? 0}
                 heatOn={heatOn}
+                cellWidth={cellWidth}
                 rendered={rendered.has(pageIndex)}
                 renderThumb={pdf.renderThumb}
                 register={registerCell}
@@ -209,8 +266,9 @@ export function CanvasView({
 
 /**
  * In-canvas lightbox: a large render of one page, overlaid on the canvas (which stays open
- * behind it). ←/→ chevrons and arrow keys page through it; "open in source ↗" hands off to
- * the reader via onOpenPage. No heat layer here — it is a focused read of the page itself.
+ * behind it). ←/→ chevrons and arrow keys page through it; fit-page (default) / fit-width /
+ * manual ×1.25 zoom steps re-rasterize at the displayed width so pixels stay sharp
+ * (spec §3); "open in source ↗" hands off to the reader via onOpenPage.
  */
 function PageLightbox({
   pageIndex,
@@ -230,9 +288,47 @@ function PageLightbox({
   onClose: () => void
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [zoom, setZoom] = useState<ZoomState>({ mode: 'fit-page', scale: 1 })
+  // The zoom basis: the container's width, measured once on mount (refs are off-limits
+  // during render); the fixed fallback covers pre-layout and jsdom.
+  const [base, setBase] = useState(FALLBACK_BASE)
   useEffect(() => {
-    if (canvasRef.current) void renderThumb(pageIndex, canvasRef.current, LIGHTBOX_WIDTH)
-  }, [pageIndex, renderThumb])
+    const w = containerRef.current?.clientWidth
+    if (w) setBase(w)
+  }, [])
+
+  // What scale the user currently SEES, so stepping out of a fit mode continues smoothly.
+  const effectiveScale = (z: ZoomState): number => {
+    if (z.mode === 'manual') return z.scale
+    if (z.mode === 'fit-width') return 1
+    const displayed = canvasRef.current?.clientWidth
+    return displayed ? displayed / base : 1
+  }
+  const applyZoom = (action: ZoomAction): void =>
+    setZoom((z) => nextZoom(action, effectiveScale(z)))
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === '+' || e.key === '=') applyZoom('in')
+      else if (e.key === '-') applyZoom('out')
+      else if (e.key === 'w') applyZoom('fit-width')
+      else if (e.key === 'p') applyZoom('fit-page')
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  })
+
+  const manualWidth = zoom.mode === 'manual' ? Math.round(base * zoom.scale) : null
+  useEffect(() => {
+    if (canvasRef.current) {
+      void renderThumb(pageIndex, canvasRef.current, manualWidth ?? base)
+    }
+  }, [pageIndex, renderThumb, manualWidth, base])
+
+  const zoomButton = 'rounded border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800'
+  const fitClasses = (pressed: boolean): string =>
+    clsx(zoomButton, pressed ? 'border-amber-700 bg-amber-950 text-amber-300' : 'text-zinc-300')
 
   return (
     <div
@@ -243,40 +339,67 @@ function PageLightbox({
       <header className="flex items-center gap-3 border-b border-zinc-800 px-4 py-3">
         <h3 className="font-medium text-zinc-100">page {label}</h3>
         <div className="ml-auto flex items-center gap-2">
+          <button aria-label="zoom out" onClick={() => applyZoom('out')} className={clsx(zoomButton, 'text-zinc-300')}>
+            −
+          </button>
+          <button aria-label="zoom in" onClick={() => applyZoom('in')} className={clsx(zoomButton, 'text-zinc-300')}>
+            +
+          </button>
+          <button
+            aria-label="fit width"
+            aria-pressed={zoom.mode === 'fit-width'}
+            onClick={() => applyZoom('fit-width')}
+            className={fitClasses(zoom.mode === 'fit-width')}
+          >
+            ↔
+          </button>
+          <button
+            aria-label="fit page"
+            aria-pressed={zoom.mode === 'fit-page'}
+            onClick={() => applyZoom('fit-page')}
+            className={fitClasses(zoom.mode === 'fit-page')}
+          >
+            ⤢
+          </button>
           <button
             aria-label="open in source"
             onClick={() => onOpenPage(pageIndex)}
-            className="rounded border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800"
+            className={clsx(zoomButton, 'text-zinc-300')}
           >
             open in source ↗
           </button>
-          <button
-            aria-label="close page view"
-            onClick={onClose}
-            className="rounded border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800"
-          >
+          <button aria-label="close page view" onClick={onClose} className={clsx(zoomButton, 'text-zinc-300')}>
             ×
           </button>
         </div>
       </header>
-      <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-auto p-4">
-        <button
-          aria-label="previous page"
-          disabled={pageIndex <= 0}
-          onClick={() => onNavigate(-1)}
-          className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full border border-zinc-700 bg-zinc-900/80 px-2 py-1 text-lg text-zinc-200 hover:bg-zinc-800 disabled:opacity-30"
-        >
-          ‹
-        </button>
-        <canvas ref={canvasRef} className="max-h-full max-w-full" />
-        <button
-          aria-label="next page"
-          disabled={pageIndex >= numPages - 1}
-          onClick={() => onNavigate(1)}
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full border border-zinc-700 bg-zinc-900/80 px-2 py-1 text-lg text-zinc-200 hover:bg-zinc-800 disabled:opacity-30"
-        >
-          ›
-        </button>
+      <div ref={containerRef} className="relative min-h-0 flex-1 overflow-auto p-4">
+        <div className="flex min-h-full min-w-full items-center justify-center">
+          <button
+            aria-label="previous page"
+            disabled={pageIndex <= 0}
+            onClick={() => onNavigate(-1)}
+            className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-zinc-700 bg-zinc-900/80 px-2 py-1 text-lg text-zinc-200 hover:bg-zinc-800 disabled:opacity-30"
+          >
+            ‹
+          </button>
+          <canvas
+            ref={canvasRef}
+            className={clsx(
+              zoom.mode === 'fit-page' && 'max-h-full max-w-full',
+              zoom.mode === 'fit-width' && 'h-auto w-full',
+            )}
+            style={manualWidth !== null ? { width: `${manualWidth}px` } : undefined}
+          />
+          <button
+            aria-label="next page"
+            disabled={pageIndex >= numPages - 1}
+            onClick={() => onNavigate(1)}
+            className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-zinc-700 bg-zinc-900/80 px-2 py-1 text-lg text-zinc-200 hover:bg-zinc-800 disabled:opacity-30"
+          >
+            ›
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -286,9 +409,10 @@ function PageLightbox({
 function PageCell({
   pageIndex,
   label,
-  tier,
+  intensity,
   count,
   heatOn,
+  cellWidth,
   rendered,
   renderThumb,
   register,
@@ -296,9 +420,11 @@ function PageCell({
 }: {
   pageIndex: number
   label: string
-  tier: HeatTier
+  /** Continuous heat intensity (0, 1], or null when the page carries no heat. */
+  intensity: number | null
   count: number
   heatOn: boolean
+  cellWidth: number
   rendered: boolean
   renderThumb: PdfDocumentState['renderThumb']
   register: (pageIndex: number, el: HTMLElement | null) => void
@@ -307,8 +433,8 @@ function PageCell({
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
-    if (rendered && canvasRef.current) void renderThumb(pageIndex, canvasRef.current, CELL_WIDTH)
-  }, [rendered, renderThumb, pageIndex])
+    if (rendered && canvasRef.current) void renderThumb(pageIndex, canvasRef.current, cellWidth)
+  }, [rendered, renderThumb, pageIndex, cellWidth])
 
   return (
     <button
@@ -326,9 +452,13 @@ function PageCell({
           {label}
         </span>
       )}
-      {heatOn && tier !== 'none' && (
+      {heatOn && intensity !== null && (
         <>
-          <span className={clsx('pointer-events-none absolute inset-0', TIER_TINT[tier])} />
+          <span
+            data-heat={intensity.toFixed(4)}
+            className="pointer-events-none absolute inset-0"
+            style={{ backgroundColor: heatTint(intensity) }}
+          />
           <span className="absolute right-1 top-1 rounded-full bg-amber-500/90 px-1.5 text-[10px] font-semibold leading-4 text-zinc-950">
             {count}
           </span>

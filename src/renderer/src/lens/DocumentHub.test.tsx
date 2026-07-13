@@ -17,7 +17,13 @@ const detail = (over: Partial<DocumentDetail> = {}): DocumentDetail => ({
     { instanceId: 12, sourceKey: 'eagle', uri: 'eagle://item/XYZ', filePath: null, openPdfUri: null },
   ],
   virtualCollections: [{ slug: 'to-read', name: 'To Read' }],
-  annotations: { total: 4, pages: [{ pageIndex: 0, count: 3 }, { pageIndex: 5, count: 1 }] },
+  annotations: {
+    total: 4,
+    pages: [
+      { pageIndex: 0, count: 3, commented: 0, textChars: 0, commentChars: 0 },
+      { pageIndex: 5, count: 1, commented: 0, textChars: 0, commentChars: 0 },
+    ],
+  },
   presence: 'both',
   backlinks: [{ documentId: 9, title: 'Referring Note', kind: 'note', instanceId: 99 }],
   ...over,

@@ -158,12 +158,23 @@ export interface BrowseInstance {
 }
 
 /**
- * Per-page annotation counts for one document (`index:page-annotations` wire contract).
- * pageIndex is 0-based (from `json_extract(position_json, '$.position.pageIndex')`); pages
- * with no annotations are simply absent. Drives the Canvas heat layer.
+ * Per-page annotation counts + substance aggregates for one document
+ * (`index:page-annotations` wire contract). pageIndex is 0-based (from
+ * `json_extract(position_json, '$.position.pageIndex')`); pages with no annotations are
+ * simply absent. Drives the Canvas heat layers: `count` = breadth, the substance columns
+ * = depth (levels-of-processing weighting, docs/2026-07-13-r1-canvas-heat-zoom-spec §2).
  */
 export interface PageAnnotations {
-  pages: { pageIndex: number; count: number }[]
+  pages: {
+    pageIndex: number
+    count: number
+    /** Annotations on this page carrying a non-empty (trimmed) comment. */
+    commented: number
+    /** Summed highlighted-text length across the page's annotations. */
+    textChars: number
+    /** Summed comment length across the page's annotations. */
+    commentChars: number
+  }[]
 }
 
 export interface BrowsePage {
@@ -208,7 +219,7 @@ export interface DocumentDetail {
   tags: string[]
   instances: BrowseInstance[]
   virtualCollections: { slug: string; name: string }[]
-  annotations: { total: number; pages: { pageIndex: number; count: number }[] }
+  annotations: { total: number; pages: PageAnnotations['pages'] }
   /** 'none' = neither a zotero nor an eagle instance exists (e.g. an obsidian-only note). */
   presence: PresenceValue | 'none'
   backlinks: {

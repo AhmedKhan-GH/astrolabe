@@ -45,7 +45,16 @@ export const pageAnnotationsRequestSchema = z.object({ documentId: z.number().in
 export type PageAnnotationsRequest = z.infer<typeof pageAnnotationsRequestSchema>
 
 export interface PageAnnotations {
-  pages: { pageIndex: number; count: number }[]
+  pages: {
+    pageIndex: number
+    count: number
+    /** Annotations on this page carrying a non-empty (trimmed) comment. */
+    commented: number
+    /** Summed highlighted-text length across the page's annotations. */
+    textChars: number
+    /** Summed comment length across the page's annotations. */
+    commentChars: number
+  }[]
 }
 
 /** Browse (the recency river) — same filters as search minus `q`, plus offset paging. */
@@ -135,7 +144,7 @@ export interface DocumentDetail {
     openPdfUri: string | null
   }[]
   virtualCollections: { slug: string; name: string }[]
-  annotations: { total: number; pages: { pageIndex: number; count: number }[] }
+  annotations: { total: number; pages: PageAnnotations['pages'] }
   /** 'none' = neither a zotero nor an eagle instance exists (e.g. an obsidian-only note). */
   presence: PresenceValue | 'none'
   backlinks: BackLink[]
@@ -459,16 +468,21 @@ export function createIndexQueries(db: Db) {
   }
 
   /**
-   * Per-page annotation counts for the Canvas heat layer (docs/2026-07-10 §Page-annotation heat):
-   * `json_extract(position_json, '$.position.pageIndex')` over every annotation of the document's
-   * instances (so a hash-joined doc sums across sources), grouped and ordered by pageIndex; rows
-   * with a null/absent pageIndex are dropped.
+   * Per-page annotation counts + substance aggregates for the Canvas heat layers
+   * (docs/2026-07-13-r1-canvas-heat-zoom-spec §1): `json_extract(position_json,
+   * '$.position.pageIndex')` over every annotation of the document's instances (so a
+   * hash-joined doc sums across sources), grouped and ordered by pageIndex; rows with a
+   * null/absent pageIndex are dropped. The substance columns (commented / textChars /
+   * commentChars) feed the depth heat layer's levels-of-processing weighting.
    */
   function pageAnnotations(raw: unknown): PageAnnotations {
     const req = pageAnnotationsRequestSchema.parse(raw)
-    const pages = db.all<{ pageIndex: number; count: number }>(
+    const pages = db.all<PageAnnotations['pages'][number]>(
       sql`SELECT json_extract(a.position_json, '$.position.pageIndex') AS pageIndex,
-                 count(*) AS count
+                 count(*) AS count,
+                 sum(CASE WHEN length(trim(coalesce(a.comment, ''))) > 0 THEN 1 ELSE 0 END) AS commented,
+                 sum(length(coalesce(a.text, ''))) AS textChars,
+                 sum(length(coalesce(a.comment, ''))) AS commentChars
           FROM annotations a
           JOIN document_instances di ON di.id = a.instance_id
           WHERE di.document_id = ${req.documentId}

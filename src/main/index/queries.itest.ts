@@ -366,9 +366,9 @@ describe('pageAnnotations (per-page heat over all instances of a document)', () 
       sourceKey: 'zotero', externalKey: 'ZP', uri: 'zotero://ZP', title: 'Paper With Notes',
       kind: 'pdf', contentSha256: 'hpaper', modifiedAt: 600,
       annotations: [
-        { externalKey: 'a1', type: 'highlight', modifiedAt: 1, positionJson: pos(0) },
-        { externalKey: 'a2', type: 'highlight', modifiedAt: 1, positionJson: pos(0) },
-        { externalKey: 'a3', type: 'highlight', modifiedAt: 1, positionJson: pos(2) },
+        { externalKey: 'a1', type: 'highlight', modifiedAt: 1, positionJson: pos(0), text: 'ten chars!' },
+        { externalKey: 'a2', type: 'highlight', modifiedAt: 1, positionJson: pos(0), text: 'five!', comment: 'why?' },
+        { externalKey: 'a3', type: 'highlight', modifiedAt: 1, positionJson: pos(2) }, // null text/comment → 0 chars
         { externalKey: 'a4', type: 'note', modifiedAt: 1, positionJson: pos(null) }, // dropped
         { externalKey: 'a5', type: 'note', modifiedAt: 1, positionJson: null }, // no json → dropped
       ],
@@ -377,18 +377,20 @@ describe('pageAnnotations (per-page heat over all instances of a document)', () 
       sourceKey: 'eagle', externalKey: 'EP', uri: 'eagle://EP', title: 'Paper With Notes',
       kind: 'pdf', contentSha256: 'hpaper', modifiedAt: 600,
       annotations: [
-        { externalKey: 'a6', type: 'highlight', modifiedAt: 1, positionJson: pos(0) }, // page 0, other instance
+        // page 0, other instance; a whitespace-only comment adds chars but is NOT "commented"
+        { externalKey: 'a6', type: 'highlight', modifiedAt: 1, positionJson: pos(0), text: 'cc', comment: '  ' },
         { externalKey: 'a7', type: 'highlight', modifiedAt: 1, positionJson: pos(5) },
       ],
     })
   })
 
-  it('sums per pageIndex across every instance, ordered by pageIndex, null pageIndex dropped', () => {
+  it('sums count + substance per pageIndex across every instance, ordered, null pageIndex dropped', () => {
     expect(queries.pageAnnotations({ documentId: docIdByTitle('Paper With Notes') })).toEqual({
       pages: [
-        { pageIndex: 0, count: 3 }, // a1,a2 (zotero) + a6 (eagle)
-        { pageIndex: 2, count: 1 },
-        { pageIndex: 5, count: 1 },
+        // a1,a2 (zotero) + a6 (eagle): text 10+5+2, comments 'why?'(4)+'  '(2), commented = a2 only
+        { pageIndex: 0, count: 3, commented: 1, textChars: 17, commentChars: 6 },
+        { pageIndex: 2, count: 1, commented: 0, textChars: 0, commentChars: 0 },
+        { pageIndex: 5, count: 1, commented: 0, textChars: 0, commentChars: 0 },
       ],
     })
   })
@@ -451,7 +453,13 @@ describe('documentDetail (the index:document composed payload)', () => {
         { instanceId: expect.any(Number), sourceKey: 'eagle', uri: 'eagle://ED', filePath: null, openPdfUri: null },
       ],
       virtualCollections: [{ slug: 'reading', name: 'Reading' }],
-      annotations: { total: 3, pages: [{ pageIndex: 0, count: 2 }, { pageIndex: 3, count: 1 }] },
+      annotations: {
+        total: 3,
+        pages: [
+          { pageIndex: 0, count: 2, commented: 0, textChars: 0, commentChars: 0 },
+          { pageIndex: 3, count: 1, commented: 0, textChars: 0, commentChars: 0 },
+        ],
+      },
       presence: 'both',
       backlinks: [{ documentId: ref.documentId, title: 'Referring Note', kind: 'note', instanceId: ref.instanceId }],
     })
