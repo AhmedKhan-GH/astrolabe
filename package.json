@@ -19,7 +19,9 @@
     "db:generate": "drizzle-kit generate",
     "test:unit": "vitest run --project unit --project components",
     "test:integration": "ELECTRON_RUN_AS_NODE=1 electron node_modules/vitest/vitest.mjs run --project integration",
-    "test": "pnpm test:unit && pnpm test:integration"
+    "test": "pnpm test:unit && pnpm test:integration",
+    "package:dir": "pnpm build && electron-builder --dir",
+    "dev:install:mac": "bash scripts/install-dev-mac.sh"
   },
   "dependencies": {
     "better-sqlite3": "^12.11.1",

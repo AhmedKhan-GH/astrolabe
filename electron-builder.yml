@@ -1,0 +1,39 @@
+# electron-builder packaging config — skeleton surface (mac only; win/linux
+# targets and the ACP/MCP asarUnpack blocks return with their milestones).
+# The electron-vite bundles in out/ are produced first, then packaged into dist/.
+appId: cool.astrolabe.app
+productName: Astrolabe
+
+directories:
+  output: dist
+
+# Ship the built bundles + the manifest; electron-builder additionally pulls in
+# production dependencies from node_modules automatically (better-sqlite3 et al).
+files:
+  - out/**
+  - package.json
+
+# Drizzle migrations are runtime-needed (run at boot) — ship them beside the asar.
+# (Committed in-repo too: the iteration-2 gitignored-but-bundled scar, docs/01.)
+extraResources:
+  - from: drizzle
+    to: drizzle
+
+# Native addons must live outside the asar so their .node binaries load at
+# runtime; better-sqlite3 is auto-unpacked (it carries a .node) but its loader
+# chain is not: better-sqlite3 → bindings → file-uri-to-path.
+asarUnpack:
+  - '**/*.node'
+  - node_modules/bindings/**
+  - node_modules/file-uri-to-path/**
+
+mac:
+  target:
+    - dir # signed dev install (scripts/install-dev-mac.sh); dmg/zip return at commercialization
+  category: public.app-category.productivity
+  # Self-signed "Astrolabe Dev" cert (dedicated keychain): gives dev builds a
+  # certificate-anchored designated requirement, so macOS TCC grants (iCloud
+  # folder consent / Full Disk Access) survive rebuilds — ad-hoc signatures are
+  # cdhash-anchored and silently orphan every grant on each rebuild. Replace
+  # with a real Developer ID identity when distribution starts.
+  identity: Astrolabe Dev
