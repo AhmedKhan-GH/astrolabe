@@ -2,7 +2,9 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { eq } from 'drizzle-orm'
 import { openDb, type DbHandle } from '../db'
+import * as s from '../db/schema'
 import { createUpsertApi, type UpsertApi } from './upsert'
 import { refsForDocumentIds } from './folder-mirror'
 
@@ -39,5 +41,29 @@ describe('refsForDocumentIds', () => {
       { sha256: 'h-p' },
       { library: 'obsidian:/vault', key: 'n.md' },
     ])
+  })
+
+  it('unhashed multi-instance doc: FIRST instance = lowest instance id, stable across calls', () => {
+    const z = upsert.ensureLibrary('zotero', '1', 'My Library')
+    const v = upsert.ensureLibrary('obsidian', '/vault', 'Vault')
+    // Merge two instances into one document via a shared hash, then null the
+    // hash — the only wire to a multi-instance unhashed document (spec §5's
+    // "first instance" case must be deterministic, not SQLite row order).
+    const first = upsert.upsertDocument({
+      libraryId: z.id, externalKey: 'K-first', uri: 'z://', title: 'D', kind: 'pdf',
+      contentSha256: 'h-merge', modifiedAt: 1,
+    })
+    const second = upsert.upsertDocument({
+      libraryId: v.id, externalKey: 'later.md', uri: 'o://', title: 'D', kind: 'pdf',
+      contentSha256: 'h-merge', modifiedAt: 2,
+    })
+    expect(second.documentId).toBe(first.documentId)
+    expect(second.instanceId).toBeGreaterThan(first.instanceId)
+    handle.db.update(s.documents).set({ contentSha256: null })
+      .where(eq(s.documents.id, first.documentId)).run()
+
+    const expected = [{ library: 'zotero:1', key: 'K-first' }]
+    expect(refsForDocumentIds(handle.db, [first.documentId])).toEqual(expected)
+    expect(refsForDocumentIds(handle.db, [first.documentId])).toEqual(expected)
   })
 })

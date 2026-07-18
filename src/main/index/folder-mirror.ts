@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { and, asc, eq } from 'drizzle-orm'
 import type { Db } from '../db'
 import * as s from '../db/schema'
 import { moduleLogger } from '../lib/logger'
@@ -131,6 +131,7 @@ export function refsForDocumentIds(db: Db, documentIds: number[]): FolderMemberR
       .innerJoin(s.libraries, eq(s.documentInstances.libraryId, s.libraries.id))
       .innerJoin(s.connectors, eq(s.libraries.connectorId, s.connectors.id))
       .where(eq(s.documentInstances.documentId, id))
+      .orderBy(asc(s.documentInstances.id)) // FIRST instance is defined, not SQLite row order
       .get()
     if (inst) out.push({ library: `${inst.connectorKey}:${inst.stableKey}`, key: inst.externalKey })
   }
