@@ -7,6 +7,8 @@ import { openDb, type DbHandle } from '../db'
 import * as s from '../db/schema'
 import { createUpsertApi, type UpsertApi } from './upsert'
 import { refsForDocumentIds } from './folder-mirror'
+import { createFoldersStore, type FoldersStore } from '../lib/folders'
+import type { RenameFolderResult } from '../../shared/db-ipc'
 
 /** Tier A: the main-side id→ref policy (spec §5): hash-first, path ref for
  *  unhashed notes, skip the unreferenceable. The renderer never builds refs. */
@@ -65,5 +67,26 @@ describe('refsForDocumentIds', () => {
     const expected = [{ library: 'zotero:1', key: 'K-first' }]
     expect(refsForDocumentIds(handle.db, [first.documentId])).toEqual(expected)
     expect(refsForDocumentIds(handle.db, [first.documentId])).toEqual(expected)
+  })
+})
+
+describe('folders:rename response shape (spec §5: "the response carries the new slug")', () => {
+  let dir: string
+  let store: FoldersStore
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'astrolabe-frename-'))
+    store = createFoldersStore(dir)
+  })
+  afterAll(() => rmSync(dir, { recursive: true, force: true }))
+
+  it('store.rename yields {record.slug, previousSlug} — exactly what the handler forwards as {slug, previousSlug}', () => {
+    store.create({ name: 'Old Name' })
+    const { record, previousSlug } = store.rename('old-name', 'New Name')
+    // Mirrors the FOLDERS_RENAME_CHANNEL handler's composition in index.ts:
+    // { tree: queries.folderTree(), slug: record.slug, previousSlug }.
+    const result: RenameFolderResult<unknown> = { tree: [], slug: record.slug, previousSlug }
+    expect(result.slug).toBe('new-name')
+    expect(result.previousSlug).toBe('old-name')
+    expect(result.slug).not.toBe(result.previousSlug)
   })
 })

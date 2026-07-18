@@ -22,6 +22,7 @@ import {
   type ImportFoldersResult,
   type LibrariesSnapshot,
   type RenameFolderRequest,
+  type RenameFolderResult,
   type SetFolderParentRequest,
   type SystemOpenRequest,
 } from '../shared/db-ipc'
@@ -55,7 +56,7 @@ const api = {
     list: (): Promise<FolderTreeNode[]> => ipcRenderer.invoke(FOLDERS_LIST_CHANNEL),
     create: (req: CreateFolderRequest): Promise<FolderTreeNode[]> =>
       ipcRenderer.invoke(FOLDERS_CREATE_CHANNEL, req),
-    rename: (req: RenameFolderRequest): Promise<FolderTreeNode[]> =>
+    rename: (req: RenameFolderRequest): Promise<RenameFolderResult<FolderTreeNode>> =>
       ipcRenderer.invoke(FOLDERS_RENAME_CHANNEL, req),
     setParent: (req: SetFolderParentRequest): Promise<FolderTreeNode[]> =>
       ipcRenderer.invoke(FOLDERS_SET_PARENT_CHANNEL, req),

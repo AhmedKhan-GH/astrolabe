@@ -101,8 +101,11 @@ function wireIpc(): void {
   })
   ipcMain.handle(FOLDERS_RENAME_CHANNEL, (_e, raw: unknown) => {
     const req = renameFolderRequestSchema.parse(raw)
-    foldersStore.rename(req.slug, req.name)
-    return mirrorAndTree()
+    const { record, previousSlug } = foldersStore.rename(req.slug, req.name)
+    // Names aren't unique (spec §5: "the response carries the new slug") —
+    // the renderer can't re-locate the folder from the tree alone.
+    syncFolders(handle.db, foldersStore)
+    return { tree: queries.folderTree(), slug: record.slug, previousSlug }
   })
   ipcMain.handle(FOLDERS_SET_PARENT_CHANNEL, (_e, raw: unknown) => {
     const req = setFolderParentRequestSchema.parse(raw)

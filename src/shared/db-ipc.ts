@@ -109,6 +109,12 @@ export const importFoldersRequestSchema = z.object({
 export type ImportFoldersRequest = z.infer<typeof importFoldersRequestSchema>
 /** Import outcome — user-renderable numbers (spec §6b). */
 export interface ImportFoldersResult { created: number; members: number; skipped: number }
+/** `folders:rename` response (spec §5: "the response carries the new slug") —
+ *  names aren't unique, so the renderer needs the new slug to re-locate the
+ *  folder, plus the previous slug to update any state keyed on it. Generic
+ *  over the tree node shape so this file stays layer-free (queries.ts owns
+ *  FolderTreeNode; preload instantiates RenameFolderResult<FolderTreeNode>). */
+export interface RenameFolderResult<T = unknown> { tree: T[]; slug: string; previousSlug: string }
 
 // ── System: deep links out to the systems of record ──────────────────────────
 export const SYSTEM_OPEN_CHANNEL = 'system:open'
