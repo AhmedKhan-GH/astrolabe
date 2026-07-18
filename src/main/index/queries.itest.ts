@@ -234,4 +234,23 @@ describe('folder scope + Uncategorized (folders spec §6)', () => {
     expect(tree[0]?.subtreeCount).toBe(2) // distinct docs across root ∪ child
     expect(tree[0]?.children[0]?.ownCount).toBe(2)
   })
+
+  it('ghost members drop out of folderTree counts but keep membership (spec §6 anchored rule)', () => {
+    const z = lib('zotero', '1')
+    put(z.id, { externalKey: 'A', contentSha256: 'h-a', title: 'Keeper' })
+    put(z.id, { externalKey: 'B', contentSha256: 'h-b', title: 'Goner' })
+    const store = makeFolders()
+    const f = store.create({ name: 'F' })
+    store.addMembers(f.slug, [{ sha256: 'h-a' }, { sha256: 'h-b' }])
+    reconcileRemovals(handle.db, z.id, ['A']) // B's sole copy gone → ghost
+    syncFolders(handle.db, store)
+
+    // Counts see only anchored members — consistent with what clicking shows.
+    const tree = queries.folderTree()
+    expect(tree[0]?.ownCount).toBe(1)
+    expect(tree[0]?.subtreeCount).toBe(1)
+    expect(queries.browse({ folderSlugs: [f.slug] }).total).toBe(1)
+    // Membership retained: the one toggle reveals the ghost inside the folder.
+    expect(queries.browse({ folderSlugs: [f.slug], includeGhosts: true }).total).toBe(2)
+  })
 })

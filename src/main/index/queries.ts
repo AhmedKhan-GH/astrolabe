@@ -328,10 +328,17 @@ export function createIndexQueries(db: Db) {
   }
 
   /** The rail payload (spec §6): the folder tree with own + distinct-subtree
-   *  counts. Small data (10² folders); computed in JS from two full reads. */
+   *  counts. Small data (10² folders); computed in JS from two full reads.
+   *  Counts see only ANCHORED members (the spec's ghost rule): a ghost keeps
+   *  its membership but drops out of counts, matching what clicking the
+   *  folder shows by default. */
   function folderTree(): FolderTreeNode[] {
     const rows = db.select().from(s.folders).all()
-    const members = db.select().from(s.folderMembers).all()
+    const members = db.all<{ folderId: number; documentId: number }>(
+      sql`SELECT fm.folder_id AS folderId, fm.document_id AS documentId
+          FROM folder_members fm
+          WHERE EXISTS (SELECT 1 FROM document_instances di WHERE di.document_id = fm.document_id)`,
+    )
     const docsByFolder = new Map<number, Set<number>>()
     for (const m of members) {
       const set = docsByFolder.get(m.folderId) ?? new Set<number>()
