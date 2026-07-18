@@ -31,7 +31,7 @@ export type FolderFile = z.infer<typeof folderFileSchema>
 export interface FolderRecord { slug: string; file: FolderFile }
 
 export class FolderError extends Error {
-  readonly code: 'NOT_FOUND' | 'CYCLE' | 'DUPLICATE' | 'BAD_PARENT'
+  readonly code: 'NOT_FOUND' | 'CYCLE' | 'DUPLICATE' | 'BAD_PARENT' | 'INVALID'
   constructor(message: string, code: FolderError['code']) {
     super(message)
     this.code = code
@@ -97,7 +97,18 @@ export function createFoldersStore(foldersDir: string): FoldersStore {
     }
   }
 
+  /** Write/read must agree (final review #1): a file that fails the same
+   *  schema every read enforces must never reach disk — it would later be
+   *  silently dropped by readOne, stranding whatever wrote it (e.g. a
+   *  partial import root). Validate before every write, not just at IPC. */
+  function assertValid(file: FolderFile): void {
+    const parsed = folderFileSchema.safeParse(file)
+    if (!parsed.success)
+      throw new FolderError(`invalid folder file: ${parsed.error.message}`, 'INVALID')
+  }
+
   function writeOne(slug: string, file: FolderFile): void {
+    assertValid(file)
     mkdirSync(foldersDir, { recursive: true })
     const dest = fileFor(slug)
     const tmp = `${dest}.${randomUUID()}.tmp`

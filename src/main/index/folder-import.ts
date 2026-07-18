@@ -36,8 +36,16 @@ export function importLibraryTree(
     return name
   }
 
+  // Source names (a collection displayName, a library displayName) are
+  // unbounded; folderFileSchema caps name at 120 (final review #1 — write and
+  // read must agree, or a >120-char source name writes a file later reads
+  // silently drop, stranding a partial import root). Clamp BEFORE freeName
+  // suffixing so ` (imported)` (11 chars) and freeName's ` NN` collision
+  // suffix still fit comfortably under the limit.
+  const clamp = (s: string): string => (s.length > 100 ? s.slice(0, 100) : s)
+
   // Fresh root: first free of "<base>", "<base> 2", "<base> 3", …
-  const base = req.rootName ?? `${library.displayName} (imported)`
+  const base = req.rootName ?? `${clamp(library.displayName)} (imported)`
   const root = store.create({ name: freeName(base) })
   let created = 1
   let members = 0
@@ -53,7 +61,7 @@ export function importLibraryTree(
   // suffix like the root, via the same slug-space check.
   const slugByCollectionId = new Map<number, string>()
   for (const c of collections) {
-    const rec = store.create({ name: freeName(c.name), parent: root.slug })
+    const rec = store.create({ name: freeName(clamp(c.name)), parent: root.slug })
     slugByCollectionId.set(c.id, rec.slug)
     created++
   }

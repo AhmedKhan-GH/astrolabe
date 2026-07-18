@@ -91,6 +91,27 @@ describe('importLibraryTree', () => {
     expect(imported?.file.parent).toBe(root?.slug)
   })
 
+  it('an over-limit source name is clamped, not thrown — import must never trigger INVALID', () => {
+    const longName = 'z'.repeat(200)
+    const e = upsert.ensureLibrary('eagle', '/Long.library', 'L'.repeat(200))
+    upsert.upsertCollections(e.id, [{ externalKey: 'c', name: longName }])
+    upsert.upsertDocument({
+      libraryId: e.id, externalKey: 'I4', uri: 'eagle://item/I4', title: 'Long name book',
+      kind: 'pdf', contentSha256: 'h-long', modifiedAt: 1, collectionKeys: ['c'],
+    })
+    let result: ReturnType<typeof importLibraryTree> | undefined
+    expect(() => {
+      result = importLibraryTree(handle.db, store, { libraryId: e.id })
+    }).not.toThrow()
+    expect(result?.members).toBe(1)
+    const records = store.list()
+    for (const r of records) expect(r.file.name.length).toBeLessThanOrEqual(120)
+    const clampedCollection = records.find((r) => r.file.name.startsWith('z'.repeat(100)))
+    expect(clampedCollection).toBeDefined()
+    const clampedRoot = records.find((r) => r.file.name.startsWith('L'.repeat(100)))
+    expect(clampedRoot).toBeDefined()
+  })
+
   it('unhashed member with an instance becomes a path ref; instanceless is skipped+counted', () => {
     const e = upsert.ensureLibrary('eagle', '/Books.library', 'Books')
     upsert.upsertCollections(e.id, [{ externalKey: 'f', name: 'Notes-ish' }])

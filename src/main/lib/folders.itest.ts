@@ -61,4 +61,17 @@ describe('folder store round-trips', () => {
     writeFileSync(join(dir, 'bad.json'), '{nope')
     expect(store.list().map((r) => r.slug)).toEqual(['good'])
   })
+
+  it('create with a name over the schema limit throws FolderError, not a silent bad file', () => {
+    const tooLong = 'x'.repeat(200)
+    expect(() => store.create({ name: tooLong })).toThrow(FolderError)
+    expect(readdirSync(dir).filter((f) => f.endsWith('.json'))).toHaveLength(0)
+  })
+
+  it('rename to a name over the schema limit throws FolderError, leaves the original file intact', () => {
+    const f = store.create({ name: 'Fine' })
+    const tooLong = 'y'.repeat(200)
+    expect(() => store.rename(f.slug, tooLong)).toThrow(FolderError)
+    expect(store.list().map((r) => r.slug)).toEqual(['fine'])
+  })
 })
