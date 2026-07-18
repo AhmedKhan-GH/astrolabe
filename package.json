@@ -14,11 +14,13 @@
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck": "pnpm typecheck:node",
     "lint": "eslint .",
+    "db:generate": "drizzle-kit generate",
     "test:unit": "vitest run --project unit --project components",
     "test:integration": "ELECTRON_RUN_AS_NODE=1 electron node_modules/vitest/vitest.mjs run --project integration",
     "test": "pnpm test:unit && pnpm test:integration"
   },
   "dependencies": {
+    "drizzle-orm": "^0.45.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -26,6 +28,7 @@
     "@tailwindcss/vite": "^4.3.2",
     "@types/node": "^24.13.2",
     "@vitejs/plugin-react": "^6.0.3",
+    "drizzle-kit": "^0.31.10",
     "electron": "^43.0.0",
     "electron-vite": "^5.0.0",
     "eslint": "^10.6.0",
