@@ -190,6 +190,41 @@ export const links = sqliteTable(
 )
 export type Link = typeof links.$inferSelect
 
+/**
+ * Folder mirror (docs/2026-07-18-folders-spec §4) — the derived join surface
+ * for the files-as-truth folders in `.astrolabe/folders/`. Rebuilt WHOLESALE
+ * from the files by syncFolders; row ids are NOT stable across rebuilds — the
+ * slug is the only durable address. The mirror never writes files.
+ */
+export const folders = sqliteTable(
+  'folders',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    slug: text('slug').notNull().unique(),
+    name: text('name').notNull(),
+    parentId: integer('parent_id'),
+  },
+  (t) => [index('folders_parent_idx').on(t.parentId)],
+)
+export type FolderRow = typeof folders.$inferSelect
+
+export const folderMembers = sqliteTable(
+  'folder_members',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    folderId: integer('folder_id')
+      .notNull()
+      .references(() => folders.id, { onDelete: 'cascade' }),
+    documentId: integer('document_id')
+      .notNull()
+      .references(() => documents.id, { onDelete: 'cascade' }),
+  },
+  (t) => [
+    unique('folder_members_uq').on(t.folderId, t.documentId),
+    index('folder_members_document_idx').on(t.documentId),
+  ],
+)
+
 /** Zotero highlights/notes (and later any source's annotations), page-anchored.
  *  Instance-scoped: an annotation belongs to the copy that carries it. */
 export const annotations = sqliteTable(
