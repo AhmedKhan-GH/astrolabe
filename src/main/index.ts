@@ -6,6 +6,7 @@ import {
   FOLDERS_ADD_MEMBERS_CHANNEL,
   FOLDERS_CREATE_CHANNEL,
   FOLDERS_DELETE_CHANNEL,
+  FOLDERS_IMPORT_CHANNEL,
   FOLDERS_LIST_CHANNEL,
   FOLDERS_REMOVE_MEMBERS_CHANNEL,
   FOLDERS_RENAME_CHANNEL,
@@ -20,6 +21,7 @@ import {
   createFolderRequestSchema,
   deleteFolderRequestSchema,
   folderMembersRequestSchema,
+  importFoldersRequestSchema,
   renameFolderRequestSchema,
   setFolderParentRequestSchema,
   systemOpenSchema,
@@ -34,6 +36,7 @@ import { syncConnector, type SyncOutcome } from './index/sync'
 import { resolveLinks } from './index/links'
 import { createFoldersStore, type FoldersStore } from './lib/folders'
 import { refsForDocumentIds, syncFolders } from './index/folder-mirror'
+import { importLibraryTree } from './index/folder-import'
 import { createZoteroConnector } from './connectors/zotero'
 import { createEagleConnector } from './connectors/eagle'
 import { createObsidianConnector } from './connectors/obsidian'
@@ -85,8 +88,7 @@ function wireIpc(): void {
     return runSync()
   })
   // Folders (spec §5): every mutate re-mirrors then returns the fresh tree, so
-  // the renderer always holds one consistent snapshot. (folders:import lands in
-  // the next commit — its handler is registered there, not here.)
+  // the renderer always holds one consistent snapshot.
   const mirrorAndTree = (): unknown => {
     syncFolders(handle.db, foldersStore)
     return queries.folderTree()
@@ -121,6 +123,14 @@ function wireIpc(): void {
     const req = folderMembersRequestSchema.parse(raw)
     foldersStore.removeMembers(req.slug, refsForDocumentIds(handle.db, req.documentIds))
     return mirrorAndTree()
+  })
+  // Seed import (spec §6b): lift a source tree into a fresh root, re-mirror, and
+  // return the user-renderable counts (not the tree — the renderer re-lists).
+  ipcMain.handle(FOLDERS_IMPORT_CHANNEL, (_e, raw: unknown) => {
+    const req = importFoldersRequestSchema.parse(raw)
+    const result = importLibraryTree(handle.db, foldersStore, req)
+    syncFolders(handle.db, foldersStore)
+    return result
   })
   ipcMain.handle(SYSTEM_OPEN_CHANNEL, async (_e, raw: unknown) => {
     const req = systemOpenSchema.parse(raw)
