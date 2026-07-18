@@ -3,6 +3,13 @@ import { rmSync } from 'node:fs'
 import { BrowserWindow, app, ipcMain, shell } from 'electron'
 import {
   DB_CHANNEL,
+  FOLDERS_ADD_MEMBERS_CHANNEL,
+  FOLDERS_CREATE_CHANNEL,
+  FOLDERS_DELETE_CHANNEL,
+  FOLDERS_LIST_CHANNEL,
+  FOLDERS_REMOVE_MEMBERS_CHANNEL,
+  FOLDERS_RENAME_CHANNEL,
+  FOLDERS_SET_PARENT_CHANNEL,
   INDEX_BROWSE_CHANNEL,
   INDEX_LIBRARIES_CHANNEL,
   INDEX_REBUILD_CHANNEL,
@@ -10,6 +17,11 @@ import {
   INDEX_STATS_CHANNEL,
   INDEX_SYNC_CHANNEL,
   SYSTEM_OPEN_CHANNEL,
+  createFolderRequestSchema,
+  deleteFolderRequestSchema,
+  folderMembersRequestSchema,
+  renameFolderRequestSchema,
+  setFolderParentRequestSchema,
   systemOpenSchema,
 } from '../shared/db-ipc'
 import { moduleLogger } from './lib/logger'
@@ -20,6 +32,8 @@ import { createUpsertApi, type UpsertApi } from './index/upsert'
 import { createIndexQueries, type IndexQueries } from './index/queries'
 import { syncConnector, type SyncOutcome } from './index/sync'
 import { resolveLinks } from './index/links'
+import { createFoldersStore, type FoldersStore } from './lib/folders'
+import { refsForDocumentIds, syncFolders } from './index/folder-mirror'
 import { createZoteroConnector } from './connectors/zotero'
 import { createEagleConnector } from './connectors/eagle'
 import { createObsidianConnector } from './connectors/obsidian'
@@ -43,6 +57,7 @@ const connectors: Connector[] = [
 let handle: DbHandle
 let upsert: UpsertApi
 let queries: IndexQueries
+let foldersStore: FoldersStore
 
 async function runSync(): Promise<SyncOutcome[]> {
   const outcomes: SyncOutcome[] = []
@@ -52,6 +67,8 @@ async function runSync(): Promise<SyncOutcome[]> {
   // Post-sync re-pass (M2): join raw wiki-link targets to their documents —
   // full recompute, so notes scanned before their targets resolve now.
   resolveLinks(handle.db)
+  // Re-mirror folders: new documents may resolve pending member refs (spec §4).
+  syncFolders(handle.db, foldersStore)
   return outcomes
 }
 
@@ -66,6 +83,44 @@ function wireIpc(): void {
   ipcMain.handle(INDEX_REBUILD_CHANNEL, async () => {
     upsert.wipeDerived()
     return runSync()
+  })
+  // Folders (spec §5): every mutate re-mirrors then returns the fresh tree, so
+  // the renderer always holds one consistent snapshot. (folders:import lands in
+  // the next commit — its handler is registered there, not here.)
+  const mirrorAndTree = (): unknown => {
+    syncFolders(handle.db, foldersStore)
+    return queries.folderTree()
+  }
+  ipcMain.handle(FOLDERS_LIST_CHANNEL, () => queries.folderTree())
+  ipcMain.handle(FOLDERS_CREATE_CHANNEL, (_e, raw: unknown) => {
+    const req = createFolderRequestSchema.parse(raw)
+    foldersStore.create({ name: req.name, parent: req.parent ?? null })
+    return mirrorAndTree()
+  })
+  ipcMain.handle(FOLDERS_RENAME_CHANNEL, (_e, raw: unknown) => {
+    const req = renameFolderRequestSchema.parse(raw)
+    foldersStore.rename(req.slug, req.name)
+    return mirrorAndTree()
+  })
+  ipcMain.handle(FOLDERS_SET_PARENT_CHANNEL, (_e, raw: unknown) => {
+    const req = setFolderParentRequestSchema.parse(raw)
+    foldersStore.setParent(req.slug, req.parent)
+    return mirrorAndTree()
+  })
+  ipcMain.handle(FOLDERS_DELETE_CHANNEL, (_e, raw: unknown) => {
+    const req = deleteFolderRequestSchema.parse(raw)
+    foldersStore.remove(req.slug)
+    return mirrorAndTree()
+  })
+  ipcMain.handle(FOLDERS_ADD_MEMBERS_CHANNEL, (_e, raw: unknown) => {
+    const req = folderMembersRequestSchema.parse(raw)
+    foldersStore.addMembers(req.slug, refsForDocumentIds(handle.db, req.documentIds))
+    return mirrorAndTree()
+  })
+  ipcMain.handle(FOLDERS_REMOVE_MEMBERS_CHANNEL, (_e, raw: unknown) => {
+    const req = folderMembersRequestSchema.parse(raw)
+    foldersStore.removeMembers(req.slug, refsForDocumentIds(handle.db, req.documentIds))
+    return mirrorAndTree()
   })
   ipcMain.handle(SYSTEM_OPEN_CHANNEL, async (_e, raw: unknown) => {
     const req = systemOpenSchema.parse(raw)
@@ -116,6 +171,7 @@ void app.whenReady().then(() => {
   handle = openDbWithRecovery(workspace.dbPath)
   upsert = createUpsertApi(handle.db)
   queries = createIndexQueries(handle.db)
+  foldersStore = createFoldersStore(join(workspace.astroDir, 'folders'))
 
   // Decommissioned-connector self-heal: documents survive as ghosts (spec §2).
   const pruned = upsert.pruneUnknownConnectors(connectors.map((c) => c.key))

@@ -75,6 +75,41 @@ export interface LibrariesSnapshot {
   libraries: LibraryInfo[]
 }
 
+// ── Folders (docs/2026-07-18-folders-spec §5) — the organization primitive ───
+export const FOLDERS_LIST_CHANNEL = 'folders:list'
+export const FOLDERS_CREATE_CHANNEL = 'folders:create'
+export const FOLDERS_RENAME_CHANNEL = 'folders:rename'
+export const FOLDERS_SET_PARENT_CHANNEL = 'folders:set-parent'
+export const FOLDERS_DELETE_CHANNEL = 'folders:delete'
+export const FOLDERS_ADD_MEMBERS_CHANNEL = 'folders:add-members'
+export const FOLDERS_REMOVE_MEMBERS_CHANNEL = 'folders:remove-members'
+export const FOLDERS_IMPORT_CHANNEL = 'folders:import'
+
+const folderSlug = z.string().min(1).max(200)
+export const createFolderRequestSchema = z.object({
+  name: z.string().min(1).max(120),
+  parent: folderSlug.nullable().optional(),
+})
+export type CreateFolderRequest = z.infer<typeof createFolderRequestSchema>
+export const renameFolderRequestSchema = z.object({ slug: folderSlug, name: z.string().min(1).max(120) })
+export type RenameFolderRequest = z.infer<typeof renameFolderRequestSchema>
+export const setFolderParentRequestSchema = z.object({ slug: folderSlug, parent: folderSlug.nullable() })
+export type SetFolderParentRequest = z.infer<typeof setFolderParentRequestSchema>
+export const deleteFolderRequestSchema = z.object({ slug: folderSlug })
+export type DeleteFolderRequest = z.infer<typeof deleteFolderRequestSchema>
+export const folderMembersRequestSchema = z.object({
+  slug: folderSlug,
+  documentIds: z.array(z.number().int().positive()).min(1).max(10_000),
+})
+export type FolderMembersRequest = z.infer<typeof folderMembersRequestSchema>
+export const importFoldersRequestSchema = z.object({
+  libraryId: z.number().int().positive(),
+  rootName: z.string().min(1).max(120).optional(),
+})
+export type ImportFoldersRequest = z.infer<typeof importFoldersRequestSchema>
+/** Import outcome — user-renderable numbers (spec §6b). */
+export interface ImportFoldersResult { created: number; members: number; skipped: number }
+
 // ── System: deep links out to the systems of record ──────────────────────────
 export const SYSTEM_OPEN_CHANNEL = 'system:open'
 

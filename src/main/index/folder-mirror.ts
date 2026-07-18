@@ -108,3 +108,31 @@ export function folderIdsForSlugs(db: Db, slugs: string[], includeSubfolders: bo
   }
   return [...out]
 }
+
+/** documentIds → durable member refs (spec §5): hash-first; unhashed docs get
+ *  a path ref from their first instance; ids with neither are skipped. The
+ *  renderer never constructs refs — this is the only place ids become refs. */
+export function refsForDocumentIds(db: Db, documentIds: number[]): FolderMemberRef[] {
+  const out: FolderMemberRef[] = []
+  for (const id of documentIds) {
+    const doc = db.select().from(s.documents).where(eq(s.documents.id, id)).get()
+    if (!doc) continue
+    if (doc.contentSha256) {
+      out.push({ sha256: doc.contentSha256 })
+      continue
+    }
+    const inst = db
+      .select({
+        externalKey: s.documentInstances.externalKey,
+        stableKey: s.libraries.stableKey,
+        connectorKey: s.connectors.key,
+      })
+      .from(s.documentInstances)
+      .innerJoin(s.libraries, eq(s.documentInstances.libraryId, s.libraries.id))
+      .innerJoin(s.connectors, eq(s.libraries.connectorId, s.connectors.id))
+      .where(eq(s.documentInstances.documentId, id))
+      .get()
+    if (inst) out.push({ library: `${inst.connectorKey}:${inst.stableKey}`, key: inst.externalKey })
+  }
+  return out
+}
