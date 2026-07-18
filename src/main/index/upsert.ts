@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import type { Db } from '../db'
 import * as s from '../db/schema'
 
@@ -240,8 +240,35 @@ export function createUpsertApi(db: Db) {
         }
       }
 
+      refreshFtsRow(documentId)
       return { documentId, instanceId }
     })
+  }
+
+  /** Rebuild the document's FTS row from current relational state (same tx as
+   *  writes). Ghost documents keep their row (spec §2) — the read path hides
+   *  them by default; the toggle searches them. */
+  function refreshFtsRow(documentId: number): void {
+    const doc = db.select().from(s.documents).where(eq(s.documents.id, documentId)).get()
+    if (!doc) return
+    const tagNames = db
+      .select({ name: s.tags.name })
+      .from(s.tags)
+      .innerJoin(s.documentTags, eq(s.documentTags.tagId, s.tags.id))
+      .where(eq(s.documentTags.documentId, documentId))
+      .all()
+      .map((r) => r.name)
+    const annots = db
+      .select({ text: s.annotations.text, comment: s.annotations.comment })
+      .from(s.annotations)
+      .innerJoin(s.documentInstances, eq(s.annotations.instanceId, s.documentInstances.id))
+      .where(eq(s.documentInstances.documentId, documentId))
+      .all()
+    const body = annots.flatMap((a) => [a.text, a.comment]).filter(Boolean).join('\n')
+    db.run(sql`DELETE FROM search_fts WHERE rowid = ${documentId}`)
+    db.run(
+      sql`INSERT INTO search_fts (rowid, title, body, tags) VALUES (${documentId}, ${doc.title}, ${body}, ${tagNames.join(' ')})`,
+    )
   }
 
   /**
@@ -255,6 +282,7 @@ export function createUpsertApi(db: Db) {
    */
   function wipeDerived(): void {
     db.transaction(() => {
+      db.run(sql`DELETE FROM search_fts`)
       db.delete(s.annotations).run()
       db.delete(s.documentCollections).run()
       db.delete(s.documentTags).run()
@@ -295,6 +323,7 @@ export function createUpsertApi(db: Db) {
     ensureLibrary,
     upsertDocument,
     upsertCollections,
+    refreshFtsRow,
     wipeDerived,
     pruneUnknownConnectors,
   }
