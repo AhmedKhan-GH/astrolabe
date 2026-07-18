@@ -72,6 +72,25 @@ describe('importLibraryTree', () => {
     expect(roots).toHaveLength(2) // "Books (imported)" + "Books (imported) 2"
   })
 
+  it('slug-equal names collide even when display names differ — suffixed, never thrown', () => {
+    // "Notes" and "notes!" slugify identically; the store's DUPLICATE guard is
+    // on SLUGS, so a display-name-only check would let create() throw mid-import
+    // and strand a partial root (spec §6b re-run isolation).
+    store.create({ name: 'Notes' })
+    const e = upsert.ensureLibrary('eagle', '/Books.library', 'Books')
+    upsert.upsertCollections(e.id, [{ externalKey: 'c', name: 'notes!' }])
+    const result = importLibraryTree(handle.db, store, { libraryId: e.id })
+    expect(result).toEqual({ created: 2, members: 0, skipped: 0 }) // root + 1 folder
+    const records = store.list()
+    const curated = records.find((r) => r.file.name === 'Notes')
+    expect(curated?.file.parent).toBeNull()
+    expect(curated?.file.members).toEqual([])
+    const imported = records.find((r) => r.file.name === 'notes! 2')
+    expect(imported).toBeDefined()
+    const root = records.find((r) => r.file.name === 'Books (imported)')
+    expect(imported?.file.parent).toBe(root?.slug)
+  })
+
   it('unhashed member with an instance becomes a path ref; instanceless is skipped+counted', () => {
     const e = upsert.ensureLibrary('eagle', '/Books.library', 'Books')
     upsert.upsertCollections(e.id, [{ externalKey: 'f', name: 'Notes-ish' }])
