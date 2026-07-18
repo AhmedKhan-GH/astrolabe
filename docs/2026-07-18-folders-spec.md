@@ -147,6 +147,28 @@ return the full updated folder tree so the renderer holds one snapshot):
 - Ghost interaction: unchanged — the anchored predicate applies inside folder
   scope like everywhere else; `includeGhosts` reveals a folder's ghosts.
 
+## 6b. Seed import (D-A6) — lifting the Eagle taxonomy
+
+One-time gesture: pick an Eagle library (or subtree). Each Eagle folder →
+an Astrolabe folder (same name, same nesting); each member item → a member
+ref on the corresponding *document* (hash-first — so an imported member
+arrives already carrying its Zotero annotations and Obsidian backlinks).
+Source of the tree: the already-synced `collections` tables + membership —
+no new Eagle API surface.
+
+- A copy, not a subscription: after import the trees are UNLINKED. The Eagle
+  tree remains a read-only facet and may drift freely; the Astrolabe tree is
+  canonical.
+- Imports land under a fresh root folder named after the source library
+  (e.g. "Books (imported)") — re-runnable without ever merging into folders
+  curated since; the user re-parents/renames afterward as they wish.
+- Items without a document match (unsynced/unhashed) become path refs where
+  possible, else are skipped and counted; the gesture reports
+  created/members/skipped.
+- Generalizes to Zotero collections later; Eagle ships first (it is where
+  the real taxonomy lives).
+- Channel: `folders:import` `{ libraryId, rootName? }`.
+
 ## 7. Testing (Tier A — this is rule-enforcing logic)
 
 TDD, mutation-checked at the load-bearing rules:
@@ -182,6 +204,9 @@ TDD, mutation-checked at the load-bearing rules:
   sections, smart rules reserved as future fields of the same files.
 - **D-A5** Members are document refs: hash-first, path refs for notes;
   unresolved refs retained, never auto-pruned.
+- **D-A6** One-time seed import lifts a source tree (Eagle first) into
+  Astrolabe folders under a fresh root; a copy, never a sync — trees are
+  unlinked the moment the import completes.
 
 ## 10. Non-goals
 
