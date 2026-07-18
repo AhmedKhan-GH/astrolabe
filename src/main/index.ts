@@ -19,7 +19,10 @@ import { createDbDispatcher } from './db/dispatcher'
 import { createUpsertApi, type UpsertApi } from './index/upsert'
 import { createIndexQueries, type IndexQueries } from './index/queries'
 import { syncConnector, type SyncOutcome } from './index/sync'
+import { resolveLinks } from './index/links'
 import { createZoteroConnector } from './connectors/zotero'
+import { createEagleConnector } from './connectors/eagle'
+import { createObsidianConnector } from './connectors/obsidian'
 import type { Connector } from './connectors/types'
 
 /**
@@ -30,8 +33,12 @@ import type { Connector } from './connectors/types'
 
 const log = moduleLogger('main')
 
-/** The registered connectors (skeleton: zotero; M1/M2 append here). */
-const connectors: Connector[] = [createZoteroConnector()]
+/** The registered connectors (M1: eagle, M2: obsidian joined the skeleton's zotero). */
+const connectors: Connector[] = [
+  createZoteroConnector(),
+  createEagleConnector(),
+  createObsidianConnector(),
+]
 
 let handle: DbHandle
 let upsert: UpsertApi
@@ -42,6 +49,9 @@ async function runSync(): Promise<SyncOutcome[]> {
   for (const connector of connectors) {
     outcomes.push(await syncConnector(handle.db, upsert, connector))
   }
+  // Post-sync re-pass (M2): join raw wiki-link targets to their documents —
+  // full recompute, so notes scanned before their targets resolve now.
+  resolveLinks(handle.db)
   return outcomes
 }
 
