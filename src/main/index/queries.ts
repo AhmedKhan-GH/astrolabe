@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { Db } from '../db'
 import * as s from '../db/schema'
 import type { LibrariesSnapshot } from '../../shared/db-ipc'
+import { folderIdsForSlugs } from './folder-mirror'
 
 /**
  * Read path over the index, v2 (spine spec v2; skeleton surface). Named-channel
@@ -31,6 +32,11 @@ export const filterSetSchema = z.object({
   /** D3 — the single ghost toggle. Default surfaces show only documents with
    *  at least one instance; true reveals the retained-but-unanchored. */
   includeGhosts: z.boolean().default(false),
+  /** Folder scope (folders spec §6): union dimension over the mirror. */
+  folderSlugs: z.array(z.string().max(200)).max(50).optional(),
+  includeSubfolders: z.boolean().default(false),
+  /** The filing inbox: documents in NO folder. */
+  uncategorized: z.boolean().default(false),
 })
 export type FilterSet = z.infer<typeof filterSetSchema>
 
@@ -84,6 +90,16 @@ export interface SearchHit {
   instances: HitInstance[]
 }
 
+/** A node in the folder rail's tree (folders spec §6): the folder's own count
+ *  and the distinct-document count across its whole subtree. */
+export interface FolderTreeNode {
+  slug: string
+  name: string
+  ownCount: number
+  subtreeCount: number
+  children: FolderTreeNode[]
+}
+
 export interface IndexStats {
   documents: number
   annotations: number
@@ -125,6 +141,20 @@ export function createIndexQueries(db: Db) {
     const conds: SQL[] = []
 
     if (!f.includeGhosts) conds.push(anchored)
+
+    if (f.folderSlugs?.length) {
+      const ids = folderIdsForSlugs(db, f.folderSlugs, f.includeSubfolders)
+      // An empty id set must match NOTHING (a filter for a deleted folder is
+      // not "no filter").
+      conds.push(
+        ids.length
+          ? sql`EXISTS (SELECT 1 FROM folder_members fm
+                        WHERE fm.document_id = d.id AND fm.folder_id IN (${inList(ids)}))`
+          : sql`0`,
+      )
+    }
+    if (f.uncategorized)
+      conds.push(sql`NOT EXISTS (SELECT 1 FROM folder_members fm WHERE fm.document_id = d.id)`)
 
     // Scope union: any selected connector, any selected library, any selected collection.
     const scope: SQL[] = []
@@ -297,7 +327,54 @@ export function createIndexQueries(db: Db) {
     return { documents, annotations, ghosts }
   }
 
-  return { search, browse, librariesSnapshot, indexStats }
+  /** The rail payload (spec §6): the folder tree with own + distinct-subtree
+   *  counts. Small data (10² folders); computed in JS from two full reads. */
+  function folderTree(): FolderTreeNode[] {
+    const rows = db.select().from(s.folders).all()
+    const members = db.select().from(s.folderMembers).all()
+    const docsByFolder = new Map<number, Set<number>>()
+    for (const m of members) {
+      const set = docsByFolder.get(m.folderId) ?? new Set<number>()
+      set.add(m.documentId)
+      docsByFolder.set(m.folderId, set)
+    }
+    const childrenOf = new Map<number | null, typeof rows>()
+    for (const r of rows) {
+      const list = childrenOf.get(r.parentId) ?? []
+      list.push(r)
+      childrenOf.set(r.parentId, list)
+    }
+    const build = (row: (typeof rows)[number]): { node: FolderTreeNode; docs: Set<number> } => {
+      const own = docsByFolder.get(row.id) ?? new Set<number>()
+      const kids = (childrenOf.get(row.id) ?? []).sort((a, b) => a.name.localeCompare(b.name)).map(build)
+      const subtree = new Set(own)
+      for (const k of kids) for (const d of k.docs) subtree.add(d)
+      return {
+        node: {
+          slug: row.slug,
+          name: row.name,
+          ownCount: own.size,
+          subtreeCount: subtree.size,
+          children: kids.map((k) => k.node),
+        },
+        docs: subtree,
+      }
+    }
+    return (childrenOf.get(null) ?? []).sort((a, b) => a.name.localeCompare(b.name)).map((r) => build(r).node)
+  }
+
+  /** The inbox badge (spec §6): anchored documents in no folder. */
+  function uncategorizedCount(): number {
+    return (
+      db.get<{ c: number }>(
+        sql`SELECT count(*) AS c FROM documents d
+            WHERE ${anchored} AND NOT EXISTS
+              (SELECT 1 FROM folder_members fm WHERE fm.document_id = d.id)`,
+      )?.c ?? 0
+    )
+  }
+
+  return { search, browse, librariesSnapshot, indexStats, folderTree, uncategorizedCount }
 }
 
 export type IndexQueries = ReturnType<typeof createIndexQueries>

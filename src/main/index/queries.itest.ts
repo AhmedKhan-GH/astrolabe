@@ -6,6 +6,8 @@ import { openDb, type DbHandle } from '../db'
 import { createUpsertApi, type UpsertApi } from './upsert'
 import { reconcileRemovals } from './removals'
 import { createIndexQueries, type IndexQueries } from './queries'
+import { createFoldersStore, type FoldersStore } from '../lib/folders'
+import { syncFolders } from './folder-mirror'
 
 /**
  * Tier A integration: the v2 read path — FTS search, filtered browse, the
@@ -169,5 +171,67 @@ describe('librariesSnapshot + stats', () => {
     expect(stats.documents).toBe(2)
     expect(stats.ghosts).toBe(1)
     expect(stats.annotations).toBe(1)
+  })
+})
+
+describe('folder scope + Uncategorized (folders spec §6)', () => {
+  // Local helpers: a folder store + mirror inside this suite's tmp dir.
+  const makeFolders = (): FoldersStore => {
+    const fdir = join(dir, `folders-${Math.random().toString(36).slice(2)}`)
+    return createFoldersStore(fdir)
+  }
+
+  it('folderSlugs scopes browse; includeSubfolders pulls descendants', () => {
+    const z = lib('zotero', '1')
+    put(z.id, { externalKey: 'A', contentSha256: 'h-a', title: 'In Root' })
+    put(z.id, { externalKey: 'B', contentSha256: 'h-b', title: 'In Child' })
+    put(z.id, { externalKey: 'C', contentSha256: 'h-c', title: 'Unfiled' })
+    const store = makeFolders()
+    const root = store.create({ name: 'Root' })
+    const child = store.create({ name: 'Child', parent: root.slug })
+    store.addMembers(root.slug, [{ sha256: 'h-a' }])
+    store.addMembers(child.slug, [{ sha256: 'h-b' }])
+    syncFolders(handle.db, store)
+
+    expect(queries.browse({ folderSlugs: ['root'] }).total).toBe(1)
+    expect(queries.browse({ folderSlugs: ['root'], includeSubfolders: true }).total).toBe(2)
+    expect(queries.search({ q: 'child', folderSlugs: ['root'] })).toHaveLength(0)
+    expect(queries.search({ q: 'child', folderSlugs: ['root'], includeSubfolders: true })).toHaveLength(1)
+    // A filter that resolves to no folder (deleted/unknown slug) matches
+    // NOTHING — it is not "no filter". Guards the empty-id-set rule.
+    expect(queries.browse({ folderSlugs: ['ghost-folder'] }).total).toBe(0)
+  })
+
+  it('uncategorized = member of no folder; counts feed the rail', () => {
+    const z = lib('zotero', '1')
+    put(z.id, { externalKey: 'A', contentSha256: 'h-a', title: 'Filed' })
+    put(z.id, { externalKey: 'B', contentSha256: 'h-b', title: 'Inbox item' })
+    const store = makeFolders()
+    const f = store.create({ name: 'F' })
+    store.addMembers(f.slug, [{ sha256: 'h-a' }])
+    syncFolders(handle.db, store)
+
+    const inbox = queries.browse({ uncategorized: true })
+    expect(inbox.total).toBe(1)
+    expect(inbox.hits[0]?.title).toBe('Inbox item')
+    expect(queries.uncategorizedCount()).toBe(1)
+  })
+
+  it('folderTree carries own + subtree counts (multi-membership not double-counted in subtree)', () => {
+    const z = lib('zotero', '1')
+    put(z.id, { externalKey: 'A', contentSha256: 'h-a' })
+    put(z.id, { externalKey: 'B', contentSha256: 'h-b' })
+    const store = makeFolders()
+    const root = store.create({ name: 'Root' })
+    const child = store.create({ name: 'Child', parent: root.slug })
+    store.addMembers(root.slug, [{ sha256: 'h-a' }])
+    store.addMembers(child.slug, [{ sha256: 'h-a' }, { sha256: 'h-b' }]) // h-a in both
+    syncFolders(handle.db, store)
+
+    const tree = queries.folderTree()
+    expect(tree).toHaveLength(1)
+    expect(tree[0]?.ownCount).toBe(1)
+    expect(tree[0]?.subtreeCount).toBe(2) // distinct docs across root ∪ child
+    expect(tree[0]?.children[0]?.ownCount).toBe(2)
   })
 })
