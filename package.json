@@ -7,6 +7,7 @@
   "author": "Ahmed <emailahmedebadkhan@gmail.com>",
   "main": "./out/main/index.js",
   "scripts": {
+    "postinstall": "electron-builder install-app-deps",
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
@@ -20,6 +21,7 @@
     "test": "pnpm test:unit && pnpm test:integration"
   },
   "dependencies": {
+    "better-sqlite3": "^12.11.1",
     "drizzle-orm": "^0.45.2",
     "pino": "^10.3.1",
     "zod": "^4.4.3"
@@ -27,9 +29,11 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@tailwindcss/vite": "^4.3.2",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.13.2",
     "@vitejs/plugin-react": "^6.0.3",
     "drizzle-kit": "^0.31.10",
+    "electron-builder": "^26.15.3",
     "electron": "^43.0.0",
     "electron-vite": "^5.0.0",
     "eslint": "^10.6.0",

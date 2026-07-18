@@ -40,7 +40,11 @@ export default defineConfig({
         test: {
           name: 'integration',
           environment: 'node',
-          pool: 'threads',
+          // forks, not threads: better-sqlite3 native handles inside worker
+          // threads intermittently segfault Electron-as-node at exit (teardown
+          // race, observed 2026-07-17). Child processes isolate the native
+          // teardown; tests were green either way — this fixes the exit code.
+          pool: 'forks',
           include: ['src/**/*.itest.ts'],
         },
       },
