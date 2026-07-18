@@ -1,0 +1,68 @@
+[
+  {
+    "key": "ZV7DG2X6",
+    "version": 2542,
+    "data": {
+      "key": "ZV7DG2X6",
+      "version": 2542,
+      "name": "eec_174aby",
+      "parentCollection": false,
+      "relations": {}
+    }
+  },
+  {
+    "key": "EWFDTZ4U",
+    "version": 2760,
+    "data": {
+      "key": "EWFDTZ4U",
+      "version": 2760,
+      "name": "current workspace",
+      "parentCollection": "ZV7DG2X6",
+      "relations": {}
+    }
+  },
+  {
+    "key": "SWPTENWV",
+    "version": 2760,
+    "data": {
+      "key": "SWPTENWV",
+      "version": 2760,
+      "name": "finished annotating",
+      "parentCollection": "ZV7DG2X6",
+      "relations": {}
+    }
+  },
+  {
+    "key": "H8BP2VU8",
+    "version": 2760,
+    "data": {
+      "key": "H8BP2VU8",
+      "version": 2760,
+      "name": "mathematics papers",
+      "parentCollection": "ZV7DG2X6",
+      "relations": {}
+    }
+  },
+  {
+    "key": "U33CVINM",
+    "version": 2760,
+    "data": {
+      "key": "U33CVINM",
+      "version": 2760,
+      "name": "pending processing",
+      "parentCollection": "ZV7DG2X6",
+      "relations": {}
+    }
+  },
+  {
+    "key": "5BZ5K54U",
+    "version": 2760,
+    "data": {
+      "key": "5BZ5K54U",
+      "version": 2760,
+      "name": "random forest",
+      "parentCollection": "ZV7DG2X6",
+      "relations": {}
+    }
+  }
+]
