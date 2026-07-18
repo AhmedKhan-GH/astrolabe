@@ -1,0 +1,73 @@
+[
+  {
+    "id": "MPC79WQDBP4BY",
+    "name": "docsity-david-griffiths-qunatum-mechanics-solution-manual-3th",
+    "size": 10785550,
+    "ext": "pdf",
+    "tags": ["Griffiths", "mathematics", "science", "quantum mechanics"],
+    "folders": ["MPC7EA9367GXO"],
+    "isDeleted": false,
+    "url": "",
+    "annotation": "",
+    "modificationTime": 1779168982261
+  },
+  {
+    "id": "MPC6SM76S55H8",
+    "name": "Griffiths IntroductionQuantumMechanics 3E",
+    "size": 6537259,
+    "ext": "pdf",
+    "tags": ["Griffiths", "quantum mechanics"],
+    "folders": ["MPC7EA9367GXO", "MD7UT6LA5IP8U"],
+    "isDeleted": false,
+    "url": "",
+    "annotation": "annotated in Finished Reading too",
+    "modificationTime": 1779168175458
+  },
+  {
+    "id": "MQIYEW70BY9J1",
+    "name": "Elements",
+    "size": 4905710,
+    "ext": "pdf",
+    "tags": [],
+    "folders": [],
+    "isDeleted": false,
+    "url": "",
+    "annotation": "",
+    "modificationTime": 1781754143868
+  },
+  {
+    "id": "MABC0IMAGE001",
+    "name": "arm-register-diagram",
+    "size": 204817,
+    "ext": "png",
+    "tags": ["ARM", "diagram"],
+    "folders": ["MI2XSLJMEUKJJ"],
+    "isDeleted": false,
+    "url": "",
+    "annotation": "",
+    "modificationTime": 1763371386130
+  },
+  {
+    "id": "MABC0LINK002",
+    "name": "ARM developer reference",
+    "size": 0,
+    "tags": ["ARM"],
+    "folders": ["MI2XSLJMEUKJJ"],
+    "isDeleted": false,
+    "url": "https://developer.arm.com/documentation",
+    "annotation": "",
+    "modificationTime": 1763300000000
+  },
+  {
+    "id": "MABC0TRASH03",
+    "name": "deleted-old-scan",
+    "size": 100,
+    "ext": "pdf",
+    "tags": [],
+    "folders": [],
+    "isDeleted": true,
+    "url": "",
+    "annotation": "",
+    "modificationTime": 1700000000000
+  }
+]
