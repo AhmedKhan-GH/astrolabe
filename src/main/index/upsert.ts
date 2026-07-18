@@ -42,6 +42,10 @@ export interface DocumentInput {
   /** Collection externalKeys (collections themselves upserted via upsertCollections). */
   collectionKeys?: string[]
   annotations?: AnnotationInput[]
+  /** Wiki-link targets (obsidian, M2). Present (possibly empty) → the instance's
+   *  link rows are replaced wholesale; absent → links are left untouched
+   *  (non-note sources). Raw target names; resolveLinks joins them post-sync. */
+  links?: string[]
 }
 
 export interface CollectionInput {
@@ -240,6 +244,22 @@ export function createUpsertApi(db: Db) {
         }
       }
 
+      // Wiki-links: replace this instance's rows wholesale (annotations
+      // precedent). Targets stored raw + unresolved; resolveLinks does the
+      // target join in a post-sync re-pass, so a note may link to a target
+      // that has not been scanned yet. `undefined` = leave untouched.
+      if (input.links !== undefined) {
+        db.delete(s.links).where(eq(s.links.sourceInstanceId, instanceId)).run()
+        const seen = new Set<string>()
+        for (const targetName of input.links) {
+          if (seen.has(targetName)) continue // guard the (instance, target) unique index
+          seen.add(targetName)
+          db.insert(s.links)
+            .values({ sourceInstanceId: instanceId, targetName, targetDocumentId: null })
+            .run()
+        }
+      }
+
       refreshFtsRow(documentId)
       return { documentId, instanceId }
     })
@@ -283,6 +303,7 @@ export function createUpsertApi(db: Db) {
   function wipeDerived(): void {
     db.transaction(() => {
       db.run(sql`DELETE FROM search_fts`)
+      db.delete(s.links).run()
       db.delete(s.annotations).run()
       db.delete(s.documentCollections).run()
       db.delete(s.documentTags).run()
