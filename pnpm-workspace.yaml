@@ -1,0 +1,12 @@
+# pnpm build-script decisions (a supply-chain allowlist, so pnpm no longer errors
+# on undecided install scripts). esbuild fetches its platform binary and is needed
+# on every platform; electron-winstaller is a Windows-only packaging helper pulled
+# in by electron-builder and stays unbuilt on macOS. (electron itself is on pnpm's
+# default trusted list, so it builds without an entry here.)
+allowBuilds:
+  esbuild: true
+  electron-winstaller: false
+  # native DB — prebuild fetch at install; electron-ABI rebuild via postinstall install-app-deps
+  better-sqlite3: true
+  # import-x's native resolver
+  unrs-resolver: true

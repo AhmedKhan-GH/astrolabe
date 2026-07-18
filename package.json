@@ -1,0 +1,39 @@
+{
+  "name": "astrolabe",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Local-first knowledge environment: the Alioth agent and Orion knowledge engine over Zotero, Obsidian, and Eagle.",
+  "author": "Ahmed <emailahmedebadkhan@gmail.com>",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "start": "electron-vite preview",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
+    "typecheck": "pnpm typecheck:node",
+    "lint": "eslint .",
+    "test:unit": "vitest run --project unit --project components",
+    "test:integration": "ELECTRON_RUN_AS_NODE=1 electron node_modules/vitest/vitest.mjs run --project integration",
+    "test": "pnpm test:unit && pnpm test:integration"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@tailwindcss/vite": "^4.3.2",
+    "@types/node": "^24.13.2",
+    "@vitejs/plugin-react": "^6.0.3",
+    "electron": "^43.0.0",
+    "electron-vite": "^5.0.0",
+    "eslint": "^10.6.0",
+    "eslint-plugin-import-x": "^4.17.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.3",
+    "globals": "^17.7.0",
+    "tailwindcss": "^4.3.2",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.62.0",
+    "vite": "^8.1.1",
+    "vitest": "^4.1.10"
+  }
+}
