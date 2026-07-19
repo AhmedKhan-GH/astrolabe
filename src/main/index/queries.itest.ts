@@ -8,6 +8,7 @@ import { reconcileRemovals } from './removals'
 import { createIndexQueries, type IndexQueries } from './queries'
 import { createFoldersStore, type FoldersStore } from '../lib/folders'
 import { syncFolders } from './folder-mirror'
+import { resolveLinks } from './links'
 
 /**
  * Tier A integration: the v2 read path — FTS search, filtered browse, the
@@ -252,5 +253,90 @@ describe('folder scope + Uncategorized (folders spec §6)', () => {
     expect(queries.browse({ folderSlugs: [f.slug] }).total).toBe(1)
     // Membership retained: the one toggle reveals the ghost inside the folder.
     expect(queries.browse({ folderSlugs: [f.slug], includeGhosts: true }).total).toBe(2)
+  })
+})
+
+describe('documentDetail — the document hub payload (frame spec §4)', () => {
+  const makeFolders = (): FoldersStore => {
+    const fdir = join(dir, `folders-${Math.random().toString(36).slice(2)}`)
+    return createFoldersStore(fdir)
+  }
+
+  it('composes instances, tags, folder chips, annotation preview (cap 5) and backlinks', () => {
+    const vault = lib('obsidian', 'v1')
+    // The subject: an obsidian note carrying 7 annotations (preview must cap 5).
+    const annotations = Array.from({ length: 7 }, (_, i) => ({
+      externalKey: `A${i}`,
+      type: 'highlight',
+      text: `note ${i}`,
+      pageLabel: `${i}`,
+      modifiedAt: 1000 + i,
+    }))
+    const { documentId } = put(vault.id, {
+      externalKey: 'subject.md',
+      uri: 'obsidian://open?file=subject.md',
+      title: 'Subject',
+      kind: 'note',
+      contentSha256: 'h-subj',
+      tags: ['ml', 'textbook'],
+      annotations,
+    })
+    // File it into a folder → a membership chip.
+    const store = makeFolders()
+    const f = store.create({ name: 'Reading' })
+    store.addMembers(f.slug, [{ sha256: 'h-subj' }])
+    syncFolders(handle.db, store)
+    // A note linking to the subject → a backlink (resolved post-sync).
+    put(vault.id, {
+      externalKey: 'linker.md',
+      uri: 'obsidian://open?file=linker.md',
+      title: 'Linking Note',
+      kind: 'note',
+      contentSha256: null,
+      links: ['subject'],
+    })
+    resolveLinks(handle.db)
+
+    const detail = queries.documentDetail({ documentId })
+    expect(detail).not.toBeNull()
+    expect(detail?.documentId).toBe(documentId)
+    expect(detail?.title).toBe('Subject')
+    expect(detail?.kind).toBe('note')
+    expect(detail?.tags).toEqual(expect.arrayContaining(['ml', 'textbook']))
+    expect(detail?.instances).toHaveLength(1)
+    expect(detail?.instances[0]?.connectorKey).toBe('obsidian')
+    expect(detail?.folders).toEqual([{ slug: f.slug, name: 'Reading' }])
+    expect(detail?.annotations.total).toBe(7)
+    expect(detail?.annotations.preview).toHaveLength(5)
+    expect(detail?.annotations.preview[0]?.text).toBe('note 0') // first 5 by id
+    expect(detail?.backlinks).toHaveLength(1)
+    expect(detail?.backlinks[0]?.title).toBe('Linking Note')
+  })
+
+  it('returns null for an unknown document id', () => {
+    expect(queries.documentDetail({ documentId: 999_999 })).toBeNull()
+  })
+
+  it('a ghost document still returns detail, with zero instances', () => {
+    const z = lib('zotero', '1')
+    const { documentId } = put(z.id, { externalKey: 'G', contentSha256: 'h-g', title: 'Ghost' })
+    reconcileRemovals(handle.db, z.id, []) // sole copy gone → ghost
+    const detail = queries.documentDetail({ documentId })
+    expect(detail).not.toBeNull()
+    expect(detail?.title).toBe('Ghost')
+    expect(detail?.instances).toHaveLength(0)
+  })
+})
+
+describe('tagsList — the rail tag list (frame spec §4)', () => {
+  it('counts distinct documents per tag, desc by count then name', () => {
+    const z = lib('zotero', '1')
+    put(z.id, { externalKey: 'A', contentSha256: 'h-a', tags: ['ml', 'stats'] })
+    put(z.id, { externalKey: 'B', contentSha256: 'h-b', tags: ['ml'] })
+    put(z.id, { externalKey: 'C', contentSha256: 'h-c', tags: ['ml', 'stats'] })
+    expect(queries.tagsList()).toEqual([
+      { name: 'ml', count: 3 },
+      { name: 'stats', count: 2 },
+    ])
   })
 })

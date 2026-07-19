@@ -38,6 +38,10 @@ export const INDEX_BROWSE_CHANNEL = 'index:browse'
 export const INDEX_SYNC_CHANNEL = 'index:sync'
 export const INDEX_REBUILD_CHANNEL = 'index:rebuild'
 export const INDEX_STATS_CHANNEL = 'index:stats'
+// Document hub + rail tags (frame spec §4). Schemas stay module-owned in
+// queries.ts (the layer-free rule); only the channel names live here.
+export const INDEX_DOCUMENT_CHANNEL = 'index:document'
+export const INDEX_TAGS_CHANNEL = 'index:tags'
 
 // ── Libraries (spine v2 §1–2) — replaces v1's `index:sources` ────────────────
 // One connector exposes N libraries (zotero: personal + each group; eagle: the

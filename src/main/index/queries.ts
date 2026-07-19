@@ -4,6 +4,7 @@ import type { Db } from '../db'
 import * as s from '../db/schema'
 import type { LibrariesSnapshot } from '../../shared/db-ipc'
 import { folderIdsForSlugs } from './folder-mirror'
+import { documentLinks, type BackLink } from './links'
 
 /**
  * Read path over the index, v2 (spine spec v2; skeleton surface). Named-channel
@@ -55,6 +56,14 @@ export const browseRequestSchema = z.object({
 })
 export type BrowseRequest = z.infer<typeof browseRequestSchema>
 
+/** The document-hub request (frame spec §4): one document by id. Module-owned
+ *  (derives nothing from db-ipc) — its channel constant lives in db-ipc, its
+ *  schema stays here. */
+export const documentDetailRequestSchema = z.object({
+  documentId: z.number().int().positive(),
+})
+export type DocumentDetailRequest = z.infer<typeof documentDetailRequestSchema>
+
 /** Per-instance provenance carried on every hit: which connector, which
  *  library (id + display name + availability), and how to open it. */
 export interface HitInstance {
@@ -88,6 +97,25 @@ export interface SearchHit {
   snippet: string
   tags: string[]
   instances: HitInstance[]
+}
+
+/** The document hub (frame spec §3–4): everything the detail panel renders for
+ *  one document — instances, tags, folder chips, an annotation preview (first
+ *  5), and backlinks. Ghosts are valid: zero instances, detail still returns
+ *  (the panel shows a ghost banner). */
+export interface DocumentDetail {
+  documentId: number
+  title: string
+  kind: string
+  modifiedAt: number
+  tags: string[]
+  instances: HitInstance[]
+  folders: { slug: string; name: string }[]
+  annotations: {
+    total: number
+    preview: { text: string | null; comment: string | null; pageLabel: string | null }[]
+  }
+  backlinks: BackLink[]
 }
 
 /** A node in the folder rail's tree (folders spec §6): the folder's own count
@@ -381,7 +409,80 @@ export function createIndexQueries(db: Db) {
     )
   }
 
-  return { search, browse, librariesSnapshot, indexStats, folderTree, uncategorizedCount }
+  /**
+   * The document hub (frame spec §4): one document composed from the existing
+   * reads — hydrate (tags + instances), the folder-member join (chips), an
+   * annotation preview (total + first 5 by id), and documentLinks' backlinks.
+   * Null when the id is unknown. A ghost is a valid input: zero instances (and
+   * so zero annotations, which are instance-scoped), detail still returns.
+   */
+  function documentDetail(raw: unknown): DocumentDetail | null {
+    const { documentId } = documentDetailRequestSchema.parse(raw)
+    const doc = db.select().from(s.documents).where(eq(s.documents.id, documentId)).get()
+    if (!doc) return null
+
+    const folders = db
+      .select({ slug: s.folders.slug, name: s.folders.name })
+      .from(s.folderMembers)
+      .innerJoin(s.folders, eq(s.folderMembers.folderId, s.folders.id))
+      .where(eq(s.folderMembers.documentId, documentId))
+      .orderBy(s.folders.name)
+      .all()
+
+    // Annotations are instance-scoped: join through this document's instances.
+    const total =
+      db
+        .select({ c: sql<number>`count(*)` })
+        .from(s.annotations)
+        .innerJoin(s.documentInstances, eq(s.annotations.instanceId, s.documentInstances.id))
+        .where(eq(s.documentInstances.documentId, documentId))
+        .get()?.c ?? 0
+    const preview = db
+      .select({
+        text: s.annotations.text,
+        comment: s.annotations.comment,
+        pageLabel: s.annotations.pageLabel,
+      })
+      .from(s.annotations)
+      .innerJoin(s.documentInstances, eq(s.annotations.instanceId, s.documentInstances.id))
+      .where(eq(s.documentInstances.documentId, documentId))
+      .orderBy(s.annotations.id)
+      .limit(5)
+      .all()
+
+    return {
+      documentId: doc.id,
+      title: doc.title,
+      kind: doc.kind,
+      modifiedAt: doc.modifiedAt,
+      ...hydrate(documentId),
+      folders,
+      annotations: { total, preview },
+      backlinks: documentLinks(db, documentId).backlinks,
+    }
+  }
+
+  /** The rail's tag list (frame spec §4; mirrors v1's nav tags query): every
+   *  tag with its distinct-document count, most-used first, name-tiebroken. */
+  function tagsList(): { name: string; count: number }[] {
+    return db.all<{ name: string; count: number }>(
+      sql`SELECT t.name AS name, count(DISTINCT dt.document_id) AS count
+          FROM tags t JOIN document_tags dt ON dt.tag_id = t.id
+          GROUP BY t.id
+          ORDER BY count DESC, t.name ASC`,
+    )
+  }
+
+  return {
+    search,
+    browse,
+    librariesSnapshot,
+    indexStats,
+    folderTree,
+    uncategorizedCount,
+    documentDetail,
+    tagsList,
+  }
 }
 
 export type IndexQueries = ReturnType<typeof createIndexQueries>

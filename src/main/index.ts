@@ -12,11 +12,13 @@ import {
   FOLDERS_RENAME_CHANNEL,
   FOLDERS_SET_PARENT_CHANNEL,
   INDEX_BROWSE_CHANNEL,
+  INDEX_DOCUMENT_CHANNEL,
   INDEX_LIBRARIES_CHANNEL,
   INDEX_REBUILD_CHANNEL,
   INDEX_SEARCH_CHANNEL,
   INDEX_STATS_CHANNEL,
   INDEX_SYNC_CHANNEL,
+  INDEX_TAGS_CHANNEL,
   SYSTEM_OPEN_CHANNEL,
   createFolderRequestSchema,
   deleteFolderRequestSchema,
@@ -82,6 +84,8 @@ function wireIpc(): void {
   ipcMain.handle(INDEX_BROWSE_CHANNEL, (_e, raw: unknown) => queries.browse(raw))
   ipcMain.handle(INDEX_LIBRARIES_CHANNEL, () => queries.librariesSnapshot())
   ipcMain.handle(INDEX_STATS_CHANNEL, () => queries.indexStats())
+  ipcMain.handle(INDEX_DOCUMENT_CHANNEL, (_e, raw: unknown) => queries.documentDetail(raw))
+  ipcMain.handle(INDEX_TAGS_CHANNEL, () => queries.tagsList())
   ipcMain.handle(INDEX_SYNC_CHANNEL, () => runSync())
   ipcMain.handle(INDEX_REBUILD_CHANNEL, async () => {
     upsert.wipeDerived()
