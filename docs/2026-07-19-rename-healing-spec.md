@@ -30,11 +30,16 @@ Runs BEFORE the library's upsert loop, only when `!unchanged` and
   allExternalKeys AND whose metaJson carries a `renameHint`.
 - `added` = scan documents whose externalKey has NO instance in this library
   AND which carry a `renameHint`.
-- Pair on hint equality **only when the hint maps to exactly one removed and
-  exactly one added** (ambiguity — duplicate-content notes — heals nothing;
-  the normal sweep semantics apply). Renamed-AND-edited in one interval →
-  hints differ → no heal (a future frontmatter-id anchor may cover this;
-  out of scope, recorded in §5).
+- Pair on hint equality **only when the hint maps to exactly one removed,
+  exactly one added, AND is carried by no surviving instance** (the
+  survivor-hint guard: a duplicate-content twin still present makes the hint
+  ambiguous — healing could transfer identity to a copy — so nothing heals
+  and normal sweep semantics apply). [Amended 2026-07-19: the original
+  "exactly one removed + one added" wording contradicted §4's duplicate-twin
+  example; the implementer caught it and the survivor guard — a strict
+  narrowing — is the adopted resolution.] Renamed-AND-edited in one
+  interval → hints differ → no heal (a future frontmatter-id anchor may
+  cover this; out of scope, recorded in §5).
 - Heal = UPDATE the existing instance row in place: externalKey → new,
   uri/filePath/metaJson → incoming values. The document row is UNTOUCHED —
   same documentId, so everything document-anchored survives by construction.
