@@ -67,7 +67,14 @@ let foldersStore: FoldersStore
 async function runSync(): Promise<SyncOutcome[]> {
   const outcomes: SyncOutcome[] = []
   for (const connector of connectors) {
-    outcomes.push(await syncConnector(handle.db, upsert, connector))
+    // Rename healing (identity hardening 1 §3): a healed instance rewrites its
+    // folder path-refs in place; the post-sync syncFolders re-mirror below then
+    // picks the change up. No new channels.
+    outcomes.push(
+      await syncConnector(handle.db, upsert, connector, Date.now(), {
+        onInstanceRenamed: (ev) => foldersStore.renamePathRefs(ev.library, ev.oldKey, ev.newKey),
+      }),
+    )
   }
   // Post-sync re-pass (M2): join raw wiki-link targets to their documents —
   // full recompute, so notes scanned before their targets resolve now.

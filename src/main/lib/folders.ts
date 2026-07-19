@@ -79,6 +79,7 @@ export interface FoldersStore {
   remove(slug: string): void
   addMembers(slug: string, refs: FolderMemberRef[]): FolderRecord
   removeMembers(slug: string, refs: FolderMemberRef[]): FolderRecord
+  renamePathRefs(library: string, oldKey: string, newKey: string): number
 }
 
 /** `foldersDir` injected (the workspace's `.astrolabe/folders/`) so tests run
@@ -211,5 +212,28 @@ export function createFoldersStore(foldersDir: string): FoldersStore {
     return { slug, file: next }
   }
 
-  return { list, create, rename, setParent, remove, addMembers, removeMembers }
+  /**
+   * Rewrite every path ref `(library, oldKey)` → `(library, newKey)` across all
+   * folder files (rename healing, spec §3). Atomic per-file writes; returns the
+   * count of files rewritten. If a folder ALREADY contains the target ref, the
+   * old ref is dropped rather than duplicated (ref-equality dedupe preserved).
+   * Hash refs and refs of other libraries/keys are untouched.
+   */
+  function renamePathRefs(library: string, oldKey: string, newKey: string): number {
+    const oldRef: FolderMemberRef = { library, key: oldKey }
+    const newRef: FolderMemberRef = { library, key: newKey }
+    let rewritten = 0
+    for (const { slug, file } of list()) {
+      if (!file.members.some((m) => refsEqual(m, oldRef))) continue
+      const hasTarget = file.members.some((m) => refsEqual(m, newRef))
+      const members = hasTarget
+        ? file.members.filter((m) => !refsEqual(m, oldRef)) // dedupe: drop old, keep existing target
+        : file.members.map((m) => (refsEqual(m, oldRef) ? newRef : m)) // rewrite in place, order kept
+      writeOne(slug, { ...file, members })
+      rewritten++
+    }
+    return rewritten
+  }
+
+  return { list, create, rename, setParent, remove, addMembers, removeMembers, renamePathRefs }
 }

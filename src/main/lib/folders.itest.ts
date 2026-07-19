@@ -75,3 +75,45 @@ describe('folder store round-trips', () => {
     expect(store.list().map((r) => r.slug)).toEqual(['fine'])
   })
 })
+
+describe('renamePathRefs — rename healing (folders spec §3)', () => {
+  const lib = 'obsidian:/vault'
+
+  it('rewrites the matching path ref across every folder file, preserving order', () => {
+    const a = store.create({ name: 'A' })
+    const b = store.create({ name: 'B' })
+    store.addMembers(a.slug, [{ library: lib, key: 'old.md' }, { sha256: 'keep' }])
+    store.addMembers(b.slug, [{ library: lib, key: 'old.md' }])
+
+    const n = store.renamePathRefs(lib, 'old.md', 'new.md')
+
+    expect(n).toBe(2)
+    expect(store.list().find((r) => r.slug === 'a')?.file.members).toEqual([
+      { library: lib, key: 'new.md' },
+      { sha256: 'keep' },
+    ])
+    expect(store.list().find((r) => r.slug === 'b')?.file.members).toEqual([{ library: lib, key: 'new.md' }])
+  })
+
+  it('drops the old ref instead of duplicating when the target ref already exists', () => {
+    const f = store.create({ name: 'F' })
+    store.addMembers(f.slug, [{ library: lib, key: 'old.md' }, { library: lib, key: 'new.md' }])
+
+    const n = store.renamePathRefs(lib, 'old.md', 'new.md')
+
+    expect(n).toBe(1)
+    expect(store.list().find((r) => r.slug === 'f')?.file.members).toEqual([{ library: lib, key: 'new.md' }])
+  })
+
+  it('touches nothing else — hash refs, other libraries, other keys are left intact', () => {
+    const f = store.create({ name: 'F' })
+    const other = 'obsidian:/other'
+    const members = [{ sha256: 'h' }, { library: other, key: 'old.md' }, { library: lib, key: 'stay.md' }]
+    store.addMembers(f.slug, members)
+
+    const n = store.renamePathRefs(lib, 'old.md', 'new.md') // no ref matches (lib,old.md)
+
+    expect(n).toBe(0)
+    expect(store.list().find((r) => r.slug === 'f')?.file.members).toEqual(members)
+  })
+})
