@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, readdirSync, statSync, type Stats } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { basename, join, relative, sep } from 'node:path'
 import { watch as chokidarWatch } from 'chokidar'
 import { moduleLogger } from '../../lib/logger'
@@ -100,6 +101,12 @@ function buildDocument(args: {
   const title = parsed.title ?? basename(relPath).replace(/\.md$/i, '')
   const body = parsed.body.slice(0, BODY_LIMIT)
 
+  // Rename hint (identity hardening 1 §1): sha256 hex of the RAW file content,
+  // computed from the read scan already performs (no new deps). Persisted in
+  // metaJson.renameHint so sync can read the OLD hint of an existing instance,
+  // and emitted top-level so sync sees the INCOMING hint of a scanned note.
+  const renameHint = createHash('sha256').update(raw).digest('hex')
+
   return {
     externalKey: relPath,
     uri,
@@ -108,7 +115,12 @@ function buildDocument(args: {
     filePath,
     // Mutable notes have no hash identity (spec §1): identity is (library, relpath).
     contentSha256: null,
-    metaJson: JSON.stringify({ wikiLinks: parsed.wikiLinks, frontmatterKeys: parsed.frontmatterKeys }),
+    renameHint,
+    metaJson: JSON.stringify({
+      wikiLinks: parsed.wikiLinks,
+      frontmatterKeys: parsed.frontmatterKeys,
+      renameHint,
+    }),
     modifiedAt: mtime,
     tags: parsed.tags,
     // Wiki-link targets, raw (alias/heading already stripped by the parser). Always

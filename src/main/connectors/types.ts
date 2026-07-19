@@ -17,7 +17,16 @@ export type ConnectorKey = 'zotero' | 'eagle' | 'obsidian'
 
 /** A document as the connector reports it — the library is implicit in which
  *  LibraryScanResult carries it; sync supplies the row id. */
-export type LibraryDocumentInput = Omit<DocumentInput, 'libraryId'>
+export type LibraryDocumentInput = Omit<DocumentInput, 'libraryId'> & {
+  /**
+   * Opaque content-derived fingerprint for sync-time RENAME HEALING (identity
+   * hardening 1 §1). A connector that emits it MUST also persist it inside this
+   * instance's `metaJson` under the key `renameHint`: sync reads OLD hints from
+   * `instances.metaJson` and INCOMING hints from here. Hash-identified sources
+   * (zotero/eagle) leave it undefined — their keys are stable, no healing needed.
+   */
+  renameHint?: string
+}
 
 /** One library's scan payload — everything sync needs to land it in the index. */
 export interface LibraryScanResult {

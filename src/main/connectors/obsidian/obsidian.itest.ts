@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
@@ -254,6 +255,36 @@ describe('obsidian v2 — core note behaviours (single vault, quarried from v1)'
     expect(lib?.unchanged).toBe(true)
     expect(lib?.documentsUpserted).toBe(0)
     expect(lib?.removed).toBe(0) // no deletions → nothing swept
+  })
+})
+
+describe('obsidian v2 — rename hint (identity hardening 1, spec §1)', () => {
+  it('emits sha256-of-content renameHint on every note and persists it in instance metaJson', async () => {
+    const body = 'A note whose content fingerprints it.\n'
+    const vaultPath = makeVault('Hinted', { 'note.md': body })
+    const expected = createHash('sha256').update(body).digest('hex')
+
+    const conn = createObsidianConnector({ vaultPaths: [vaultPath] })
+
+    // The scan payload carries the content hint on the document itself.
+    const scan = await conn.scan({ cursors: new Map() })
+    const doc = scan.libraries[0]?.documents.find((d) => d.externalKey === 'note.md')
+    expect(doc?.renameHint).toBe(expected)
+
+    // …and after sync it is persisted in the instance's metaJson (sync reads OLD
+    // hints from here), merged with the connector's other metaJson keys.
+    await syncConnector(handle.db, upsert, conn)
+    const lib = libraryRow(vaultPath)!
+    const inst = handle.db
+      .select()
+      .from(s.documentInstances)
+      .where(
+        and(eq(s.documentInstances.libraryId, lib.id), eq(s.documentInstances.externalKey, 'note.md')),
+      )
+      .get()!
+    const meta = JSON.parse(inst.metaJson!) as { renameHint?: string; wikiLinks?: unknown }
+    expect(meta.renameHint).toBe(expected)
+    expect(meta).toHaveProperty('wikiLinks') // merged, not clobbered
   })
 })
 
