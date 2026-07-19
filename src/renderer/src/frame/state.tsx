@@ -97,6 +97,9 @@ export function FrameProvider({ children }: { children: ReactNode }): React.JSX.
         navigate({ rail, selectedDocumentId: null, detailOpen: false }),
       selectDocument: (id) => {
         setSnapshot((s) => {
+          // Re-selecting the already-selected document is a no-op — never pad
+          // the history stack with identical snapshots (final review #5).
+          if (s.selectedDocumentId === id && s.detailOpen === (id != null)) return s
           const next: FrameSnapshot = { ...s, selectedDocumentId: id, detailOpen: id != null }
           past.current = [...past.current.slice(-(HISTORY_LIMIT - 1)), s]
           future.current = []

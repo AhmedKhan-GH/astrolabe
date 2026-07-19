@@ -24,10 +24,13 @@ function Topbar({ onOpenPalette }: { onOpenPalette: () => void }): React.JSX.Ele
   const stats = useStats()
   const [syncing, setSyncing] = useState(false)
 
+  const [syncError, setSyncError] = useState<string | null>(null)
   const runSync = useCallback(() => {
     setSyncing(true)
+    setSyncError(null)
     void window.astrolabe
       .sync()
+      .catch((err: unknown) => setSyncError(String(err)))
       .finally(() => {
         setSyncing(false)
         actions.refresh()
@@ -90,9 +93,14 @@ function Topbar({ onOpenPalette }: { onOpenPalette: () => void }): React.JSX.Ele
       <button
         onClick={runSync}
         disabled={syncing}
-        className="rounded border border-neutral-700 px-2 py-1 text-xs text-neutral-300 hover:border-neutral-500 disabled:opacity-50"
+        title={syncError ?? undefined}
+        className={`rounded border px-2 py-1 text-xs disabled:opacity-50 ${
+          syncError
+            ? 'border-amber-500 text-amber-300'
+            : 'border-neutral-700 text-neutral-300 hover:border-neutral-500'
+        }`}
       >
-        {syncing ? 'Syncing…' : 'Sync'}
+        {syncing ? 'Syncing…' : syncError ? 'Sync failed — retry' : 'Sync'}
       </button>
     </header>
   )
@@ -113,11 +121,9 @@ function Frame(): React.JSX.Element {
         <main className="min-w-0 grow overflow-y-auto">
           <River />
         </main>
-        {detailOpen && (
-          <aside className="w-[340px] shrink-0 overflow-y-auto border-l border-neutral-800">
-            <DetailPanel />
-          </aside>
-        )}
+        {/* DetailPanel owns its aside box (340px, border, scroll) — no wrapper,
+            or the landmarks/borders double (final review #1). */}
+        {detailOpen && <DetailPanel />}
       </div>
       <CommandK open={paletteOpen} onClose={closePalette} />
     </div>

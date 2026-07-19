@@ -463,12 +463,17 @@ export function createIndexQueries(db: Db) {
   }
 
   /** The rail's tag list (frame spec §4; mirrors v1's nav tags query): every
-   *  tag with its distinct-document count, most-used first, name-tiebroken. */
+   *  tag with its distinct ANCHORED document count — ghost members don't
+   *  count, matching folderTree/Uncategorized (D3: default surfaces hide
+   *  ghosts, so badges must agree with visible rows). Most-used first,
+   *  name-tiebroken; a tag whose every document is ghosted drops out. */
   function tagsList(): { name: string; count: number }[] {
     return db.all<{ name: string; count: number }>(
       sql`SELECT t.name AS name, count(DISTINCT dt.document_id) AS count
           FROM tags t JOIN document_tags dt ON dt.tag_id = t.id
+          WHERE EXISTS (SELECT 1 FROM document_instances di WHERE di.document_id = dt.document_id)
           GROUP BY t.id
+          HAVING count > 0
           ORDER BY count DESC, t.name ASC`,
     )
   }

@@ -339,4 +339,12 @@ describe('tagsList — the rail tag list (frame spec §4)', () => {
       { name: 'stats', count: 2 },
     ])
   })
+
+  it('counts anchored documents only — ghosts drop out; an all-ghost tag vanishes (D3 badge consistency)', () => {
+    const z = lib('zotero', '1')
+    put(z.id, { externalKey: 'A', contentSha256: 'h-a', tags: ['ml', 'solo'] })
+    put(z.id, { externalKey: 'B', contentSha256: 'h-b', tags: ['ml'] })
+    reconcileRemovals(handle.db, z.id, ['B']) // A ghosts: 'solo' loses its only doc
+    expect(queries.tagsList()).toEqual([{ name: 'ml', count: 1 }])
+  })
 })
