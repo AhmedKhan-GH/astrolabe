@@ -10,9 +10,10 @@ import {
   useStats,
   useTags,
 } from '../state'
-import { ConfirmDialog, ImportDialog, MoveDialog, NameDialog } from './dialogs'
+import type { SyncAllSummary } from '../../../../main/index/eagle-switch'
+import { ConfirmDialog, ImportDialog, MoveDialog, NameDialog, SyncAllDialog } from './dialogs'
 import { FolderTree } from './FolderTree'
-import { useUncategorizedCount } from './hooks'
+import { useEagleLibraries, useUncategorizedCount } from './hooks'
 import { collectSubtreeSlugs, findNode, flatten } from './tree'
 import { availabilityDot, rowClass } from './ui'
 
@@ -41,6 +42,7 @@ export default function Rail(): React.JSX.Element {
   const tree = useFolderTree()
   const tags = useTags()
   const libraries = useLibraries()
+  const eagleLibs = useEagleLibraries()
   const stats = useStats()
   const uncategorized = useUncategorizedCount()
 
@@ -51,6 +53,12 @@ export default function Rail(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [importResult, setImportResult] = useState<ImportFoldersResult | null>(null)
+  // Eagle switch state: the stableKey of the row mid-switch (disables the others),
+  // and the sync-all machine (confirm → running → done summary).
+  const [switching, setSwitching] = useState<string | null>(null)
+  const [syncAll, setSyncAll] = useState<
+    { phase: 'confirm' | 'running' } | { phase: 'done'; summary: SyncAllSummary } | null
+  >(null)
 
   const closeDialog = (): void => {
     setDialog(null)
@@ -87,6 +95,34 @@ export default function Rail(): React.JSX.Element {
     }
   }
 
+  /** Command Eagle to open a library and sync it; refresh the index on success.
+   *  Switching visibly changes Eagle's own window — an explicit user gesture. */
+  const doSwitch = async (libraryPath: string): Promise<void> => {
+    setSwitching(libraryPath)
+    setError(null)
+    try {
+      await window.astrolabe.eagle.switch(libraryPath)
+      actions.refresh()
+    } catch (err) {
+      setError(friendlyFolderError(err))
+    } finally {
+      setSwitching(null)
+    }
+  }
+
+  const doSyncAll = async (): Promise<void> => {
+    setSyncAll({ phase: 'running' })
+    setError(null)
+    try {
+      const summary = await window.astrolabe.eagle.syncAll()
+      setSyncAll({ phase: 'done', summary })
+      actions.refresh()
+    } catch (err) {
+      setError(friendlyFolderError(err))
+      setSyncAll(null)
+    }
+  }
+
   const toggleExpand = (slug: string): void =>
     setExpanded((prev) => {
       const next = new Set(prev)
@@ -104,6 +140,15 @@ export default function Rail(): React.JSX.Element {
   const allTags = tags.data ?? []
   const shownTags = showAllTags ? allTags : allTags.slice(0, TAG_PREVIEW)
   const snapshot = libraries.data
+
+  // Known-but-never-scanned Eagle libraries: in /library/history but absent from
+  // the index (spec §B). A switch on one of these is how it gets its first scan.
+  const indexedEagleKeys = new Set(
+    (snapshot?.libraries ?? []).filter((l) => l.connector === 'eagle').map((l) => l.stableKey),
+  )
+  const unindexedEagle = (eagleLibs?.known ?? []).filter((k) => !indexedEagleKeys.has(k))
+  const hasEagleLibraries = (eagleLibs?.known.length ?? 0) > 0
+  const switchBusy = switching !== null
 
   return (
     <nav className="flex h-full w-60 shrink-0 flex-col border-r border-neutral-800 bg-neutral-950 text-neutral-300">
@@ -202,17 +247,50 @@ export default function Rail(): React.JSX.Element {
             ))}
           </div>
         )}
-        {snapshot?.libraries.map((l) => (
-          <button
-            key={l.id}
-            className={rowClass(rail.kind === 'library' && rail.id === l.id)}
-            onClick={() => actions.selectRail({ kind: 'library', id: l.id })}
-            title={`${l.stableKey} — ${l.availability}`}
-          >
-            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${availabilityDot(l.availability)}`} />
-            <span className="flex-1 truncate">{l.displayName}</span>
-            <span className="text-xs text-neutral-500">{l.documentCount}</span>
-          </button>
+        {snapshot?.libraries.map((l) => {
+          // A dormant Eagle library isn't open in Eagle right now — offer to
+          // switch Eagle to it and (re)sync (spec §B). A live one is already open.
+          const canSwitch = l.connector === 'eagle' && l.availability !== 'live'
+          return (
+            <div key={l.id} className="flex items-center">
+              <button
+                className={`${rowClass(rail.kind === 'library' && rail.id === l.id)} min-w-0 flex-1`}
+                onClick={() => actions.selectRail({ kind: 'library', id: l.id })}
+                title={`${l.stableKey} — ${l.availability}`}
+              >
+                <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${availabilityDot(l.availability)}`} />
+                <span className="flex-1 truncate">{l.displayName}</span>
+                <span className="text-xs text-neutral-500">{l.documentCount}</span>
+              </button>
+              {canSwitch && (
+                <SwitchButton
+                  label={l.displayName}
+                  busy={switchBusy}
+                  running={switching === l.stableKey}
+                  onClick={() => doSwitch(l.stableKey)}
+                />
+              )}
+            </div>
+          )
+        })}
+        {/* Known-but-never-scanned Eagle libraries: faint rows whose only action
+            is the first-scan switch (spec §B). */}
+        {unindexedEagle.map((path) => (
+          <div key={path} className="flex items-center opacity-60">
+            <div
+              className={`${rowClass(false)} min-w-0 flex-1`}
+              title={`${path} — in Eagle’s history, not yet scanned`}
+            >
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-neutral-700" />
+              <span className="flex-1 truncate">{libraryLabel(path)}</span>
+            </div>
+            <SwitchButton
+              label={libraryLabel(path)}
+              busy={switchBusy}
+              running={switching === path}
+              onClick={() => doSwitch(path)}
+            />
+          </div>
         ))}
       </div>
 
@@ -236,14 +314,33 @@ export default function Rail(): React.JSX.Element {
             onDelete={(slug) => run(() => window.astrolabe.folders.remove({ slug }))}
             onImport={doImport}
           />
+        ) : syncAll ? (
+          <SyncAllDialog
+            phase={syncAll.phase}
+            summary={syncAll.phase === 'done' ? syncAll.summary : null}
+            onConfirm={doSyncAll}
+            onCancel={() => setSyncAll(null)}
+            onClose={() => setSyncAll(null)}
+          />
         ) : (
-          <button
-            type="button"
-            onClick={() => setDialog({ kind: 'import' })}
-            className="w-full rounded border border-neutral-700 px-2 py-1 text-xs text-neutral-300 hover:border-neutral-500"
-          >
-            Import from Eagle…
-          </button>
+          <div className="space-y-1">
+            <button
+              type="button"
+              onClick={() => setDialog({ kind: 'import' })}
+              className="w-full rounded border border-neutral-700 px-2 py-1 text-xs text-neutral-300 hover:border-neutral-500"
+            >
+              Import from Eagle…
+            </button>
+            {hasEagleLibraries && (
+              <button
+                type="button"
+                onClick={() => setSyncAll({ phase: 'confirm' })}
+                className="w-full rounded border border-neutral-700 px-2 py-1 text-xs text-neutral-300 hover:border-neutral-500"
+              >
+                Sync all Eagle libraries
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -294,6 +391,40 @@ export default function Rail(): React.JSX.Element {
         </>
       )}
     </nav>
+  )
+}
+
+/** The last path segment, `.library` suffix dropped — a readable label for a
+ *  known-but-unindexed Eagle library (which has no indexed displayName yet). */
+function libraryLabel(path: string): string {
+  const base = path.split('/').filter(Boolean).pop() ?? path
+  return base.replace(/\.library$/, '')
+}
+
+/** The dormant/unindexed Eagle "switch & sync" affordance — opens the library in
+ *  Eagle and syncs it. Disabled while any switch runs (one at a time). */
+function SwitchButton({
+  label,
+  busy,
+  running,
+  onClick,
+}: {
+  label: string
+  busy: boolean
+  running: boolean
+  onClick: () => void
+}): React.JSX.Element {
+  return (
+    <button
+      type="button"
+      aria-label={`Switch to ${label}`}
+      title="Open this library in Eagle and sync it"
+      disabled={busy}
+      onClick={onClick}
+      className="shrink-0 rounded px-1.5 py-1 text-xs text-neutral-500 hover:text-neutral-200 disabled:opacity-40"
+    >
+      {running ? '…' : '⇅'}
+    </button>
   )
 }
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { EagleLibrariesSnapshot } from '../../../../shared/db-ipc'
 import { useFrame } from '../state'
 
 /**
@@ -25,4 +26,31 @@ export function useUncategorizedCount(): number | null {
     }
   }, [version])
   return count
+}
+
+/**
+ * Eagle's known libraries (from /library/history) + the currently-open one, for
+ * the rail's switch affordances (spec §B). Distinct from `useLibraries` (the
+ * INDEXED libraries): the difference — known but not yet indexed — is exactly
+ * the set the rail offers a first-scan switch for. Null until it resolves;
+ * defensive so a renderer without the eagle bridge simply shows nothing.
+ */
+export function useEagleLibraries(): EagleLibrariesSnapshot | null {
+  const { version } = useFrame()
+  const [snap, setSnap] = useState<EagleLibrariesSnapshot | null>(null)
+  useEffect(() => {
+    let alive = true
+    Promise.resolve(window.astrolabe.eagle?.libraries()).then(
+      (s) => {
+        if (alive) setSnap(s ?? null)
+      },
+      () => {
+        if (alive) setSnap(null)
+      },
+    )
+    return () => {
+      alive = false
+    }
+  }, [version])
+  return snap
 }

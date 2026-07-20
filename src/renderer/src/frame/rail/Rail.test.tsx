@@ -130,4 +130,39 @@ describe('Rail', () => {
     await waitFor(() => expect(stub.folders.import).toHaveBeenCalledWith({ libraryId: 7 }))
     expect(await screen.findByText(/Created 2 folders/)).toBeInTheDocument()
   })
+
+  it('offers a switch-&-sync affordance on a dormant Eagle library row', async () => {
+    renderInFrame(<Rail />)
+    // wait until the eagle known-libraries hook has resolved (faint rows appear)
+    await screen.findByLabelText('Switch to Eagle Lib')
+
+    fireEvent.click(screen.getByLabelText('Switch to Eagle Lib'))
+    await waitFor(() => expect(stub.eagle.switch).toHaveBeenCalledWith('/eagle/lib'))
+  })
+
+  it('shows known-but-unindexed Eagle libraries as faint rows with a first-scan switch', async () => {
+    renderInFrame(<Rail />)
+    await screen.findByLabelText('Switch to research')
+
+    // research + stanford are in Eagle's history but not the index → faint rows.
+    expect(screen.getByText('research')).toBeInTheDocument()
+    expect(screen.getByText('stanford')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByLabelText('Switch to stanford'))
+    await waitFor(() =>
+      expect(stub.eagle.switch).toHaveBeenCalledWith('/eagle/stanford.library'),
+    )
+  })
+
+  it('confirms then syncs all Eagle libraries and renders the summary', async () => {
+    renderInFrame(<Rail />)
+    await screen.findByText('Sync all Eagle libraries')
+
+    fireEvent.click(screen.getByText('Sync all Eagle libraries'))
+    expect(screen.getByText('Sync all Eagle libraries?')).toBeInTheDocument() // confirm step
+    fireEvent.click(screen.getByText('Sync all')) // confirm button
+
+    await waitFor(() => expect(stub.eagle.syncAll).toHaveBeenCalledOnce())
+    expect(await screen.findByText(/Synced 2 of 3 libraries, 1 failed/)).toBeInTheDocument()
+  })
 })

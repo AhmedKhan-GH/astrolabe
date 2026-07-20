@@ -76,6 +76,23 @@ export function makeStub(overrides: Record<string, unknown> = {}) {
     sync: vi.fn().mockResolvedValue([]),
     rebuild: vi.fn().mockResolvedValue([]),
     open: vi.fn().mockResolvedValue(true),
+    eagle: {
+      // '/eagle/lib' is the indexed (dormant) library; research + stanford are
+      // in Eagle's history but not yet in the index (first-scan candidates).
+      libraries: vi.fn().mockResolvedValue({
+        current: '/eagle/lib',
+        known: ['/eagle/lib', '/eagle/research', '/eagle/stanford.library'],
+      }),
+      switch: vi.fn().mockResolvedValue({ connector: 'eagle', status: 'ok', libraries: [] }),
+      syncAll: vi.fn().mockResolvedValue({
+        outcomes: [
+          { library: '/eagle/lib', ok: true },
+          { library: '/eagle/research', ok: true },
+          { library: '/eagle/stanford.library', ok: false, error: 'boom' },
+        ],
+        restored: true,
+      }),
+    },
     folders,
     ...overrides,
   }

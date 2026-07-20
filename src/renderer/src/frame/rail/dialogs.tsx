@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { ImportFoldersResult, LibrariesSnapshot } from '../../../../shared/db-ipc'
+import type { SyncAllSummary } from '../../../../main/index/eagle-switch'
 import type { FlatFolder } from './tree'
 
 /**
@@ -171,6 +172,66 @@ export function MoveDialog({
         ))}
       </div>
       <DialogButtons confirmLabel="Move" busy={busy} onConfirm={() => onConfirm(parent)} onCancel={onCancel} />
+    </div>
+  )
+}
+
+/** Sync-all Eagle libraries strip (spec §B): a confirm step (it drives Eagle
+ *  through every library, ~seconds each), a running indicator, then a summary
+ *  line. `phase` is owned by Rail; this is purely presentational. */
+export function SyncAllDialog({
+  phase,
+  summary,
+  onConfirm,
+  onCancel,
+  onClose,
+}: {
+  phase: 'confirm' | 'running' | 'done'
+  summary: SyncAllSummary | null
+  onConfirm: () => void
+  onCancel: () => void
+  onClose: () => void
+}): React.JSX.Element {
+  if (phase === 'confirm') {
+    return (
+      <ConfirmDialog
+        title="Sync all Eagle libraries?"
+        body="Astrolabe opens each Eagle library in turn (a few seconds each), scans it, then returns to the one you have open now."
+        confirmLabel="Sync all"
+        onConfirm={onConfirm}
+        onCancel={onCancel}
+      />
+    )
+  }
+  if (phase === 'running') {
+    return (
+      <div className={cardClass}>
+        <div className="font-medium text-neutral-200">Syncing all Eagle libraries…</div>
+        <p className="mt-1 text-xs text-neutral-400">
+          Eagle is switching between libraries — its window will change while this runs.
+        </p>
+      </div>
+    )
+  }
+  const total = summary?.outcomes.length ?? 0
+  const ok = summary?.outcomes.filter((o) => o.ok).length ?? 0
+  const failed = total - ok
+  return (
+    <div className={cardClass}>
+      <div className="mb-1 font-medium text-neutral-200">Eagle libraries synced</div>
+      <p className="text-xs text-neutral-300">
+        Synced {ok} of {total} libraries{failed > 0 ? `, ${failed} failed` : ''}.
+        {summary && !summary.restored ? ' Could not return to the original library.' : ''}
+      </p>
+      <div className="mt-2 flex justify-end">
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded border border-neutral-700 px-2 py-1 text-xs text-neutral-300 hover:border-neutral-500"
+        >
+          Done
+        </button>
+      </div>
     </div>
   )
 }
