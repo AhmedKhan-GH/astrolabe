@@ -54,6 +54,8 @@ function fakeClient(state: FakeState): EagleClient {
     libraryInfo: async () => ({ path: state.path, name: state.name, folders: state.folders }),
     itemList: async ({ page }) => (page === 0 ? state.items : []),
     folderList: async () => state.folders,
+    knownLibraries: async () => [state.path],
+    switchLibrary: async () => {},
   }
 }
 

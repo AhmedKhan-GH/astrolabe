@@ -34,6 +34,18 @@ const envelope = <T extends z.ZodTypeAny>(data: T) =>
 
 const applicationInfoSchema = envelope(z.object({ version: z.string() }).loose())
 
+/** `/library/history` → data: string[] (the known-library paths, spec §B). */
+const libraryHistorySchema = envelope(z.array(z.string()))
+/** `/library/switch` → { status } only; body is the command, status is the ack. */
+const switchResultSchema = z.object({ status: z.string() }).loose()
+
+/** Strip trailing slashes so a library PATH is its own stable identity — Eagle's
+ *  `/library/history` returns both `X.library/` and `X.library` (verified live
+ *  2026-07-19), which must collapse to one library (spec §B). */
+export function normalizeLibraryPath(path: string): string {
+  return path.replace(/\/+$/, '')
+}
+
 const rawFolderArray = z.array(z.unknown())
 const libraryInfoSchema = envelope(
   z.object({
@@ -48,6 +60,8 @@ export interface EagleClientOptions {
   baseUrl?: string
   token?: string
   timeoutMs?: number
+  /** Injected for tests (fake fetch); defaults to the global `fetch`. */
+  fetchFn?: typeof fetch
 }
 
 export interface EagleLibraryInfo {
@@ -65,16 +79,26 @@ export interface EagleClient {
   /** One page. `page` maps to the API's `offset` (page index); `limit` is page size. */
   itemList(params: { limit: number; page: number }): Promise<unknown[]>
   folderList(): Promise<unknown[]>
+  /** Known libraries from `/library/history`, normalized + deduped (spec §B). */
+  knownLibraries(): Promise<string[]>
+  /** Command Eagle to open `path` (`POST /library/switch`); throws on non-success. */
+  switchLibrary(path: string): Promise<void>
 }
 
 export function createEagleClient(opts: EagleClientOptions = {}): EagleClient {
   const base = opts.baseUrl ?? DEFAULT_BASE
   const defaultTimeout = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS
+  const doFetch = opts.fetchFn ?? fetch
 
-  async function request<T>(path: string, schema: z.ZodType<T>, timeoutMs: number): Promise<T> {
+  async function request<T>(
+    path: string,
+    schema: z.ZodType<T>,
+    timeoutMs: number,
+    init?: RequestInit,
+  ): Promise<T> {
     const url = new URL(base + path)
     if (opts.token) url.searchParams.set('token', opts.token)
-    const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) })
+    const res = await doFetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) })
     if (!res.ok) throw new Error(`eagle ${path} http ${res.status}`)
     const json: unknown = await res.json()
     const parsed = schema.parse(json)
@@ -104,6 +128,28 @@ export function createEagleClient(opts: EagleClientOptions = {}): EagleClient {
     async folderList() {
       const { data } = await request('/folder/list', itemListSchema, defaultTimeout)
       return data
+    },
+    async knownLibraries() {
+      const { data } = await request('/library/history', libraryHistorySchema, defaultTimeout)
+      // Normalize trailing slashes and dedupe: `/library/history` returns both
+      // `X.library/` and `X.library` for the same library (verified live).
+      const seen = new Set<string>()
+      const out: string[] = []
+      for (const raw of data) {
+        const path = normalizeLibraryPath(raw)
+        if (path && !seen.has(path)) {
+          seen.add(path)
+          out.push(path)
+        }
+      }
+      return out
+    },
+    async switchLibrary(path) {
+      await request('/library/switch', switchResultSchema, defaultTimeout, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ libraryPath: normalizeLibraryPath(path) }),
+      })
     },
   }
 }
