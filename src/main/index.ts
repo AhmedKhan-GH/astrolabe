@@ -19,9 +19,13 @@ import {
   INDEX_STATS_CHANNEL,
   INDEX_SYNC_CHANNEL,
   INDEX_TAGS_CHANNEL,
+  EAGLE_LIBRARIES_CHANNEL,
+  EAGLE_SWITCH_CHANNEL,
+  EAGLE_SYNC_ALL_CHANNEL,
   SYSTEM_OPEN_CHANNEL,
   createFolderRequestSchema,
   deleteFolderRequestSchema,
+  eagleSwitchRequestSchema,
   folderMembersRequestSchema,
   importFoldersRequestSchema,
   renameFolderRequestSchema,
@@ -35,12 +39,14 @@ import { createDbDispatcher } from './db/dispatcher'
 import { createUpsertApi, type UpsertApi } from './index/upsert'
 import { createIndexQueries, type IndexQueries } from './index/queries'
 import { syncConnector, type SyncOutcome } from './index/sync'
+import { createEagleSwitcher } from './index/eagle-switch'
 import { resolveLinks } from './index/links'
 import { createFoldersStore, type FoldersStore } from './lib/folders'
 import { refsForDocumentIds, syncFolders } from './index/folder-mirror'
 import { importLibraryTree } from './index/folder-import'
 import { createZoteroConnector } from './connectors/zotero'
 import { createEagleConnector } from './connectors/eagle'
+import { createEagleClient } from './connectors/eagle/client'
 import { createObsidianConnector } from './connectors/obsidian'
 import type { Connector } from './connectors/types'
 
@@ -52,10 +58,15 @@ import type { Connector } from './connectors/types'
 
 const log = moduleLogger('main')
 
+// One Eagle client instance shared by the connector (scans) and the switcher
+// (library commands) — same localhost API, same stateless client (spec §B).
+const eagleClient = createEagleClient()
+const eagleConnector = createEagleConnector({ client: eagleClient })
+
 /** The registered connectors (M1: eagle, M2: obsidian joined the skeleton's zotero). */
 const connectors: Connector[] = [
   createZoteroConnector(),
-  createEagleConnector(),
+  eagleConnector,
   createObsidianConnector(),
 ]
 
@@ -84,7 +95,20 @@ async function runSync(): Promise<SyncOutcome[]> {
   return outcomes
 }
 
+/** Land a single Eagle scan through the SAME wiring runSync uses (spec §B): the
+ *  switcher routes its post-switch sync here so there is one code path for an
+ *  Eagle scan (rename-healing opts + the folder/link re-passes). */
+async function runEagleSync(): Promise<SyncOutcome> {
+  const outcome = await syncConnector(handle.db, upsert, eagleConnector, Date.now(), {
+    onInstanceRenamed: (ev) => foldersStore.renamePathRefs(ev.library, ev.oldKey, ev.newKey),
+  })
+  resolveLinks(handle.db)
+  syncFolders(handle.db, foldersStore)
+  return outcome
+}
+
 function wireIpc(): void {
+  const eagleSwitcher = createEagleSwitcher({ client: eagleClient, runEagleSync })
   const dispatch = createDbDispatcher(handle.db)
   ipcMain.handle(DB_CHANNEL, (_e, raw: unknown) => dispatch(raw))
   ipcMain.handle(INDEX_SEARCH_CHANNEL, (_e, raw: unknown) => queries.search(raw))
@@ -98,6 +122,14 @@ function wireIpc(): void {
     upsert.wipeDerived()
     return runSync()
   })
+  // Eagle library switching (spec §B): explicit, user-driven gestures only —
+  // switching visibly changes Eagle's own window, so never automatic.
+  ipcMain.handle(EAGLE_LIBRARIES_CHANNEL, () => eagleSwitcher.listLibraries())
+  ipcMain.handle(EAGLE_SWITCH_CHANNEL, (_e, raw: unknown) => {
+    const req = eagleSwitchRequestSchema.parse(raw)
+    return eagleSwitcher.switchAndSync(req.libraryPath)
+  })
+  ipcMain.handle(EAGLE_SYNC_ALL_CHANNEL, () => eagleSwitcher.syncAllLibraries())
   // Folders (spec §5): every mutate re-mirrors then returns the fresh tree, so
   // the renderer always holds one consistent snapshot.
   const mirrorAndTree = (): unknown => {

@@ -120,6 +120,25 @@ export interface ImportFoldersResult { created: number; members: number; skipped
  *  FolderTreeNode; preload instantiates RenameFolderResult<FolderTreeNode>). */
 export interface RenameFolderResult<T = unknown> { tree: T[]; slug: string; previousSlug: string }
 
+// ── Eagle library switching (multi-library spec §B) ──────────────────────────
+// Eagle opens ONE library at a time; reaching another means commanding a switch,
+// waiting for it to land, then syncing. Both gestures are explicit + user-driven
+// (they visibly change Eagle's window). Schemas stay layer-free here; the
+// SyncOutcome / SyncAllSummary response types are main-owned (preload imports
+// them type-only, like the other index channels).
+export const EAGLE_LIBRARIES_CHANNEL = 'eagle:libraries'
+export const EAGLE_SWITCH_CHANNEL = 'eagle:switch'
+export const EAGLE_SYNC_ALL_CHANNEL = 'eagle:sync-all'
+
+export const eagleSwitchRequestSchema = z.object({ libraryPath: z.string().min(1) })
+export type EagleSwitchRequest = z.infer<typeof eagleSwitchRequestSchema>
+
+/** `eagle:libraries` response: the current open library + the known set. */
+export interface EagleLibrariesSnapshot {
+  current: string | null
+  known: string[]
+}
+
 // ── System: deep links out to the systems of record ──────────────────────────
 export const SYSTEM_OPEN_CHANNEL = 'system:open'
 

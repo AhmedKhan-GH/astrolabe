@@ -16,9 +16,13 @@ import {
   INDEX_STATS_CHANNEL,
   INDEX_SYNC_CHANNEL,
   INDEX_TAGS_CHANNEL,
+  EAGLE_LIBRARIES_CHANNEL,
+  EAGLE_SWITCH_CHANNEL,
+  EAGLE_SYNC_ALL_CHANNEL,
   SYSTEM_OPEN_CHANNEL,
   type CreateFolderRequest,
   type DeleteFolderRequest,
+  type EagleLibrariesSnapshot,
   type FolderMembersRequest,
   type ImportFoldersRequest,
   type ImportFoldersResult,
@@ -38,6 +42,7 @@ import type {
   SearchRequest,
 } from '../main/index/queries'
 import type { SyncOutcome } from '../main/index/sync'
+import type { SyncAllSummary } from '../main/index/eagle-switch'
 
 /**
  * The typed bridge (skeleton surface). Type-only imports from main keep the
@@ -58,6 +63,12 @@ const api = {
   sync: (): Promise<SyncOutcome[]> => ipcRenderer.invoke(INDEX_SYNC_CHANNEL),
   rebuild: (): Promise<SyncOutcome[]> => ipcRenderer.invoke(INDEX_REBUILD_CHANNEL),
   open: (req: SystemOpenRequest): Promise<boolean> => ipcRenderer.invoke(SYSTEM_OPEN_CHANNEL, req),
+  eagle: {
+    libraries: (): Promise<EagleLibrariesSnapshot> => ipcRenderer.invoke(EAGLE_LIBRARIES_CHANNEL),
+    switch: (libraryPath: string): Promise<SyncOutcome> =>
+      ipcRenderer.invoke(EAGLE_SWITCH_CHANNEL, { libraryPath }),
+    syncAll: (): Promise<SyncAllSummary> => ipcRenderer.invoke(EAGLE_SYNC_ALL_CHANNEL),
+  },
   folders: {
     list: (): Promise<FolderTreeNode[]> => ipcRenderer.invoke(FOLDERS_LIST_CHANNEL),
     create: (req: CreateFolderRequest): Promise<FolderTreeNode[]> =>
