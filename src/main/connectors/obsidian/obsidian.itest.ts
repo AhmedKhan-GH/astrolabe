@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
@@ -285,6 +285,45 @@ describe('obsidian v2 — rename hint (identity hardening 1, spec §1)', () => {
     const meta = JSON.parse(inst.metaJson!) as { renameHint?: string; wikiLinks?: unknown }
     expect(meta.renameHint).toBe(expected)
     expect(meta).toHaveProperty('wikiLinks') // merged, not clobbered
+  })
+})
+
+describe('obsidian v2 — manifest-driven plural resolution (spec §A)', () => {
+  it('reads connectors.obsidian.vaultPaths from the manifest → two libraries', async () => {
+    // Two real vaults on disk; the manifest points a plural vaultPaths at both.
+    const vaultA = makeVault('Research', { 'r.md': 'Research note about #optics.\n' })
+    const vaultB = makeVault('Personal', { 'p.md': 'Personal note about #travel.\n' })
+
+    // A tmp workspace whose manifest carries the plural form; ASTROLABE_WORKSPACE
+    // points ensureWorkspace() at it (no injected vaultPaths → manifest is read).
+    const wsRoot = join(dir, 'ws')
+    const astroDir = join(wsRoot, '.astrolabe')
+    mkdirSync(astroDir, { recursive: true })
+    writeFileSync(
+      join(astroDir, 'manifest.json'),
+      JSON.stringify({
+        schemaVersion: 1,
+        workspaceId: randomUUID(),
+        createdAt: new Date().toISOString(),
+        // A trailing slash on one path proves normalize+dedupe on the manifest path too.
+        connectors: { obsidian: { vaultPaths: [`${vaultA}/`, vaultB] } },
+      }),
+    )
+
+    const savedEnv = process.env['ASTROLABE_WORKSPACE']
+    process.env['ASTROLABE_WORKSPACE'] = wsRoot
+    try {
+      // No options → the connector resolves vaults from the manifest at scan time.
+      const outcome = await syncConnector(handle.db, upsert, createObsidianConnector())
+      expect(outcome.status).toBe('ok')
+      expect(outcome.libraries.map((l) => l.stableKey).sort()).toEqual([vaultA, vaultB].sort())
+      expect(libraryRow(vaultA)?.displayName).toBe('Research')
+      expect(libraryRow(vaultB)?.displayName).toBe('Personal')
+      expect(handle.db.select().from(s.libraries).all()).toHaveLength(2)
+    } finally {
+      if (savedEnv === undefined) delete process.env['ASTROLABE_WORKSPACE']
+      else process.env['ASTROLABE_WORKSPACE'] = savedEnv
+    }
   })
 })
 

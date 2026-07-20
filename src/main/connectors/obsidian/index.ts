@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import { basename, join, relative, sep } from 'node:path'
 import { watch as chokidarWatch } from 'chokidar'
 import { moduleLogger } from '../../lib/logger'
-import { ensureWorkspace } from '../../lib/workspace'
+import { ensureWorkspace, resolveObsidianVaultPaths } from '../../lib/workspace'
 import type {
   Connector,
   ConnectorScan,
@@ -44,24 +44,23 @@ const log = moduleLogger('connector.obsidian')
 const BODY_LIMIT = 10_000
 /** Coalesce a burst of vault writes into one onChange (Obsidian saves rapidly). */
 const WATCH_DEBOUNCE_MS = 2000
-const LAUNCH_HINT = 'set connectors.obsidian.vaultPath in ~/Astrolabe/.astrolabe/manifest.json'
+const LAUNCH_HINT =
+  'set connectors.obsidian.vaultPath (or vaultPaths for multiple vaults) in ~/Astrolabe/.astrolabe/manifest.json'
 
 export interface ObsidianConnectorOptions {
   /**
-   * Override the vault paths (tests inject tmp vaults). When omitted the single
-   * `connectors.obsidian.vaultPath` is read from the workspace manifest at call
-   * time and wrapped into a one-element list, so a manifest edit takes effect
-   * without reconstruction. (The manifest's plural `vaults` form is orchestrator
-   * work; this connector already accepts a list here.)
+   * Override the vault paths (tests inject tmp vaults). When omitted the manifest's
+   * `connectors.obsidian` is resolved at call time (plural `vaultPaths` wins, else the
+   * singular `vaultPath` wrapped, else []; normalized + deduped — see
+   * resolveObsidianVaultPaths), so a manifest edit takes effect without reconstruction.
    */
   vaultPaths?: string[]
 }
 
-/** The configured vault path from the manifest, wrapped into a list; [] if unset/unreadable. */
+/** The configured vault paths from the manifest (plural-or-singular, normalized); [] if unset/unreadable. */
 function manifestVaultPaths(): string[] {
   try {
-    const vaultPath = ensureWorkspace().manifest.connectors?.obsidian?.vaultPath
-    return vaultPath ? [vaultPath] : []
+    return resolveObsidianVaultPaths(ensureWorkspace().manifest.connectors?.obsidian)
   } catch (err) {
     log.warn({ err }, 'could not read workspace manifest for obsidian vault paths')
     return []

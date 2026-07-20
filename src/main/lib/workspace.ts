@@ -17,12 +17,46 @@ const manifestSchema = z.object({
   /** Per-connector user config (no secrets — docs/03). Absent = connector defaults. */
   connectors: z
     .object({
-      obsidian: z.object({ vaultPath: z.string() }).partial().optional(),
+      // Obsidian: a single vault (`vaultPath`) OR N vaults (`vaultPaths`).
+      // Both optional; plural wins when present (see resolveObsidianVaultPaths).
+      obsidian: z
+        .object({ vaultPath: z.string(), vaultPaths: z.array(z.string()) })
+        .partial()
+        .optional(),
     })
     .partial()
     .optional(),
 })
 export type WorkspaceManifest = z.infer<typeof manifestSchema>
+
+/** The obsidian connector's manifest config shape (both vault-path forms optional). */
+export type ObsidianConfig = NonNullable<NonNullable<WorkspaceManifest['connectors']>['obsidian']>
+
+/** Strip trailing slashes (keeping a bare root `/`), so `x` and `x/` are one path. */
+function normalizeVaultPath(p: string): string {
+  const trimmed = p.replace(/\/+$/, '')
+  return trimmed === '' ? '/' : trimmed
+}
+
+/**
+ * Resolve the configured Obsidian vault paths (spec §A). Plural `vaultPaths`
+ * wins when present (even if empty); else the singular `vaultPath` wrapped into
+ * a one-element list; else []. Paths are normalized (trailing slashes stripped)
+ * and deduped, order-preserving — so `x` and `x/` collapse to one library.
+ */
+export function resolveObsidianVaultPaths(config: ObsidianConfig | undefined): string[] {
+  const raw = config?.vaultPaths ?? (config?.vaultPath !== undefined ? [config.vaultPath] : [])
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const p of raw) {
+    const n = normalizeVaultPath(p)
+    if (!seen.has(n)) {
+      seen.add(n)
+      out.push(n)
+    }
+  }
+  return out
+}
 
 export interface Workspace {
   root: string
