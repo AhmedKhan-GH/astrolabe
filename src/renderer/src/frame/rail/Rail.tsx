@@ -249,8 +249,11 @@ export default function Rail(): React.JSX.Element {
         )}
         {snapshot?.libraries.map((l) => {
           // A dormant Eagle library isn't open in Eagle right now — offer to
-          // switch Eagle to it and (re)sync (spec §B). A live one is already open.
-          const canSwitch = l.connector === 'eagle' && l.availability !== 'live'
+          // switch Eagle to it and (re)sync (spec §B). A live one is already open;
+          // a 'gone' one was seen before but is absent from Eagle's current
+          // history — switchLibrary would just fail, so no affordance (review
+          // finding: 'gone' rows must not offer the switch button).
+          const canSwitch = l.connector === 'eagle' && l.availability === 'dormant'
           return (
             <div key={l.id} className="flex items-center">
               <button

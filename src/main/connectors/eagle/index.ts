@@ -7,7 +7,7 @@ import type {
   ConnectorScanContext,
   LibraryScanResult,
 } from '../types'
-import { createEagleClient, type EagleClient } from './client'
+import { createEagleClient, normalizeLibraryPath, type EagleClient } from './client'
 import { flattenFolders, mapItems } from './mapping'
 
 /**
@@ -55,7 +55,11 @@ export function createEagleConnector(options: EagleConnectorOptions = {}): Conne
 
   async function scanLibrary(ctx: ConnectorScanContext): Promise<LibraryScanResult> {
     const library = await client.libraryInfo()
-    const stableKey = library.path
+    // Normalize with the SAME function the switcher/client use (spec §B) — Eagle's
+    // /library/info can report a trailing slash, which must collapse to the same
+    // stableKey as knownLibraries()/switchLibrary() or the rail shows a duplicate
+    // faint row for a library that's actually already indexed (review finding).
+    const stableKey = normalizeLibraryPath(library.path)
     const displayName = library.name?.trim() || basename(library.path)
     const previousCursor = ctx.cursors.get(stableKey) ?? null
 

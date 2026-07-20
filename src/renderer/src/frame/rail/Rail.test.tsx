@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import Rail from './Rail'
 import { installStub, renderInFrame, type Stub } from './test-utils'
@@ -138,6 +138,30 @@ describe('Rail', () => {
 
     fireEvent.click(screen.getByLabelText('Switch to Eagle Lib'))
     await waitFor(() => expect(stub.eagle.switch).toHaveBeenCalledWith('/eagle/lib'))
+  })
+
+  it('does not offer the switch affordance on a "gone" Eagle library row (review finding)', async () => {
+    stub = installStub({
+      libraries: vi.fn().mockResolvedValue({
+        connectors: [{ key: 'eagle', status: 'ok' }],
+        libraries: [
+          {
+            id: 9,
+            connector: 'eagle',
+            stableKey: '/eagle/ghost',
+            displayName: 'Ghost Lib',
+            availability: 'gone',
+            lastSeenAt: null,
+            lastScanAt: null,
+            documentCount: 3,
+          },
+        ],
+      }),
+    })
+    renderInFrame(<Rail />)
+    await screen.findByText('Ghost Lib')
+
+    expect(screen.queryByLabelText('Switch to Ghost Lib')).toBeNull()
   })
 
   it('shows known-but-unindexed Eagle libraries as faint rows with a first-scan switch', async () => {

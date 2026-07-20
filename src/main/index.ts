@@ -107,6 +107,24 @@ async function runEagleSync(): Promise<SyncOutcome> {
   return outcome
 }
 
+// Cross-guard (review finding): index:sync/index:rebuild (runSync) and the eagle
+// switch/sync-all handlers all drive the SAME shared eagle connector + client.
+// A regular sync landing mid-switch couldn't corrupt anything (each syncConnector
+// call is self-contained), but it COULD race the switcher's own poll/settle window
+// and observe Eagle half-switched, spuriously reading the connector as dormant for
+// a UI tick. Serializing the four handlers onto one promise chain closes that UX
+// gap; the switcher's inFlight guard (eagle-switch.ts) stays as defense in depth
+// for concurrent switch/sync-all requests specifically.
+let opChain: Promise<unknown> = Promise.resolve()
+const serialize = <T>(op: () => Promise<T>): Promise<T> => {
+  const next = opChain.then(op, op)
+  opChain = next.then(
+    () => undefined,
+    () => undefined,
+  )
+  return next
+}
+
 function wireIpc(): void {
   const eagleSwitcher = createEagleSwitcher({ client: eagleClient, runEagleSync })
   const dispatch = createDbDispatcher(handle.db)
@@ -117,19 +135,25 @@ function wireIpc(): void {
   ipcMain.handle(INDEX_STATS_CHANNEL, () => queries.indexStats())
   ipcMain.handle(INDEX_DOCUMENT_CHANNEL, (_e, raw: unknown) => queries.documentDetail(raw))
   ipcMain.handle(INDEX_TAGS_CHANNEL, () => queries.tagsList())
-  ipcMain.handle(INDEX_SYNC_CHANNEL, () => runSync())
-  ipcMain.handle(INDEX_REBUILD_CHANNEL, async () => {
-    upsert.wipeDerived()
-    return runSync()
-  })
+  // index:sync / index:rebuild share the eagle connector with the switch/sync-all
+  // handlers below — serialized (see `serialize` above) so a background sync can
+  // never land mid-switch.
+  ipcMain.handle(INDEX_SYNC_CHANNEL, () => serialize(() => runSync()))
+  ipcMain.handle(INDEX_REBUILD_CHANNEL, () =>
+    serialize(async () => {
+      upsert.wipeDerived()
+      return runSync()
+    }),
+  )
   // Eagle library switching (spec §B): explicit, user-driven gestures only —
-  // switching visibly changes Eagle's own window, so never automatic.
+  // switching visibly changes Eagle's own window, so never automatic. Serialized
+  // (see `serialize` above) against index:sync/index:rebuild for the same reason.
   ipcMain.handle(EAGLE_LIBRARIES_CHANNEL, () => eagleSwitcher.listLibraries())
   ipcMain.handle(EAGLE_SWITCH_CHANNEL, (_e, raw: unknown) => {
     const req = eagleSwitchRequestSchema.parse(raw)
-    return eagleSwitcher.switchAndSync(req.libraryPath)
+    return serialize(() => eagleSwitcher.switchAndSync(req.libraryPath))
   })
-  ipcMain.handle(EAGLE_SYNC_ALL_CHANNEL, () => eagleSwitcher.syncAllLibraries())
+  ipcMain.handle(EAGLE_SYNC_ALL_CHANNEL, () => serialize(() => eagleSwitcher.syncAllLibraries()))
   // Folders (spec §5): every mutate re-mirrors then returns the fresh tree, so
   // the renderer always holds one consistent snapshot.
   const mirrorAndTree = (): unknown => {

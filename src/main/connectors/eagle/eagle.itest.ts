@@ -258,6 +258,29 @@ describe('eagle sync — incremental watermark cursor', () => {
   })
 })
 
+describe('eagle sync — stableKey normalization (review finding)', () => {
+  it('a trailing-slash /library/info path still yields the normalized (slashless) stableKey', async () => {
+    const libraryPath = join(dir, 'Books.library')
+    writeItemFile(libraryPath, 'E1', 'griffiths', 'pdf', 'griffiths quantum content')
+    const items = [
+      { id: 'E1', name: 'griffiths', ext: 'pdf', tags: [], folders: [], isDeleted: false, modificationTime: 1000 },
+    ]
+    // Eagle reports the SAME library with a trailing slash — client.knownLibraries()
+    // and switchLibrary() both normalize (client.ts normalizeLibraryPath), so the
+    // scan's stableKey must match or the rail sees two rows for one library.
+    const conn = createEagleConnector({
+      client: fakeClient({ path: `${libraryPath}/`, name: 'Books', folders: [], items }),
+    })
+
+    const outcome = await syncConnector(handle.db, upsert, conn)
+
+    expect(outcome.libraries[0]?.stableKey).toBe(libraryPath) // normalized, no trailing slash
+    const snap = queries.librariesSnapshot()
+    expect(snap.libraries.find((l) => l.stableKey === libraryPath)).toBeDefined()
+    expect(snap.libraries).toHaveLength(1) // not split into two rows
+  })
+})
+
 describe('eagle sync — THE LIBRARY SWITCH (v2 semantic, spec §2)', () => {
   it('switching Eagle to another library marks the first DORMANT and deletes NOTHING from it', async () => {
     const libA = join(dir, 'Books.library')
