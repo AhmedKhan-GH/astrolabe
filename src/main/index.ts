@@ -260,7 +260,9 @@ void app.whenReady().then(() => {
   wireIpc()
   createWindow()
 
-  runSync()
+  // Serialized like every other index op: the renderer loads concurrently and a
+  // first-click Eagle switch may otherwise race the boot scan (re-review d7a4cfe).
+  serialize(() => runSync())
     .then((outcomes) => log.info({ outcomes }, 'boot sync complete'))
     .catch((err: unknown) => log.warn({ err }, 'boot sync failed'))
 
