@@ -36,9 +36,10 @@ import { parseNote } from './parser'
  * deletes nothing. The connector reports available while ANY vault is reachable.
  *
  * The note BODY rides the existing annotation → FTS body pipeline (quarried from
- * v1): each note contributes ONE synthetic annotation ({externalKey: '<relpath>#body'})
- * so refreshFtsRow folds note content into search — the same mechanism the Zotero
- * connector uses for annotation text. A first-class extractedText column is later work.
+ * v1): each note contributes ONE synthetic `<relpath>#body` row so refreshFtsRow
+ * folds note content into search. It is hidden from user-facing annotation queries.
+ * Each contiguous Markdown blockquote is additionally emitted as a real highlight
+ * annotation for the detail sidebar. A first-class extractedText column is later work.
  *
  * Incremental: a per-vault max-mtime watermark cursor; files with mtime ≤ cursor are
  * skipped. The full relpath set (allExternalKeys, the removal-sweep ground truth) is
@@ -50,6 +51,8 @@ const log = moduleLogger('connector.obsidian')
 
 /** Note body cap fed to FTS (a first-class extractedText column is later work). */
 const BODY_LIMIT = 10_000
+/** Bump when extraction semantics change so deployed vaults rescan once. */
+const CURSOR_VERSION = 'blockquote-v1'
 /** Coalesce a burst of vault writes into one onChange (Obsidian saves rapidly). */
 const WATCH_DEBOUNCE_MS = 2000
 const LAUNCH_HINT =
@@ -126,6 +129,17 @@ function buildDocument(args: {
   // metaJson.renameHint so sync can read the OLD hint of an existing instance,
   // and emitted top-level so sync sees the INCOMING hint of a scanned note.
   const renameHint = createHash('sha256').update(raw).digest('hex')
+  const annotations = [
+    ...(body.length > 0
+      ? [{ externalKey: `${relPath}#body`, type: 'note', text: body, modifiedAt: mtime }]
+      : []),
+    ...parsed.blockquotes.map((text, index) => ({
+      externalKey: `${relPath}#blockquote:${index}`,
+      type: 'highlight',
+      text,
+      modifiedAt: mtime,
+    })),
+  ]
 
   return {
     externalKey: relPath,
@@ -147,16 +161,25 @@ function buildDocument(args: {
     // present (possibly empty) so upsert replaces this instance's link rows wholesale;
     // resolveLinks joins the targets to documents in a post-sync re-pass.
     links: parsed.wikiLinks,
-    // The note body rides the annotation → FTS body pipeline (see module doc).
-    annotations:
-      body.length > 0 ? [{ externalKey: `${relPath}#body`, type: 'note', text: body, modifiedAt: mtime }] : undefined,
+    // Obsidian owns the complete generated set for this note. Replacing it is
+    // required when blockquotes are removed or reordered.
+    replaceAnnotations: true,
+    annotations,
   }
+}
+
+function decodeCursor(cursor: string | null): number | null {
+  const match = cursor?.match(new RegExp(`^${CURSOR_VERSION}:(\\d+)$`))
+  if (!match?.[1]) return null
+  const value = Number(match[1])
+  return Number.isFinite(value) ? value : null
 }
 
 /** Scan one existing vault into its LibraryScanResult (watermark + full key set). */
 function scanVault(vaultPath: string, previousCursor: string | null): LibraryScanResult {
-  const cursorNum =
-    previousCursor != null && Number.isFinite(Number(previousCursor)) ? Number(previousCursor) : null
+  // An unversioned numeric cursor predates blockquote extraction. Treat it as
+  // absent so every existing note is reprocessed once after this upgrade.
+  const cursorNum = decodeCursor(previousCursor)
 
   let maxMtime = cursorNum ?? 0
   const files = walkVault(vaultPath)
@@ -178,7 +201,7 @@ function scanVault(vaultPath: string, previousCursor: string | null): LibrarySca
 
   // Nothing changed past the watermark → unchanged:true (sync skips upserts but still
   // runs the sweep against allExternalKeys, so a deletion is still observed).
-  const cursor = files.length > 0 ? String(maxMtime) : previousCursor
+  const cursor = `${CURSOR_VERSION}:${maxMtime}`
   log.info(
     { vaultPath, files: files.length, changed: documents.length, cursor },
     'obsidian vault scan complete',

@@ -165,6 +165,54 @@ describe('upsertDocument — library-scoped identity', () => {
     expect(anns[0]?.text).toContain('hyperplanes')
   })
 
+  it('can replace a connector-owned annotation set without leaving stale rows', () => {
+    const o = lib('obsidian', '/vault')
+    const first = upsert.upsertDocument(
+      doc(o.id, {
+        externalKey: 'note.md',
+        uri: 'obsidian://open?path=/vault/note.md',
+        kind: 'note',
+        contentSha256: null,
+        annotations: [
+          { externalKey: 'note.md#body', type: 'note', text: 'body', modifiedAt: 1000 },
+          { externalKey: 'note.md#blockquote:0', type: 'highlight', text: 'first', modifiedAt: 1000 },
+          { externalKey: 'note.md#blockquote:1', type: 'highlight', text: 'stale', modifiedAt: 1000 },
+        ],
+      }),
+    )
+
+    upsert.upsertDocument(
+      doc(o.id, {
+        externalKey: 'note.md',
+        uri: 'obsidian://open?path=/vault/note.md',
+        kind: 'note',
+        contentSha256: null,
+        replaceAnnotations: true,
+        annotations: [
+          { externalKey: 'note.md#body', type: 'note', text: 'new body', modifiedAt: 2000 },
+          {
+            externalKey: 'note.md#blockquote:0',
+            type: 'highlight',
+            text: 'replacement',
+            modifiedAt: 2000,
+          },
+        ],
+      }),
+    )
+
+    expect(
+      handle.db
+        .select({ externalKey: s.annotations.externalKey, text: s.annotations.text })
+        .from(s.annotations)
+        .where(eq(s.annotations.instanceId, first.instanceId))
+        .orderBy(s.annotations.id)
+        .all(),
+    ).toEqual([
+      { externalKey: 'note.md#body', text: 'new body' },
+      { externalKey: 'note.md#blockquote:0', text: 'replacement' },
+    ])
+  })
+
   it('collections are per-library, parents resolve regardless of order, idempotent', () => {
     const e = lib('eagle', '/lib')
     const tree = [

@@ -42,6 +42,10 @@ export interface DocumentInput {
   /** Collection externalKeys (collections themselves upserted via upsertCollections). */
   collectionKeys?: string[]
   annotations?: AnnotationInput[]
+  /** Present and true when this scan owns the instance's complete annotation
+   *  set. Existing rows are deleted before the supplied set is inserted, so
+   *  source-side removals cannot leave stale derived annotations behind. */
+  replaceAnnotations?: boolean
   /** Wiki-link targets (obsidian, M2). Present (possibly empty) → the instance's
    *  link rows are replaced wholesale; absent → links are left untouched
    *  (non-note sources). Raw target names; resolveLinks joins them post-sync. */
@@ -224,6 +228,9 @@ export function createUpsertApi(db: Db) {
         }
       }
 
+      if (input.replaceAnnotations) {
+        db.delete(s.annotations).where(eq(s.annotations.instanceId, instanceId)).run()
+      }
       if (input.annotations) {
         for (const a of input.annotations) {
           db.insert(s.annotations)

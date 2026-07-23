@@ -104,6 +104,32 @@ describe('parseNote — nested note (string-form tags, alias-as-title)', () => {
   })
 })
 
+describe('parseNote — blockquote annotations', () => {
+  it('groups contiguous quote lines, strips markers, and ignores fenced code', () => {
+    const note = parseNote([
+      'Before the quotes.',
+      '> First annotation, first line.',
+      '> continued on the next line.',
+      '>',
+      '> A second paragraph in the same annotation.',
+      '',
+      'Ordinary prose separates annotations.',
+      '> Second annotation.',
+      '',
+      '```md',
+      '> This is code, not an annotation.',
+      '```',
+      '   > Up to three leading spaces are valid Markdown.',
+    ].join('\n'))
+
+    expect(note.blockquotes).toEqual([
+      'First annotation, first line.\ncontinued on the next line.\n\nA second paragraph in the same annotation.',
+      'Second annotation.',
+      'Up to three leading spaces are valid Markdown.',
+    ])
+  })
+})
+
 describe('parseNote — degenerate input', () => {
   it('handles an empty string without throwing', () => {
     const note = parseNote('')
@@ -112,6 +138,7 @@ describe('parseNote — degenerate input', () => {
     expect(note.wikiLinks).toEqual([])
     expect(note.aliases).toEqual([])
     expect(note.frontmatterKeys).toEqual([])
+    expect(note.blockquotes).toEqual([])
   })
 
   it('strips a leading "#" from frontmatter tags', () => {

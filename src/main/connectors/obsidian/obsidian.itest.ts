@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { createHash, randomUUID } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -221,6 +221,83 @@ describe('obsidian v2 — core note behaviours (single vault, quarried from v1)'
     expect(byBody[0]?.title).toBe('Quantum Field Theory Notes')
   })
 
+  it('exposes blockquote blocks as annotations while retaining the body only for FTS', async () => {
+    const filePath = join(vaultPath, 'quoted.md')
+    writeFileSync(
+      filePath,
+      [
+        'Unique searchable prelude.',
+        '> First quoted annotation.',
+        '> It wraps onto another source line.',
+        '',
+        'Commentary between quotes.',
+        '> Second quoted annotation.',
+      ].join('\n'),
+    )
+
+    const conn = createObsidianConnector({ vaultPaths: [vaultPath] })
+    await syncConnector(handle.db, upsert, conn)
+
+    const hit = queries.search({ q: 'unique searchable prelude' })
+    expect(hit).toHaveLength(1)
+    const detail = queries.documentDetail({ documentId: hit[0]!.documentId })
+    expect(detail?.annotations).toEqual({
+      total: 2,
+      preview: [
+        {
+          text: 'First quoted annotation.\nIt wraps onto another source line.',
+          comment: null,
+          pageLabel: null,
+        },
+        { text: 'Second quoted annotation.', comment: null, pageLabel: null },
+      ],
+    })
+
+    const instance = handle.db
+      .select()
+      .from(s.documentInstances)
+      .where(eq(s.documentInstances.externalKey, 'quoted.md'))
+      .get()!
+    expect(
+      handle.db
+        .select({ externalKey: s.annotations.externalKey, type: s.annotations.type })
+        .from(s.annotations)
+        .where(eq(s.annotations.instanceId, instance.id))
+        .orderBy(s.annotations.id)
+        .all(),
+    ).toEqual([
+      { externalKey: 'quoted.md#body', type: 'note' },
+      { externalKey: 'quoted.md#blockquote:0', type: 'highlight' },
+      { externalKey: 'quoted.md#blockquote:1', type: 'highlight' },
+    ])
+
+    // A changed note owns this generated set wholesale: removing a quote must
+    // remove its old row rather than leave a stale sidebar annotation behind.
+    writeFileSync(filePath, 'Unique searchable prelude.\n> Replacement annotation.\n')
+    const future = new Date(Date.now() + 2000)
+    utimesSync(filePath, future, future)
+    await syncConnector(handle.db, upsert, conn)
+
+    const updated = queries.documentDetail({ documentId: hit[0]!.documentId })
+    expect(updated?.annotations).toEqual({
+      total: 1,
+      preview: [{ text: 'Replacement annotation.', comment: null, pageLabel: null }],
+    })
+    expect(queries.search({ q: 'second quoted annotation' })).toHaveLength(0)
+    expect(queries.search({ q: 'replacement annotation' })).toHaveLength(1)
+    expect(
+      handle.db
+        .select({ externalKey: s.annotations.externalKey })
+        .from(s.annotations)
+        .where(eq(s.annotations.instanceId, instance.id))
+        .orderBy(s.annotations.id)
+        .all(),
+    ).toEqual([
+      { externalKey: 'quoted.md#body' },
+      { externalKey: 'quoted.md#blockquote:0' },
+    ])
+  })
+
   it('emits a link row per wiki-link target, deduped, alias/heading stripped', async () => {
     await syncConnector(handle.db, upsert, createObsidianConnector({ vaultPaths: [vaultPath] }))
 
@@ -255,6 +332,27 @@ describe('obsidian v2 — core note behaviours (single vault, quarried from v1)'
     expect(lib?.unchanged).toBe(true)
     expect(lib?.documentsUpserted).toBe(0)
     expect(lib?.removed).toBe(0) // no deletions → nothing swept
+  })
+
+  it('rescans once when a legacy numeric cursor lacks the blockquote extraction version', async () => {
+    const conn = createObsidianConnector({ vaultPaths: [vaultPath] })
+    await syncConnector(handle.db, upsert, conn)
+
+    const current = libraryRow(vaultPath)!.syncCursor!
+    const legacyNumeric = current.split(':').at(-1)!
+    handle.db
+      .update(s.libraries)
+      .set({ syncCursor: legacyNumeric })
+      .where(eq(s.libraries.stableKey, vaultPath))
+      .run()
+
+    const upgraded = await syncConnector(handle.db, upsert, conn)
+    expect(upgraded.libraries[0]?.documentsUpserted).toBe(5)
+    expect(libraryRow(vaultPath)?.syncCursor).toMatch(/^blockquote-v1:\d+$/)
+
+    const settled = await syncConnector(handle.db, upsert, conn)
+    expect(settled.libraries[0]?.documentsUpserted).toBe(0)
+    expect(settled.libraries[0]?.unchanged).toBe(true)
   })
 })
 

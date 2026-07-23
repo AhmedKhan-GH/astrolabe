@@ -15,6 +15,9 @@ import matter from 'gray-matter'
  *  - [[wiki-links]]: the target is the text before the first '|' (alias) or '#'
  *    (heading/block-ref); embeds `![[…]]` count. Deduped, order preserved. Stored for
  *    the Phase-2 backlink edges.
+ *  - Blockquotes: each contiguous run of Markdown `>` lines is one annotation.
+ *    The quote marker is removed, quote-prefixed blank lines preserve paragraphs,
+ *    and fenced code blocks are excluded.
  */
 
 export interface ParsedNote {
@@ -26,6 +29,8 @@ export interface ParsedNote {
   aliases: string[]
   /** Wiki-link targets (for future backlink edges), deduped, order preserved. */
   wikiLinks: string[]
+  /** Contiguous Markdown blockquotes, marker-stripped, in source order. */
+  blockquotes: string[]
   /** The keys present in the frontmatter block (for metaJson). */
   frontmatterKeys: string[]
   /** Markdown body with the frontmatter block removed. */
@@ -88,6 +93,48 @@ function extractWikiLinks(strippedBody: string): string[] {
   return out
 }
 
+/** Markdown blockquotes outside fenced code, grouped by contiguous `>` lines. */
+function extractBlockquotes(body: string): string[] {
+  const out: string[] = []
+  let current: string[] | null = null
+  let fence: { marker: '`' | '~'; length: number } | null = null
+
+  const flush = (): void => {
+    if (current === null) return
+    const text = current.join('\n').trim()
+    if (text.length > 0) out.push(text)
+    current = null
+  }
+
+  for (const line of body.split(/\r?\n/)) {
+    if (fence !== null) {
+      const close = line.match(/^ {0,3}(`{3,}|~{3,})\s*$/)
+      if (close?.[1]?.[0] === fence.marker && close[1].length >= fence.length) fence = null
+      continue
+    }
+
+    const open = line.match(/^ {0,3}(`{3,}|~{3,})/)
+    if (open?.[1]) {
+      flush()
+      fence = {
+        marker: open[1][0] as '`' | '~',
+        length: open[1].length,
+      }
+      continue
+    }
+
+    const quote = line.match(/^ {0,3}>\s?(.*)$/)
+    if (quote) {
+      current ??= []
+      current.push(quote[1] ?? '')
+    } else {
+      flush()
+    }
+  }
+  flush()
+  return out
+}
+
 /** De-dupe preserving first-seen order. */
 function dedupe(values: string[]): string[] {
   return [...new Set(values)]
@@ -105,6 +152,7 @@ export function parseNote(raw: string): ParsedNote {
   const stripped = stripCode(body)
   const inlineTags = extractInlineTags(stripped)
   const wikiLinks = dedupe(extractWikiLinks(stripped))
+  const blockquotes = extractBlockquotes(body)
 
   const rawTitle = data['title']
   const title = typeof rawTitle === 'string' && rawTitle.trim().length > 0 ? rawTitle.trim() : (aliases[0] ?? null)
@@ -114,6 +162,7 @@ export function parseNote(raw: string): ParsedNote {
     tags: dedupe([...fmTags, ...inlineTags]),
     aliases,
     wikiLinks,
+    blockquotes,
     frontmatterKeys,
     body: body.trim(),
   }
