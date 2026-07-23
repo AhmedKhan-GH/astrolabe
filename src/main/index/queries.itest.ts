@@ -167,10 +167,25 @@ describe('librariesSnapshot + stats', () => {
     const z = lib('zotero', '1')
     put(z.id, { externalKey: 'A', contentSha256: 'h-a' })
     put(z.id, { externalKey: 'B', contentSha256: 'h-b', annotations: undefined })
+    const vault = lib('obsidian', '/vault')
+    put(vault.id, {
+      externalKey: 'note.md',
+      contentSha256: null,
+      kind: 'note',
+      annotations: [
+        {
+          externalKey: 'note.md#body',
+          type: 'note',
+          text: 'The searchable note body is indexing substrate, not an annotation.',
+          modifiedAt: 1000,
+        },
+      ],
+    })
     reconcileRemovals(handle.db, z.id, ['A'])
     const stats = queries.indexStats()
-    expect(stats.documents).toBe(2)
+    expect(stats.documents).toBe(3)
     expect(stats.ghosts).toBe(1)
+    // The real Zotero highlight counts; the synthetic Obsidian body does not.
     expect(stats.annotations).toBe(1)
   })
 })
@@ -315,6 +330,40 @@ describe('documentDetail — the document hub payload (frame spec §4)', () => {
 
   it('returns null for an unknown document id', () => {
     expect(queries.documentDetail({ documentId: 999_999 })).toBeNull()
+  })
+
+  it('keeps the synthetic Obsidian body searchable but out of annotation detail', () => {
+    const vault = lib('obsidian', '/vault')
+    const { documentId } = put(vault.id, {
+      externalKey: 'subject.md',
+      uri: 'obsidian://open?file=subject.md',
+      title: 'Subject',
+      kind: 'note',
+      contentSha256: null,
+      annotations: [
+        {
+          externalKey: 'subject.md#body',
+          type: 'note',
+          text: 'The complete searchable markdown body.',
+          modifiedAt: 1000,
+        },
+        {
+          // A legitimate annotation can also have type "note"; key identity,
+          // not the broad type, distinguishes the connector's body substrate.
+          externalKey: 'MANUAL-NOTE',
+          type: 'note',
+          text: 'A real note annotation.',
+          modifiedAt: 1001,
+        },
+      ],
+    })
+
+    expect(queries.search({ q: 'complete searchable markdown' })).toHaveLength(1)
+    const detail = queries.documentDetail({ documentId })
+    expect(detail?.annotations.total).toBe(1)
+    expect(detail?.annotations.preview).toEqual([
+      { text: 'A real note annotation.', comment: null, pageLabel: null },
+    ])
   })
 
   it('a ghost document still returns detail, with zero instances', () => {

@@ -1,4 +1,4 @@
-import { eq, sql, type SQL } from 'drizzle-orm'
+import { and, eq, sql, type SQL } from 'drizzle-orm'
 import { z } from 'zod'
 import type { Db } from '../db'
 import * as s from '../db/schema'
@@ -145,6 +145,23 @@ const inList = (values: (string | number)[]): SQL =>
 /** "At least one instance exists for the aliased `documents d`" — the anchored
  *  predicate whose absence defines a ghost. */
 const anchored = sql`EXISTS (SELECT 1 FROM document_instances di WHERE di.document_id = d.id)`
+
+/**
+ * Obsidian note bodies currently ride the annotation table solely as FTS
+ * substrate (`<instance external key>#body`). They remain searchable, but are
+ * not user annotations and must not leak into annotation counts or previews.
+ * Match the connector + exact generated key rather than `type = 'note'`,
+ * because Zotero can carry legitimate note annotations.
+ */
+const userFacingAnnotation = sql`NOT EXISTS (
+  SELECT 1
+  FROM document_instances body_di
+  JOIN libraries body_l ON body_l.id = body_di.library_id
+  JOIN connectors body_c ON body_c.id = body_l.connector_id
+  WHERE body_di.id = annotations.instance_id
+    AND body_c.key = 'obsidian'
+    AND annotations.external_key = body_di.external_key || '#body'
+)`
 
 /** Page-targetable open-pdf URI from an instance's metaJson, or null. The
  *  connector owns URI construction (it knows personal vs group library) and
@@ -347,7 +364,12 @@ export function createIndexQueries(db: Db) {
    *  subset — the badge beside the D3 toggle. */
   function indexStats(): IndexStats {
     const documents = db.select({ c: sql<number>`count(*)` }).from(s.documents).get()?.c ?? 0
-    const annotations = db.select({ c: sql<number>`count(*)` }).from(s.annotations).get()?.c ?? 0
+    const annotations =
+      db
+        .select({ c: sql<number>`count(*)` })
+        .from(s.annotations)
+        .where(userFacingAnnotation)
+        .get()?.c ?? 0
     const ghosts =
       db.get<{ c: number }>(
         sql`SELECT count(*) AS c FROM documents d WHERE NOT ${anchored}`,
@@ -435,7 +457,7 @@ export function createIndexQueries(db: Db) {
         .select({ c: sql<number>`count(*)` })
         .from(s.annotations)
         .innerJoin(s.documentInstances, eq(s.annotations.instanceId, s.documentInstances.id))
-        .where(eq(s.documentInstances.documentId, documentId))
+        .where(and(eq(s.documentInstances.documentId, documentId), userFacingAnnotation))
         .get()?.c ?? 0
     const preview = db
       .select({
@@ -445,7 +467,7 @@ export function createIndexQueries(db: Db) {
       })
       .from(s.annotations)
       .innerJoin(s.documentInstances, eq(s.annotations.instanceId, s.documentInstances.id))
-      .where(eq(s.documentInstances.documentId, documentId))
+      .where(and(eq(s.documentInstances.documentId, documentId), userFacingAnnotation))
       .orderBy(s.annotations.id)
       .limit(5)
       .all()
