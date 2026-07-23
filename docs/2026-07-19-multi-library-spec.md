@@ -3,12 +3,13 @@
 Status: ACTIVE — governs the multi-library build.
 Date: 2026-07-19
 
-Closes "Astrolabe sees everything I have": N Obsidian vaults via config, and
-Eagle's other libraries via commanded switching (API verified live
+Closes "Astrolabe sees everything I have": N Obsidian vaults via
+registered-vault discovery plus explicit config, and Eagle's other libraries
+via commanded switching (API verified live
 2026-07-19: `GET /api/library/history` enumerates known libraries;
 `POST /api/library/switch {libraryPath}` works).
 
-## A. Obsidian multi-vault (config gap only — engine already multi-vault)
+## A. Obsidian multi-vault
 
 - `workspace.ts` manifest schema: `connectors.obsidian` gains
   `vaultPaths: string[]` (optional) beside the existing singular
@@ -21,6 +22,22 @@ Eagle's other libraries via commanded switching (API verified live
   normalization dedupes `x` vs `x/`; connector itest already covers
   multi-vault scan via injected paths — add one for manifest-driven plural
   resolution (tmp workspace via ASTROLABE_WORKSPACE env).
+
+### Registered-vault discovery amendment (2026-07-23)
+
+- Default production behavior reads Obsidian's desktop `obsidian.json` registry
+  at its platform-native application-config path and scans every registered,
+  reachable vault simultaneously. This is Obsidian's equivalent of Eagle
+  `/library/history`; unlike Eagle, no switching is needed because vaults are
+  ordinary directories.
+- Explicit `vaultPath` / `vaultPaths` entries remain additive fallbacks. Merge
+  explicit-first, normalize, and dedupe. A missing or malformed registry never
+  degrades explicitly configured vaults.
+- `connectors.obsidian.discoverVaults: false` disables registry discovery for a
+  deliberately curated vault set.
+- Injected `createObsidianConnector({ vaultPaths })` remains hermetic by default
+  so tests never read a developer's real registry; tests opt into discovery and
+  inject a temporary registry path.
 
 ## B. Eagle library switching (the rail becomes Eagle's control surface)
 
@@ -79,5 +96,5 @@ break restore-on-failure (skip finally) → the sync-all failure test fails.
 - No automatic/background switching, no scheduling.
 - No Eagle multi-library simultaneous reads (Eagle's API ceiling — one open
   library; dormant records + on-disk files already bridge it).
-- No vault auto-discovery UI (manifest edit is the v1 path; a discovery
-  gesture can come with a settings surface later).
+- No vault-selection UI yet. Discovery is automatic; a future settings surface
+  can expose inclusion/exclusion without requiring a manifest edit.

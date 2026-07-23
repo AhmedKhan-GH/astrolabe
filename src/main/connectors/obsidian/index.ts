@@ -3,7 +3,11 @@ import { createHash } from 'node:crypto'
 import { basename, join, relative, sep } from 'node:path'
 import { watch as chokidarWatch } from 'chokidar'
 import { moduleLogger } from '../../lib/logger'
-import { ensureWorkspace, resolveObsidianVaultPaths } from '../../lib/workspace'
+import {
+  ensureWorkspace,
+  resolveObsidianVaultPaths,
+  type ObsidianConfig,
+} from '../../lib/workspace'
 import type {
   Connector,
   ConnectorScan,
@@ -11,10 +15,14 @@ import type {
   LibraryDocumentInput,
   LibraryScanResult,
 } from '../types'
+import {
+  defaultObsidianRegistryPath,
+  discoverObsidianVaultPaths,
+} from './discovery'
 import { parseNote } from './parser'
 
 /**
- * The Obsidian connector v2 (spine spec v2 §1–2): each configured vault is its
+ * The Obsidian connector v2 (spine spec v2 §1–2): each discovered/configured vault is its
  * own LIBRARY (stableKey = the vault's absolute path), and one scan returns one
  * LibraryScanResult per vault that currently exists on disk. Notes are
  * file-identity, not content-identity — the same words in two files, or the same
@@ -23,7 +31,7 @@ import { parseNote } from './parser'
  * anchored in spec §1: mutable notes' identity is (library, relpath)). Iron rules
  * hold: imports no other connector; a missing vault dims only itself.
  *
- * Presence (spec §2, enforced by index/sync.ts): a configured vault whose dir has
+ * Presence (spec §2, enforced by index/sync.ts): a resolved vault whose dir has
  * vanished is simply OMITTED from the scan — sync marks its library dormant and
  * deletes nothing. The connector reports available while ANY vault is reachable.
  *
@@ -45,24 +53,37 @@ const BODY_LIMIT = 10_000
 /** Coalesce a burst of vault writes into one onChange (Obsidian saves rapidly). */
 const WATCH_DEBOUNCE_MS = 2000
 const LAUNCH_HINT =
-  'set connectors.obsidian.vaultPath (or vaultPaths for multiple vaults) in ~/Astrolabe/.astrolabe/manifest.json'
+  'open a vault in Obsidian, or configure connectors.obsidian.vaultPath/vaultPaths in ~/Astrolabe/.astrolabe/manifest.json'
 
 export interface ObsidianConnectorOptions {
   /**
-   * Override the vault paths (tests inject tmp vaults). When omitted the manifest's
-   * `connectors.obsidian` is resolved at call time (plural `vaultPaths` wins, else the
-   * singular `vaultPath` wrapped, else []; normalized + deduped — see
-   * resolveObsidianVaultPaths), so a manifest edit takes effect without reconstruction.
+   * Override the explicit vault paths (tests inject tmp vaults). An override is
+   * isolated from the machine registry unless discoverVaults is explicitly true.
    */
   vaultPaths?: string[]
+  /** Force registered-vault discovery on/off. Production defaults to manifest
+   * `discoverVaults` or true; injected vaultPaths default false for test isolation. */
+  discoverVaults?: boolean
+  /** Inject Obsidian's registry location for tests; defaults platform-natively. */
+  registryPath?: string
 }
 
-/** The configured vault paths from the manifest (plural-or-singular, normalized); [] if unset/unreadable. */
-function manifestVaultPaths(): string[] {
+/** Manifest config is resolved at call time, so edits take effect without reconstruction. */
+function manifestObsidianConfig(): ObsidianConfig | undefined {
   try {
-    return resolveObsidianVaultPaths(ensureWorkspace().manifest.connectors?.obsidian)
+    return ensureWorkspace().manifest.connectors?.obsidian
   } catch (err) {
-    log.warn({ err }, 'could not read workspace manifest for obsidian vault paths')
+    log.warn({ err }, 'could not read workspace manifest for obsidian config')
+    return undefined
+  }
+}
+
+/** Discovery failure is non-fatal: explicit paths remain usable and the anomaly is logged. */
+function registeredVaultPaths(registryPath: string): string[] {
+  try {
+    return discoverObsidianVaultPaths(registryPath)
+  } catch (err) {
+    log.warn({ err, registryPath }, 'could not read Obsidian registered vaults')
     return []
   }
 }
@@ -174,21 +195,42 @@ function scanVault(vaultPath: string, previousCursor: string | null): LibrarySca
 }
 
 export function createObsidianConnector(options: ObsidianConnectorOptions = {}): Connector {
-  // `undefined` means "not overridden → read the manifest"; an explicit list wins.
-  const resolveVaults = (): string[] =>
-    options.vaultPaths !== undefined ? options.vaultPaths : manifestVaultPaths()
+  const registryPath = options.registryPath ?? defaultObsidianRegistryPath()
+
+  /**
+   * Production: explicit manifest paths + every registered Obsidian vault.
+   * Tests: injected paths remain hermetic unless discovery is explicitly enabled.
+   * The final resolver normalizes + dedupes across both sources.
+   */
+  const resolveVaults = (): string[] => {
+    if (options.vaultPaths !== undefined) {
+      const explicit = resolveObsidianVaultPaths({ vaultPaths: options.vaultPaths })
+      if (options.discoverVaults !== true) return explicit
+      return resolveObsidianVaultPaths({
+        vaultPaths: [...explicit, ...registeredVaultPaths(registryPath)],
+      })
+    }
+
+    const config = manifestObsidianConfig()
+    const explicit = resolveObsidianVaultPaths(config)
+    const discover = options.discoverVaults ?? config?.discoverVaults ?? true
+    if (!discover) return explicit
+    return resolveObsidianVaultPaths({
+      vaultPaths: [...explicit, ...registeredVaultPaths(registryPath)],
+    })
+  }
 
   const existingVaults = (): string[] =>
     resolveVaults().filter((p) => existsSync(p) && statSync(p).isDirectory())
 
   async function checkAvailable(): Promise<{ available: boolean; launchHint?: string }> {
-    // Available while ANY configured vault is reachable; individual missing vaults
+    // Available while ANY resolved vault is reachable; individual missing vaults
     // are handled per-library by scan (omitted → sync marks that one dormant).
     return existingVaults().length > 0 ? { available: true } : { available: false, launchHint: LAUNCH_HINT }
   }
 
   async function scan(ctx: ConnectorScanContext): Promise<ConnectorScan> {
-    // A configured-but-missing vault dir is simply omitted — sync marks its library
+    // A resolved-but-missing vault dir is simply omitted — sync marks its library
     // dormant and deletes nothing (spec §2). Only existing vaults are scanned.
     const libraries = existingVaults().map((vaultPath) =>
       scanVault(vaultPath, ctx.cursors.get(vaultPath) ?? null),
@@ -236,8 +278,8 @@ export function createObsidianConnector(options: ObsidianConnectorOptions = {}):
     }
   }
 
-  /** The permission probe surface: the first configured vault path (existing or not),
-   *  or null when none is configured. iCloud-Drive vaults are TCC-blocked. */
+  /** The permission probe surface: the first resolved vault path (explicit paths
+   *  precede discovered ones), or null when none exists. iCloud vaults are TCC-blocked. */
   async function accessProbePath(): Promise<string | null> {
     return resolveVaults()[0] ?? null
   }

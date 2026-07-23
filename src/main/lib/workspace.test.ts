@@ -8,10 +8,10 @@ import { ensureWorkspace, resolveObsidianVaultPaths } from './workspace'
 /**
  * Tier A unit (spec §A): the Obsidian vault-path resolution/normalization rules
  * branch (plural-wins → singular-wrapped → []) and transform (strip trailing
- * slashes + dedupe), so they get a failing-first test. Plus a manifest-parse
- * check that the schema accepts singular-only / plural-only / both — driven
- * through ensureWorkspace against a tmp workspace (ASTROLABE_WORKSPACE), which
- * uses only node fs (no native modules), so it lives in the unit tier.
+ * slashes + dedupe), so they get a failing-first test. Plus manifest-parse
+ * checks for path forms and the discovery opt-out, driven through
+ * ensureWorkspace against a tmp workspace (ASTROLABE_WORKSPACE). This uses only
+ * node fs (no native modules), so it lives in the unit tier.
  */
 
 describe('resolveObsidianVaultPaths — resolution rules', () => {
@@ -54,7 +54,7 @@ describe('resolveObsidianVaultPaths — normalization', () => {
   })
 })
 
-describe('ensureWorkspace — manifest schema accepts singular / plural / both', () => {
+describe('ensureWorkspace — manifest schema accepts Obsidian path and discovery config', () => {
   let root: string
   let savedEnv: string | undefined
 
@@ -99,5 +99,12 @@ describe('ensureWorkspace — manifest schema accepts singular / plural / both',
     writeManifest({ vaultPath: '/vaults/Singular', vaultPaths: ['/vaults/One', '/vaults/Two'] })
     const m = ensureWorkspace().manifest
     expect(resolveObsidianVaultPaths(m.connectors?.obsidian)).toEqual(['/vaults/One', '/vaults/Two'])
+  })
+
+  it('accepts the registered-vault discovery opt-out without changing explicit paths', () => {
+    writeManifest({ vaultPaths: ['/vaults/One'], discoverVaults: false })
+    const config = ensureWorkspace().manifest.connectors?.obsidian
+    expect(config?.discoverVaults).toBe(false)
+    expect(resolveObsidianVaultPaths(config)).toEqual(['/vaults/One'])
   })
 })

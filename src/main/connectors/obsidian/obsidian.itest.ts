@@ -288,7 +288,7 @@ describe('obsidian v2 — rename hint (identity hardening 1, spec §1)', () => {
   })
 })
 
-describe('obsidian v2 — manifest-driven plural resolution (spec §A)', () => {
+describe('obsidian v2 — manifest + registered-vault resolution (spec §A)', () => {
   it('reads connectors.obsidian.vaultPaths from the manifest → two libraries', async () => {
     // Two real vaults on disk; the manifest points a plural vaultPaths at both.
     const vaultA = makeVault('Research', { 'r.md': 'Research note about #optics.\n' })
@@ -306,7 +306,8 @@ describe('obsidian v2 — manifest-driven plural resolution (spec §A)', () => {
         workspaceId: randomUUID(),
         createdAt: new Date().toISOString(),
         // A trailing slash on one path proves normalize+dedupe on the manifest path too.
-        connectors: { obsidian: { vaultPaths: [`${vaultA}/`, vaultB] } },
+        // Opt out so this legacy manifest-resolution test remains hermetic.
+        connectors: { obsidian: { vaultPaths: [`${vaultA}/`, vaultB], discoverVaults: false } },
       }),
     )
 
@@ -324,6 +325,119 @@ describe('obsidian v2 — manifest-driven plural resolution (spec §A)', () => {
       if (savedEnv === undefined) delete process.env['ASTROLABE_WORKSPACE']
       else process.env['ASTROLABE_WORKSPACE'] = savedEnv
     }
+  })
+
+  it('merges a legacy manifest vaultPath with every registered Obsidian vault', async () => {
+    const vaultA = makeVault('Vault', { 'a.md': 'Legacy configured vault.\n' })
+    const vaultB = makeVault('Notes', {
+      'okf.md': "---\ntype: 'concept'\ntags: ['knowledge', 'portable']\n---\nDiscovered OKF note.\n",
+    })
+    const registryPath = join(dir, 'obsidian.json')
+    writeFileSync(
+      registryPath,
+      JSON.stringify({
+        vaults: {
+          configured: { path: `${vaultA}/`, ts: 2, open: true },
+          discovered: { path: vaultB, ts: 1, open: true },
+        },
+      }),
+    )
+
+    const wsRoot = join(dir, 'ws-discovered')
+    const astroDir = join(wsRoot, '.astrolabe')
+    mkdirSync(astroDir, { recursive: true })
+    writeFileSync(
+      join(astroDir, 'manifest.json'),
+      JSON.stringify({
+        schemaVersion: 1,
+        workspaceId: randomUUID(),
+        createdAt: new Date().toISOString(),
+        connectors: { obsidian: { vaultPath: vaultA } },
+      }),
+    )
+
+    const savedEnv = process.env['ASTROLABE_WORKSPACE']
+    process.env['ASTROLABE_WORKSPACE'] = wsRoot
+    try {
+      const outcome = await syncConnector(
+        handle.db,
+        upsert,
+        createObsidianConnector({ registryPath }),
+      )
+      expect(outcome.status).toBe('ok')
+      expect(outcome.libraries.map((l) => l.stableKey).sort()).toEqual([vaultA, vaultB].sort())
+      expect(libraryRow(vaultA)?.displayName).toBe('Vault')
+      expect(libraryRow(vaultB)?.displayName).toBe('Notes')
+
+      // The discovered vault follows the ordinary ingestion path: its OKF tags
+      // are immediately part of the shared cross-connector tag index.
+      expect(queries.browse({ libraryIds: [libraryRow(vaultB)!.id] }).hits[0]?.tags).toEqual([
+        'knowledge',
+        'portable',
+      ])
+    } finally {
+      if (savedEnv === undefined) delete process.env['ASTROLABE_WORKSPACE']
+      else process.env['ASTROLABE_WORKSPACE'] = savedEnv
+    }
+  })
+
+  it('honors discoverVaults:false and scans only the curated manifest paths', async () => {
+    const vaultA = makeVault('Curated', { 'a.md': 'Included.\n' })
+    const vaultB = makeVault('RegisteredButExcluded', { 'b.md': 'Excluded.\n' })
+    const registryPath = join(dir, 'obsidian.json')
+    writeFileSync(
+      registryPath,
+      JSON.stringify({ vaults: { excluded: { path: vaultB } } }),
+    )
+
+    const wsRoot = join(dir, 'ws-curated')
+    const astroDir = join(wsRoot, '.astrolabe')
+    mkdirSync(astroDir, { recursive: true })
+    writeFileSync(
+      join(astroDir, 'manifest.json'),
+      JSON.stringify({
+        schemaVersion: 1,
+        workspaceId: randomUUID(),
+        createdAt: new Date().toISOString(),
+        connectors: { obsidian: { vaultPath: vaultA, discoverVaults: false } },
+      }),
+    )
+
+    const savedEnv = process.env['ASTROLABE_WORKSPACE']
+    process.env['ASTROLABE_WORKSPACE'] = wsRoot
+    try {
+      const outcome = await syncConnector(
+        handle.db,
+        upsert,
+        createObsidianConnector({ registryPath }),
+      )
+      expect(outcome.status).toBe('ok')
+      expect(outcome.libraries.map((l) => l.stableKey)).toEqual([vaultA])
+      expect(libraryRow(vaultB)).toBeUndefined()
+    } finally {
+      if (savedEnv === undefined) delete process.env['ASTROLABE_WORKSPACE']
+      else process.env['ASTROLABE_WORKSPACE'] = savedEnv
+    }
+  })
+
+  it('logs through a malformed registry and keeps explicitly injected vaults usable', async () => {
+    const vault = makeVault('ExplicitFallback', { 'a.md': 'Still indexed.\n' })
+    const registryPath = join(dir, 'malformed-obsidian.json')
+    writeFileSync(registryPath, '{')
+
+    const outcome = await syncConnector(
+      handle.db,
+      upsert,
+      createObsidianConnector({
+        vaultPaths: [vault],
+        discoverVaults: true,
+        registryPath,
+      }),
+    )
+
+    expect(outcome.status).toBe('ok')
+    expect(outcome.libraries.map((l) => l.stableKey)).toEqual([vault])
+    expect(keysInLibrary(vault)).toEqual(['a.md'])
   })
 })
 

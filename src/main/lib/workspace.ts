@@ -17,10 +17,14 @@ const manifestSchema = z.object({
   /** Per-connector user config (no secrets — docs/03). Absent = connector defaults. */
   connectors: z
     .object({
-      // Obsidian: a single vault (`vaultPath`) OR N vaults (`vaultPaths`).
-      // Both optional; plural wins when present (see resolveObsidianVaultPaths).
+      // Obsidian: registered-vault discovery defaults on; explicit path(s) are
+      // additive. `discoverVaults:false` is the escape hatch for a curated set.
       obsidian: z
-        .object({ vaultPath: z.string(), vaultPaths: z.array(z.string()) })
+        .object({
+          vaultPath: z.string(),
+          vaultPaths: z.array(z.string()),
+          discoverVaults: z.boolean(),
+        })
         .partial()
         .optional(),
     })
@@ -29,7 +33,7 @@ const manifestSchema = z.object({
 })
 export type WorkspaceManifest = z.infer<typeof manifestSchema>
 
-/** The obsidian connector's manifest config shape (both vault-path forms optional). */
+/** Obsidian's optional explicit paths + registered-vault discovery policy. */
 export type ObsidianConfig = NonNullable<NonNullable<WorkspaceManifest['connectors']>['obsidian']>
 
 /** Strip trailing slashes (keeping a bare root `/`), so `x` and `x/` are one path. */
