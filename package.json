@@ -2,9 +2,18 @@
   "name": "astrolabe",
   "private": true,
   "version": "0.0.0",
+  "packageManager": "pnpm@11.14.0",
   "type": "module",
-  "description": "Local-first knowledge environment: the Alioth agent and Orion knowledge engine over Zotero, Obsidian, and Eagle.",
+  "description": "Local-first macOS desktop index for searching and organizing Zotero, Obsidian, and Eagle libraries.",
   "author": "Ahmed <emailahmedebadkhan@gmail.com>",
+  "homepage": "https://ahmedkhan-gh.github.io/astrolabe/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AhmedKhan-GH/astrolabe.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AhmedKhan-GH/astrolabe/issues"
+  },
   "main": "./out/main/index.js",
   "scripts": {
     "postinstall": "electron-builder install-app-deps",
@@ -21,7 +30,8 @@
     "test:integration": "ELECTRON_RUN_AS_NODE=1 electron node_modules/vitest/vitest.mjs run --project integration",
     "test": "pnpm test:unit && pnpm test:integration",
     "package:dir": "pnpm build && electron-builder --dir",
-    "dev:install:mac": "bash scripts/install-dev-mac.sh"
+    "dev:install:mac": "bash scripts/install-dev-mac.sh",
+    "site:check": "node scripts/validate-site.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^12.11.1",

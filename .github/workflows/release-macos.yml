@@ -1,0 +1,161 @@
+name: Prepare macOS Release
+
+on:
+  push:
+    tags:
+      - v*
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing vX.Y.Z tag to build
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: macos-release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Sign, notarize, and draft
+    runs-on: macos-15
+    timeout-minutes: 45
+    environment: macos-production
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - name: Validate the requested tag name
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Release tag must use vX.Y.Z format" >&2
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ format('refs/tags/{0}', inputs.tag || github.ref_name) }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify tag provenance
+        run: |
+          git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"
+          HEAD_COMMIT="$(git rev-parse HEAD)"
+          TAG_COMMIT="$(git rev-list -n 1 "$RELEASE_TAG")"
+          if [[ "$HEAD_COMMIT" != "$TAG_COMMIT" ]]; then
+            echo "Checked-out commit does not match $RELEASE_TAG" >&2
+            exit 1
+          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Enable pnpm
+        run: corepack enable
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Validate
+        run: |
+          pnpm typecheck
+          pnpm lint
+          pnpm test
+          pnpm build
+          pnpm site:check
+      - name: Write App Store Connect API key
+        env:
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          if [[ -z "$APPLE_API_KEY_BASE64" ]]; then
+            echo "APPLE_API_KEY is required" >&2
+            exit 1
+          fi
+          KEY_PATH="$RUNNER_TEMP/AstrolabeNotaryKey.p8"
+          printf '%s' "$APPLE_API_KEY_BASE64" | base64 --decode > "$KEY_PATH"
+          chmod 600 "$KEY_PATH"
+      - name: Production release preflight
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ runner.temp }}/AstrolabeNotaryKey.p8
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: node scripts/release/preflight.mjs --strict
+      - name: Build signed and notarized DMG
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ runner.temp }}/AstrolabeNotaryKey.p8
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: pnpm exec electron-builder --config electron-builder.production.yml --mac dmg --arm64 --publish never
+      - name: Notarize and staple the disk image
+        env:
+          APPLE_API_KEY: ${{ runner.temp }}/AstrolabeNotaryKey.p8
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          DMG="dist/Astrolabe-${RELEASE_TAG#v}-arm64.dmg"
+          test -f "$DMG"
+          xcrun notarytool submit "$DMG" \
+            --key "$APPLE_API_KEY" \
+            --key-id "$APPLE_API_KEY_ID" \
+            --issuer "$APPLE_API_ISSUER" \
+            --wait
+          xcrun stapler staple "$DMG"
+      - name: Verify the distributable
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          DMG="dist/Astrolabe-${RELEASE_TAG#v}-arm64.dmg"
+          test -f "$DMG"
+          xcrun stapler validate "$DMG"
+          spctl --assess --type open --context context:primary-signature --verbose=4 "$DMG"
+
+          MOUNT_POINT="$(mktemp -d "$RUNNER_TEMP/astrolabe-mount.XXXXXX")"
+          cleanup() {
+            hdiutil detach "$MOUNT_POINT" -quiet 2>/dev/null || true
+          }
+          trap cleanup EXIT
+          hdiutil attach "$DMG" -nobrowse -readonly -mountpoint "$MOUNT_POINT"
+          APP="$MOUNT_POINT/Astrolabe.app"
+          test -d "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          spctl --assess --type execute --verbose=4 "$APP"
+          xcrun stapler validate "$APP"
+
+          BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist")"
+          [[ "$BUNDLE_ID" == "cool.astrolabe.app" ]]
+          ARCHS="$(lipo -archs "$APP/Contents/MacOS/Astrolabe")"
+          [[ "$ARCHS" == "arm64" ]]
+          TEAM_ID="$(codesign -dv --verbose=4 "$APP" 2>&1 | sed -n 's/^TeamIdentifier=//p')"
+          [[ "$TEAM_ID" == "$APPLE_TEAM_ID" ]]
+      - name: Remove the notarization key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/AstrolabeNotaryKey.p8"
+      - name: Create checksums and release manifest
+        run: node scripts/release/create-manifest.mjs
+      - name: Create or update draft GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ASSETS=(
+            "dist/Astrolabe-${RELEASE_TAG#v}-arm64.dmg"
+            "dist/SHA256SUMS.txt"
+            "dist/release-manifest.json"
+          )
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            IS_DRAFT="$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)"
+            if [[ "$IS_DRAFT" != "true" ]]; then
+              echo "Refusing to replace assets on published release $RELEASE_TAG" >&2
+              exit 1
+            fi
+            gh release upload "$RELEASE_TAG" "${ASSETS[@]}" --clobber
+          else
+            gh release create "$RELEASE_TAG" "${ASSETS[@]}" \
+              --draft \
+              --verify-tag \
+              --generate-notes \
+              --title "Astrolabe ${RELEASE_TAG#v}"
+          fi
+          echo "A draft release was prepared. Publish only after a clean-machine, browser-download installation test."

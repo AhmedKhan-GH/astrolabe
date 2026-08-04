@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <defs>
+    <radialGradient id="glow" cx="75%" cy="22%" r="62%">
+      <stop offset="0" stop-color="#4c1d95" stop-opacity=".44"/>
+      <stop offset="1" stop-color="#09090b" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#19191d"/>
+      <stop offset="1" stop-color="#0f0f12"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#09090b"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <path d="M0 1h1200M0 629h1200" stroke="#29292e"/>
+
+  <g transform="translate(72 64)">
+    <rect width="58" height="58" rx="13" fill="#141417" stroke="#3f3f46" stroke-width="2"/>
+    <circle cx="29" cy="29" r="18" fill="none" stroke="#8b5cf6" stroke-width="2.5"/>
+    <circle cx="29" cy="29" r="10" fill="none" stroke="#52525b" stroke-width="1.5"/>
+    <path d="M11 29h36M29 11v36" stroke="#3f3f46" stroke-width="1.5"/>
+    <path d="m16 42 26-26" stroke="#c4b5fd" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="29" cy="29" r="3" fill="#a78bfa"/>
+    <text x="76" y="38" fill="#f4f4f5" font-family="Inter, -apple-system, sans-serif" font-size="31" font-weight="650" letter-spacing="-1">Astrolabe</text>
+  </g>
+
+  <text x="72" y="238" fill="#a78bfa" font-family="SFMono-Regular, monospace" font-size="15" font-weight="600" letter-spacing="2.2">LOCAL-FIRST · MACOS</text>
+  <g fill="#f4f4f5" font-family="Inter, -apple-system, sans-serif" font-size="51" font-weight="650" letter-spacing="-2">
+    <text x="72" y="295">One local view</text>
+    <text x="72" y="353">across your</text>
+    <text x="72" y="411">research tools.</text>
+  </g>
+  <g fill="#a1a1aa" font-family="Inter, -apple-system, sans-serif" font-size="20">
+    <text x="72" y="486">Search, organize, inspect, and open—</text>
+    <text x="72" y="515">without moving the originals.</text>
+  </g>
+
+  <g transform="translate(690 121)">
+    <rect width="444" height="374" rx="14" fill="url(#panel)" stroke="#3f3f46" stroke-width="2"/>
+    <path d="M0 50h444" stroke="#29292e"/>
+    <circle cx="22" cy="25" r="5" fill="#fb7185"/><circle cx="40" cy="25" r="5" fill="#fbbf24"/><circle cx="58" cy="25" r="5" fill="#34d399"/>
+    <rect x="93" y="13" width="270" height="24" rx="5" fill="#202024" stroke="#3f3f46"/>
+    <text x="108" y="30" fill="#71717a" font-family="Inter, sans-serif" font-size="10">Search title, annotations, tags…</text>
+    <path d="M118 50v324M315 50v324" stroke="#29292e"/>
+    <rect x="9" y="67" width="100" height="24" rx="4" fill="#29292e"/>
+    <text x="19" y="83" fill="#e4e4e7" font-family="Inter, sans-serif" font-size="10">All</text>
+    <text x="89" y="83" fill="#71717a" font-family="Inter, sans-serif" font-size="9">248</text>
+    <text x="18" y="120" fill="#52525b" font-family="monospace" font-size="8" letter-spacing="1">FOLDERS</text>
+    <rect x="9" y="130" width="100" height="24" rx="4" fill="#2e1d4d"/>
+    <text x="25" y="146" fill="#ddd6fe" font-family="Inter, sans-serif" font-size="9">Research</text>
+    <text x="18" y="187" fill="#52525b" font-family="monospace" font-size="8" letter-spacing="1">LIBRARIES</text>
+    <circle cx="21" cy="207" r="3" fill="#34d399"/><text x="30" y="211" fill="#a1a1aa" font-family="Inter, sans-serif" font-size="9">Zotero</text>
+    <circle cx="21" cy="232" r="3" fill="#34d399"/><text x="30" y="236" fill="#a1a1aa" font-family="Inter, sans-serif" font-size="9">Obsidian</text>
+    <circle cx="21" cy="257" r="3" fill="#71717a"/><text x="30" y="261" fill="#a1a1aa" font-family="Inter, sans-serif" font-size="9">Eagle</text>
+
+    <rect x="118" y="50" width="197" height="77" fill="#1a1a1f"/>
+    <rect x="118" y="50" width="3" height="77" fill="#8b5cf6"/>
+    <text x="132" y="76" fill="#e4e4e7" font-family="Inter, sans-serif" font-size="11" font-weight="600">Tools for thought as instruments</text>
+    <text x="132" y="95" fill="#71717a" font-family="Inter, sans-serif" font-size="8">paper · Zotero:Research</text>
+    <rect x="132" y="105" width="45" height="13" rx="3" fill="#29292e"/><text x="138" y="114" fill="#71717a" font-family="Inter, sans-serif" font-size="6">interfaces</text>
+    <path d="M118 127h197M118 204h197M118 281h197" stroke="#202024"/>
+    <text x="132" y="153" fill="#d4d4d8" font-family="Inter, sans-serif" font-size="10">Local-first software</text><text x="132" y="171" fill="#63636c" font-family="Inter, sans-serif" font-size="8">note · Obsidian:Lab</text>
+    <text x="132" y="230" fill="#d4d4d8" font-family="Inter, sans-serif" font-size="10">Knowledge navigation study</text><text x="132" y="248" fill="#63636c" font-family="Inter, sans-serif" font-size="8">pdf · Zotero · Eagle</text>
+
+    <text x="330" y="77" fill="#e4e4e7" font-family="Inter, sans-serif" font-size="10" font-weight="600">Tools for thought as</text><text x="330" y="91" fill="#e4e4e7" font-family="Inter, sans-serif" font-size="10" font-weight="600">cognitive instruments</text>
+    <text x="330" y="127" fill="#52525b" font-family="monospace" font-size="7" letter-spacing="1">INSTANCES</text>
+    <circle cx="333" cy="148" r="3" fill="#34d399"/><text x="342" y="152" fill="#a1a1aa" font-family="Inter, sans-serif" font-size="8">Zotero:Research</text>
+    <path d="M315 171h129" stroke="#202024"/>
+    <text x="330" y="194" fill="#52525b" font-family="monospace" font-size="7" letter-spacing="1">ANNOTATIONS</text>
+    <text x="330" y="218" fill="#a1a1aa" font-family="Inter, sans-serif" font-size="8" font-style="italic">Interfaces shape which</text><text x="330" y="231" fill="#a1a1aa" font-family="Inter, sans-serif" font-size="8" font-style="italic">connections become visible.</text>
+  </g>
+
+  <text x="72" y="578" fill="#71717a" font-family="SFMono-Regular, monospace" font-size="15">ZOTERO</text>
+  <circle cx="170" cy="572" r="3" fill="#3f3f46"/>
+  <text x="190" y="578" fill="#71717a" font-family="SFMono-Regular, monospace" font-size="15">OBSIDIAN</text>
+  <circle cx="306" cy="572" r="3" fill="#3f3f46"/>
+  <text x="326" y="578" fill="#71717a" font-family="SFMono-Regular, monospace" font-size="15">EAGLE</text>
+</svg>

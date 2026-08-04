@@ -1,75 +1,57 @@
-# React + TypeScript + Vite
+# Astrolabe
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Astrolabe is a local-first macOS desktop application for searching, organizing, and opening work across Zotero, Obsidian, and Eagle from one interface.
 
-Currently, two official plugins are available:
+[Website](https://ahmedkhan-gh.github.io/astrolabe/) · [Current documentation](https://ahmedkhan-gh.github.io/astrolabe/docs/) · [Project notes](docs/README.md)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Current build
 
-## React Compiler
+The working rebuild provides:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- a unified, local SQLite/FTS index over Zotero, Obsidian, and Eagle;
+- full-text search over titles, tags, Zotero annotation text/comments, and Obsidian note bodies;
+- browsing by nested Astrolabe folder, tag, source library, or uncategorized state;
+- document detail with source instances, availability, folders, tags, annotation previews, and Obsidian backlinks;
+- deep links back to the source application and reveal-in-Finder actions;
+- multiple Obsidian vaults and multiple known Eagle libraries;
+- keyboard navigation and multi-select filing without moving source files; and
+- retained “ghost” identities when every indexed copy of a document disappears.
 
-## Expanding the ESLint configuration
+Astrolabe is currently a development build, not a public product release. There is no signed/notarized installer, updater, account, checkout, payment flow, or published executable yet. The website keeps its download control inactive until a qualified GitHub Release exists.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Run from source
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+Requirements: macOS, Node.js 24 with Corepack, and at least one supported source application or Obsidian vault.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```sh
+corepack enable
+pnpm install
+pnpm dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Astrolabe creates its default workspace at `~/Astrolabe/.astrolabe/`. Set `ASTROLABE_WORKSPACE` before launch to use a different workspace root.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+See the [current documentation](https://ahmedkhan-gh.github.io/astrolabe/docs/) for connector behavior and known limitations.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Validate the application
 
+```sh
+pnpm typecheck
+pnpm lint
+pnpm test
+pnpm build
 ```
+
+## Repository map
+
+- `src/main/` — Electron composition, connectors, local index, and IPC
+- `src/preload/` — typed renderer bridge
+- `src/renderer/` — React three-pane interface
+- `drizzle/` — local SQLite schema migrations
+- `docs/` — vision, architecture, decisions, and implementation records
+- `site/` — static GitHub Pages site and current user documentation
+- `.github/workflows/` — application CI, Pages deployment, and release preparation
+
+## Distribution status
+
+The checked-in local packaging path uses a development signing identity and must not be distributed. The separate production release workflow fails closed unless versioning, distribution terms, Developer ID signing, notarization, artifact verification, and release metadata are all present. See [macOS distribution authorization](MACOS-DISTRIBUTION-AUTHORIZATION-SPEC.md) for the recorded production requirements.

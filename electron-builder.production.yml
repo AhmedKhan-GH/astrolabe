@@ -1,0 +1,42 @@
+# Production distribution configuration. This intentionally does not inherit
+# electron-builder.yml because that file selects a local-only development
+# identity. Missing Developer ID credentials must fail rather than fall back.
+appId: cool.astrolabe.app
+productName: Astrolabe
+copyright: Copyright © 2026 Ahmed Khan
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - out/**
+  - package.json
+
+extraResources:
+  - from: drizzle
+    to: drizzle
+
+asarUnpack:
+  - '**/*.node'
+  - node_modules/bindings/**
+  - node_modules/file-uri-to-path/**
+
+artifactName: '${productName}-${version}-${arch}.${ext}'
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - arm64
+  category: public.app-category.productivity
+  icon: build/icon.icns
+  hardenedRuntime: true
+  forceCodeSigning: true
+  notarize: true
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.inherit.plist
+
+dmg:
+  sign: true
+  writeUpdateInfo: false

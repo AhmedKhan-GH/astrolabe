@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Astrolabe — one local view across Zotero, Obsidian, and Eagle</title>
+  <meta name="description" content="Astrolabe is a local-first macOS desktop app for searching, organizing, and opening work across Zotero, Obsidian, and Eagle.">
+  <meta name="theme-color" content="#09090b">
+  <meta name="color-scheme" content="dark">
+  <link rel="canonical" href="https://ahmedkhan-gh.github.io/astrolabe/">
+  <link rel="icon" href="assets/mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/style.css">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Astrolabe">
+  <meta property="og:title" content="Astrolabe — one local view across your research tools">
+  <meta property="og:description" content="Search, organize, and open your Zotero, Obsidian, and Eagle libraries from one local desktop surface.">
+  <meta property="og:url" content="https://ahmedkhan-gh.github.io/astrolabe/">
+  <meta property="og:image" content="https://ahmedkhan-gh.github.io/astrolabe/assets/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="wordmark" href="#top" aria-label="Astrolabe home">
+        <img src="assets/mark.svg" alt="" width="28" height="28">
+        <span>Astrolabe</span>
+      </a>
+      <nav class="site-nav" aria-label="Primary navigation">
+        <a href="#product">Product</a>
+        <a href="#workflow">How it works</a>
+        <a href="#status">Status</a>
+        <a href="docs/">Docs</a>
+      </nav>
+      <a class="button button--small button--quiet header-github" href="https://github.com/AhmedKhan-GH/astrolabe">GitHub <span aria-hidden="true">↗</span></a>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero container" id="top">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="status-dot"></span> Working macOS prototype</p>
+        <h1>Your research tools already hold the work. Astrolabe helps you find it.</h1>
+        <p class="hero-lead">Search, organize, and open your Zotero, Obsidian, and Eagle libraries from one local desktop surface—without moving the files that already belong in those tools.</p>
+        <div class="button-row">
+          <a class="button button--primary" href="#product">See what works</a>
+          <a class="button button--quiet" href="docs/">Read the docs</a>
+        </div>
+        <ul class="hero-facts" aria-label="Current product facts">
+          <li><span aria-hidden="true">✓</span> Local, rebuildable index</li>
+          <li><span aria-hidden="true">✓</span> No account</li>
+          <li><span aria-hidden="true">✓</span> Source tools stay in control</li>
+        </ul>
+      </div>
+
+      <figure class="app-figure">
+        <div class="app-window" role="img" aria-label="Illustration of Astrolabe's current three-pane interface with a source rail, document list, and document detail panel">
+          <div class="window-bar" aria-hidden="true">
+            <div class="traffic-lights"><i></i><i></i><i></i></div>
+            <div class="window-search"><span>⌕</span> Search title, annotations, tags… <kbd>⌘F</kbd></div>
+            <div class="window-sync">Sync</div>
+          </div>
+          <div class="app-grid" aria-hidden="true">
+            <aside class="mock-rail">
+              <div class="mock-row active"><span>All</span><b>248</b></div>
+              <div class="mock-row"><span>Uncategorized</span><b>18</b></div>
+              <p class="mock-label">Folders</p>
+              <div class="mock-row nested"><span>⌄ Research</span><b>74</b></div>
+              <div class="mock-row nested-2 active-soft"><span>Papers</span><b>42</b></div>
+              <div class="mock-row nested-2"><span>Field notes</span><b>21</b></div>
+              <p class="mock-label">Tags</p>
+              <div class="mock-row"><span>#interfaces</span><b>16</b></div>
+              <div class="mock-row"><span>#methods</span><b>12</b></div>
+              <p class="mock-label">Libraries</p>
+              <div class="mock-row"><span><i class="source-dot live"></i>Zotero</span><b>126</b></div>
+              <div class="mock-row"><span><i class="source-dot live"></i>Obsidian</span><b>81</b></div>
+              <div class="mock-row"><span><i class="source-dot idle"></i>Eagle</span><b>41</b></div>
+            </aside>
+
+            <section class="mock-river">
+              <div class="river-heading"><span>Research / Papers</span><b>42 items</b></div>
+              <article class="document-row selected">
+                <div><h3>Tools for thought as cognitive instruments</h3><p>paper · Zotero:Research</p></div>
+                <time>Jul 29</time>
+                <div class="mock-tags"><span>interfaces</span><span>cognition</span></div>
+              </article>
+              <article class="document-row">
+                <div><h3>Local-first software: ownership and longevity</h3><p>note · Obsidian:Lab</p></div>
+                <time>Jul 26</time>
+                <div class="mock-tags"><span>local-first</span></div>
+              </article>
+              <article class="document-row">
+                <div><h3>Knowledge navigation study</h3><p>pdf · Zotero:Research · Eagle:Archive</p></div>
+                <time>Jul 22</time>
+                <div class="mock-tags"><span>methods</span><span>navigation</span></div>
+              </article>
+              <article class="document-row">
+                <div><h3>Reading systems interface references</h3><p>image · Eagle:References</p></div>
+                <time>Jul 18</time>
+                <div class="mock-tags"><span>interfaces</span></div>
+              </article>
+            </section>
+
+            <aside class="mock-detail">
+              <div class="detail-title"><div><h3>Tools for thought as cognitive instruments</h3><span>paper</span></div><i>×</i></div>
+              <div class="detail-section"><p>Instances</p><div class="detail-instance"><span><i class="source-dot live"></i>Zotero:Research</span><b>Open</b></div></div>
+              <div class="detail-section"><p>Folders</p><span class="detail-chip">Papers</span></div>
+              <div class="detail-section"><p>Tags</p><span class="detail-chip">interfaces</span><span class="detail-chip">cognition</span></div>
+              <div class="detail-section"><p>2 annotations</p><blockquote>Interfaces shape which connections become easy to notice.</blockquote><small>p. 14</small></div>
+              <div class="detail-section"><p>Linked from</p><span class="backlink">Notes on research environments</span></div>
+            </aside>
+          </div>
+        </div>
+        <figcaption>Illustrative sample data. The structure and controls mirror the working three-pane build.</figcaption>
+      </figure>
+    </section>
+
+    <section class="proof-strip" aria-label="Current integrations">
+      <div class="container proof-inner">
+        <p>One index across</p>
+        <div class="integration"><span class="integration-mark zotero">Z</span><span>Zotero</span></div>
+        <div class="integration"><span class="integration-mark obsidian">◇</span><span>Obsidian</span></div>
+        <div class="integration"><span class="integration-mark eagle">E</span><span>Eagle</span></div>
+        <p class="proof-note">Each remains the source of record.</p>
+      </div>
+    </section>
+
+    <section class="section container" id="product">
+      <div class="section-heading">
+        <p class="eyebrow">The working surface</p>
+        <h2>Less hunting. More continuity.</h2>
+        <p>Astrolabe connects the browse-and-find layer between tools that are good at keeping different kinds of material.</p>
+      </div>
+
+      <div class="feature-grid">
+        <article class="feature feature--wide">
+          <div class="feature-copy">
+            <span class="feature-number">01</span>
+            <h3>Search one local index</h3>
+            <p>Find titles, tags, Zotero annotation text and comments, and Obsidian note text from the same search field. Results keep their source and library attached.</p>
+          </div>
+          <div class="search-demo" aria-hidden="true">
+            <div class="demo-input"><span>⌕</span><strong>cognitive instruments</strong><kbd>⌘F</kbd></div>
+            <div class="demo-result"><i class="source-dot live"></i><span><strong>Tools for thought as cognitive instruments</strong><small>paper · Zotero:Research</small></span><b>paper</b></div>
+            <div class="demo-result"><i class="source-dot live"></i><span><strong>Instrumental interfaces</strong><small>note · Obsidian:Lab</small></span><b>note</b></div>
+          </div>
+        </article>
+
+        <article class="feature">
+          <span class="feature-number">02</span>
+          <h3>Keep originals where they belong</h3>
+          <p>Astrolabe folders organize references without moving the underlying Zotero attachment, Obsidian note, or Eagle asset.</p>
+          <div class="mini-flow" aria-hidden="true"><span>Source item</span><i>→</i><span>Astrolabe folder</span></div>
+        </article>
+
+        <article class="feature">
+          <span class="feature-number">03</span>
+          <h3>See the document in context</h3>
+          <p>Inspect every known source instance, folder, tag, annotation preview, and Obsidian backlink before opening the original.</p>
+          <div class="context-list" aria-hidden="true"><span>Instances <b>2</b></span><span>Annotations <b>7</b></span><span>Linked from <b>3</b></span></div>
+        </article>
+
+        <article class="feature">
+          <span class="feature-number">04</span>
+          <h3>One item, not duplicate clutter</h3>
+          <p>When the same file exists in Zotero and Eagle, content identity can join those copies into one document with multiple source instances.</p>
+          <div class="merge-demo" aria-hidden="true"><span>Zotero</span><i></i><b>One document</b><i></i><span>Eagle</span></div>
+        </article>
+
+        <article class="feature">
+          <span class="feature-number">05</span>
+          <h3>Remember what disappeared</h3>
+          <p>When every indexed copy goes away, Astrolabe can retain the document as a hidden “ghost” instead of silently erasing its history.</p>
+          <div class="ghost-demo" aria-hidden="true"><i></i><span>Show ghosts</span><b>3</b></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section section--border" id="workflow">
+      <div class="container">
+        <div class="section-heading">
+          <p class="eyebrow">How it works today</p>
+          <h2>A derived view over tools you already use.</h2>
+          <p>The connectors read local data, normalize it into a rebuildable SQLite index, and keep provenance all the way back to the source.</p>
+        </div>
+
+        <ol class="workflow-grid">
+          <li>
+            <span class="step-number">1</span>
+            <div class="step-icon" aria-hidden="true">⌁</div>
+            <h3>Connect locally</h3>
+            <p>Read Zotero and Eagle through their local APIs and discover one or more Obsidian vaults on disk.</p>
+          </li>
+          <li>
+            <span class="step-number">2</span>
+            <div class="step-icon" aria-hidden="true">⌘</div>
+            <h3>Build the index</h3>
+            <p>Normalize documents, source instances, tags, annotations, folders, and links into local SQLite and FTS tables.</p>
+          </li>
+          <li>
+            <span class="step-number">3</span>
+            <div class="step-icon" aria-hidden="true">↗</div>
+            <h3>Navigate and return</h3>
+            <p>Browse, search, file, and inspect in Astrolabe—then open or reveal the item in its owning tool.</p>
+          </li>
+        </ol>
+
+        <div class="principle-callout">
+          <div class="mark-large" aria-hidden="true"><img src="assets/mark.svg" alt=""></div>
+          <div>
+            <p class="eyebrow">Design principle</p>
+            <h3>Astrolabe owns the view, not your library.</h3>
+            <p>The search index is derived and rebuildable. Zotero, Obsidian, and Eagle continue to own the durable source material.</p>
+          </div>
+          <a href="docs/#data-model">Read the data model <span aria-hidden="true">→</span></a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section container" id="status">
+      <div class="status-layout">
+        <div class="status-copy">
+          <p class="eyebrow">Current status</p>
+          <h2>Useful now. Not packaged for the public yet.</h2>
+          <p>Astrolabe is an active macOS development build. The connected library, search, folders, detail view, and source navigation are working; a signed and notarized public installer is not.</p>
+          <ul class="check-list">
+            <li><span>✓</span> Zotero personal and group libraries</li>
+            <li><span>✓</span> Multiple Obsidian vaults</li>
+            <li><span>✓</span> Multiple known Eagle libraries</li>
+            <li><span>✓</span> Full-text search over current indexed fields</li>
+            <li><span>✓</span> Nested folders, tags, annotations, and backlinks</li>
+            <li><span>✓</span> Keyboard navigation and multi-select filing</li>
+          </ul>
+        </div>
+
+        <aside class="download-card" data-release-card aria-labelledby="download-heading">
+          <div class="download-topline"><span class="platform-icon" aria-hidden="true">⌘</span><span data-release-state>Pre-release development</span></div>
+          <h3 id="download-heading">Download for macOS</h3>
+          <p data-release-message>Public builds are not available yet. Downloads will appear here after signing, notarization, and release qualification are complete.</p>
+          <button class="button button--disabled" data-release-download type="button" disabled>No public build yet</button>
+          <div class="download-meta" data-release-meta>
+            <span>Current architecture</span><strong>Apple silicon development build</strong>
+            <span>Public installer</span><strong>Not released</strong>
+          </div>
+          <a class="text-link" data-release-notes href="https://github.com/AhmedKhan-GH/astrolabe/releases">Follow GitHub releases <span aria-hidden="true">→</span></a>
+          <noscript><p class="noscript-note">JavaScript is off. Check GitHub Releases directly for any published build.</p></noscript>
+        </aside>
+      </div>
+    </section>
+
+    <section class="closing section--border">
+      <div class="container closing-inner">
+        <div>
+          <p class="eyebrow">Go deeper</p>
+          <h2>Read the current behavior, not a future pitch.</h2>
+          <p>The documentation separates what works in this build from what is still only project direction.</p>
+        </div>
+        <div class="button-row">
+          <a class="button button--primary" href="docs/">Open documentation</a>
+          <a class="button button--quiet" href="https://github.com/AhmedKhan-GH/astrolabe">View on GitHub</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <a class="wordmark" href="#top"><img src="assets/mark.svg" alt="" width="28" height="28"><span>Astrolabe</span></a>
+        <p>A local view across the tools that hold your research.</p>
+      </div>
+      <nav class="footer-links" aria-label="Product links">
+        <p>Product</p>
+        <a href="#product">What works</a>
+        <a href="#workflow">How it works</a>
+        <a href="#status">Release status</a>
+      </nav>
+      <nav class="footer-links" aria-label="Project links">
+        <p>Project</p>
+        <a href="docs/">Documentation</a>
+        <a href="https://github.com/AhmedKhan-GH/astrolabe">GitHub</a>
+        <a href="mailto:emailahmedebadkhan@gmail.com">Contact</a>
+      </nav>
+    </div>
+    <div class="container footer-bottom"><span>© 2026 Ahmed Khan</span><span>Built without analytics or tracking.</span></div>
+  </footer>
+
+  <script src="assets/releases.js" defer></script>
+</body>
+</html>

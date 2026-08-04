@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ahmedkhan-gh.github.io/astrolabe/sitemap.xml
