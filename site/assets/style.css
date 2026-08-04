@@ -259,34 +259,12 @@ p {
 
 /* Landing page */
 .home-hero {
-  position: relative;
   display: grid;
-  isolation: isolate;
   min-height: 29rem;
   padding-block: clamp(4.5rem, 8vw, 7rem);
   align-items: start;
   grid-template-columns: minmax(0, 0.95fr) minmax(20rem, 0.75fr);
   gap: clamp(4rem, 9vw, 9rem);
-}
-
-.home-hero::after {
-  position: absolute;
-  bottom: 3rem;
-  left: 0;
-  z-index: -1;
-  width: min(18rem, 38vw);
-  height: 8rem;
-  border: 1px solid rgba(117, 167, 232, 0.18);
-  border-right-color: transparent;
-  border-left-color: transparent;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 12% 64%, rgba(117, 167, 232, 0.58) 0 1px, transparent 1.5px),
-    radial-gradient(circle at 51% 29%, rgba(169, 200, 238, 0.46) 0 1px, transparent 1.5px),
-    radial-gradient(circle at 87% 58%, rgba(117, 167, 232, 0.52) 0 1px, transparent 1.5px);
-  content: "";
-  pointer-events: none;
-  transform: rotate(-7deg);
 }
 
 .home-hero > *,
@@ -1019,10 +997,6 @@ kbd {
 
   .home-hero {
     padding-block: 3.5rem;
-  }
-
-  .home-hero::after {
-    display: none;
   }
 
   h1 {
