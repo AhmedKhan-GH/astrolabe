@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Astrolabe mark">
-  <rect x="2" y="2" width="60" height="60" rx="14" fill="#141417" stroke="#3f3f46" stroke-width="2"/>
-  <circle cx="32" cy="32" r="19" fill="none" stroke="#8b5cf6" stroke-width="2.5"/>
-  <circle cx="32" cy="32" r="11" fill="none" stroke="#52525b" stroke-width="1.5"/>
-  <path d="M13 32h38M32 13v38" fill="none" stroke="#3f3f46" stroke-width="1.5"/>
-  <path d="M18.5 45.5 45.5 18.5" fill="none" stroke="#c4b5fd" stroke-width="3" stroke-linecap="round"/>
-  <circle cx="32" cy="32" r="3.25" fill="#a78bfa"/>
-  <path d="M26 8h12" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round"/>
+  <rect x="2" y="2" width="60" height="60" fill="#f2f2ef" stroke="#1c1f22" stroke-width="2"/>
+  <circle cx="32" cy="32" r="19" fill="none" stroke="#1c1f22" stroke-width="2.5"/>
+  <circle cx="32" cy="32" r="11" fill="none" stroke="#8a9095" stroke-width="1.5"/>
+  <path d="M13 32h38M32 13v38" fill="none" stroke="#a7acb0" stroke-width="1.5"/>
+  <path d="M18.5 45.5 45.5 18.5" fill="none" stroke="#1c1f22" stroke-width="3"/>
+  <circle cx="32" cy="32" r="3.25" fill="#1c1f22"/>
+  <path d="M26 8h12" fill="none" stroke="#565d63" stroke-width="2"/>
 </svg>

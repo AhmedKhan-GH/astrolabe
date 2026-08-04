@@ -46,7 +46,7 @@
 
       card.dataset.releaseReady = 'true'
       state.textContent = 'Public release available'
-      message.textContent = `Astrolabe ${release.tag_name} for Apple silicon is available as a release-qualified macOS disk image.`
+      message.textContent = `Astrolabe ${release.tag_name} for Apple silicon is available as a macOS disk image.`
       const downloadLink = document.createElement('a')
       downloadLink.className = 'button button--primary'
       downloadLink.dataset.releaseDownload = ''
@@ -55,10 +55,10 @@
       downloadLink.textContent = `Download ${release.tag_name}`
       download.replaceWith(downloadLink)
       meta.innerHTML = [
-        '<span>Architecture</span><strong>Apple silicon (arm64)</strong>',
-        date ? `<span>Published</span><strong>${date}</strong>` : '',
-        size ? `<span>Download size</span><strong>${size}</strong>` : '',
-        '<span>Integrity</span><strong>Checksum + manifest included</strong>',
+        '<div><dt>Architecture</dt><dd>Apple silicon (arm64)</dd></div>',
+        date ? `<div><dt>Published</dt><dd>${date}</dd></div>` : '',
+        size ? `<div><dt>Download size</dt><dd>${size}</dd></div>` : '',
+        '<div><dt>Integrity</dt><dd>Checksum + manifest included</dd></div>',
       ].join('')
       notes.textContent = 'Release notes →'
       notes.href = release.html_url

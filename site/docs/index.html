@@ -7,8 +7,8 @@
       name="description"
       content="Documentation for the current Astrolabe desktop rebuild: run it from source, connect Zotero, Obsidian, and Eagle, then search and organize a local index."
     />
-    <meta name="theme-color" content="#0a0a0a" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#f2f2ef" />
+    <meta name="color-scheme" content="light" />
     <title>Documentation — Astrolabe</title>
     <link rel="canonical" href="https://ahmedkhan-gh.github.io/astrolabe/docs/" />
     <link rel="icon" href="../assets/mark.svg" type="image/svg+xml" />
@@ -25,37 +25,26 @@
         </a>
 
         <nav class="site-nav" aria-label="Primary navigation">
-          <a href="../#product">Product</a>
-          <a href="../#workflow">How it works</a>
-          <a href="../#status">Status</a>
-          <a href="./" aria-current="page">Docs</a>
+          <a href="../#overview">Overview</a>
+          <a href="./" aria-current="page">Documentation</a>
+          <a href="https://github.com/AhmedKhan-GH/astrolabe">GitHub <span aria-hidden="true">↗</span></a>
         </nav>
-        <a
-          class="button button--small button--quiet header-github"
-          href="https://github.com/AhmedKhan-GH/astrolabe"
-        >GitHub <span aria-hidden="true">↗</span></a>
       </div>
     </header>
 
     <main id="docs-content">
       <section class="docs-hero section">
         <div class="container narrow">
-          <p class="eyebrow">Current rebuild · source preview</p>
+          <p class="section-label">Documentation</p>
           <h1>Astrolabe documentation</h1>
           <p class="lede">
-            Astrolabe is a desktop index for material already held in Zotero, Obsidian,
-            and Eagle. The build available today searches, browses, files, and opens that
-            material from one local interface. It does not replace those source apps or
-            move their files.
+            Setup and usage for the current macOS source build.
           </p>
           <div class="docs-callout status-note" role="note" aria-label="Release status">
-            <span class="status-dot" aria-hidden="true"></span>
             <div>
-              <strong>Development status</strong>
+              <strong>Release status</strong>
               <p>
-                There is no public installer yet. The current application is version
-                0.0.0 and runs from source; the download area will remain inactive until
-                a signed, notarized release artifact exists.
+                No public installer is available. The current version is 0.0.0.
               </p>
             </div>
           </div>
@@ -79,45 +68,13 @@
 
         <article class="docs-content docs-article prose">
           <section id="current-scope" class="docs-section">
-            <p class="eyebrow">What works now</p>
-            <h2>Current scope</h2>
+            <h2>Current build</h2>
             <p>
-              Astrolabe builds a derived SQLite index inside a local workspace. It reads
-              from the three connector sources, merges resolvable Zotero and Eagle copies
-              of the same file by SHA-256, and keeps per-library provenance so each result
-              can open in its system of record.
+              Astrolabe indexes Zotero, Obsidian, and Eagle into a local SQLite database.
+              You can browse and filter documents, search indexed text, inspect document
+              details, and open items in their source applications. Matching Zotero and
+              Eagle files may be combined by SHA-256.
             </p>
-
-            <div class="docs-cards docs-card-grid">
-              <article class="docs-card">
-                <h3>One library surface</h3>
-                <p>
-                  Browse all indexed documents or narrow the list by an Astrolabe folder,
-                  tag, source library, or the uncategorized inbox.
-                </p>
-              </article>
-              <article class="docs-card">
-                <h3>Local full-text search</h3>
-                <p>
-                  Search titles, tags, Zotero annotation text and comments, and indexed
-                  Obsidian note bodies using SQLite FTS5.
-                </p>
-              </article>
-              <article class="docs-card">
-                <h3>Document detail</h3>
-                <p>
-                  Inspect source instances, availability, folder membership, tags, the
-                  first five annotation previews, and resolved Obsidian backlinks.
-                </p>
-              </article>
-              <article class="docs-card">
-                <h3>Open the original</h3>
-                <p>
-                  Open a result in Zotero, Obsidian, or Eagle. File-backed instances can
-                  also be revealed in the operating system file browser.
-                </p>
-              </article>
-            </div>
 
             <h3 id="data-model">Where data lives</h3>
             <p>
@@ -128,12 +85,9 @@
           </section>
 
           <section id="getting-started" class="docs-section">
-            <p class="eyebrow">Development build</p>
             <h2>Run Astrolabe from source</h2>
             <p>
-              The current repository uses Electron, React, TypeScript, pnpm, and a native
-              SQLite dependency. macOS is the active development and packaging target.
-              Install Git and Node.js 24 with Corepack, then run:
+              Requirements: macOS, Git, Node.js 24, and Corepack.
             </p>
 
             <ol class="steps-list">
@@ -146,10 +100,6 @@ cd astrolabe</code></pre>
                 <h3>Install dependencies</h3>
                 <pre><code>corepack enable
 pnpm install</code></pre>
-                <p>
-                  The install step also rebuilds native dependencies for Electron through
-                  the repository's <code>postinstall</code> script.
-                </p>
               </li>
               <li>
                 <h3>Start the desktop app</h3>
@@ -175,7 +125,6 @@ pnpm build</code></pre>
           </section>
 
           <section id="connectors" class="docs-section">
-            <p class="eyebrow">Local sources</p>
             <h2>Connectors</h2>
             <p>
               A sync probes each connector separately. If one source cannot be reached,
@@ -264,24 +213,21 @@ pnpm build</code></pre>
           </section>
 
           <section id="search-navigation" class="docs-section">
-            <p class="eyebrow">Find and move</p>
             <h2>Search and navigation</h2>
             <p>
-              With an empty query, the center river browses the selected scope newest
-              first. Entering a query switches it to FTS5 relevance-ranked search. Rail
-              selections and search filters combine, so selecting a tag, library, or folder
-              narrows the same result surface.
+              With no query, the document list is sorted newest first. Search uses SQLite
+              FTS5. Folder, tag, and library filters apply to both browsing and search.
             </p>
             <ul>
-              <li><strong>All</strong> browses every live document; <strong>Uncategorized</strong> shows documents in no Astrolabe folder.</li>
-              <li><strong>Folders</strong>, <strong>Tags</strong>, and <strong>Libraries</strong> scope both browse and search.</li>
-              <li>A result row shows its kind, source instances, tags, and a snippet in search mode.</li>
-              <li>Click a row for document detail; double-click it to open the first available source instance.</li>
+              <li><strong>All</strong> shows non-ghost documents by default.</li>
+              <li><strong>Uncategorized</strong> shows documents in no Astrolabe folder.</li>
+              <li>Result rows show kind, source copies, tags, and search snippets.</li>
+              <li>Click for details; double-click to open the first available source copy.</li>
             </ul>
 
             <div class="table-wrap" tabindex="0" role="region" aria-label="Keyboard shortcuts">
               <table class="status-table">
-                <caption>Keyboard shortcuts in the current frame</caption>
+                <caption>Keyboard shortcuts in the current interface</caption>
                 <thead>
                   <tr><th scope="col">Shortcut</th><th scope="col">Action</th></tr>
                 </thead>
@@ -291,9 +237,9 @@ pnpm build</code></pre>
                   <tr><td><kbd>⌘/Ctrl</kbd> <kbd>[</kbd> / <kbd>]</kbd></td><td>Move backward or forward through selection history.</td></tr>
                   <tr><td><kbd>⌘/Ctrl</kbd> + click</td><td>Toggle rows in a multi-selection.</td></tr>
                   <tr><td><kbd>Shift</kbd> + click</td><td>Select a range from the last anchor.</td></tr>
-                  <tr><td><kbd>F</kbd></td><td>File the current river selection to a folder.</td></tr>
+                  <tr><td><kbd>F</kbd></td><td>File the current selection to a folder.</td></tr>
                   <tr><td><kbd>Enter</kbd> or <kbd>O</kbd></td><td>Open the anchored result in its source app.</td></tr>
-                  <tr><td><kbd>Esc</kbd></td><td>Clear the river selection.</td></tr>
+                  <tr><td><kbd>Esc</kbd></td><td>Clear the selection.</td></tr>
                 </tbody>
               </table>
             </div>
@@ -305,7 +251,6 @@ pnpm build</code></pre>
           </section>
 
           <section id="folders" class="docs-section">
-            <p class="eyebrow">Organization without relocation</p>
             <h2>Astrolabe folders</h2>
             <p>
               Folders are local organization metadata, stored as JSON files under
@@ -315,7 +260,7 @@ pnpm build</code></pre>
             <ol>
               <li>Create a top-level folder with <strong>+ New Folder</strong>.</li>
               <li>Right-click a folder to create a child, rename it, move it, or delete it.</li>
-              <li>Select one or more river rows, then choose <strong>File to folder…</strong>.</li>
+              <li>Select one or more document rows, then choose <strong>File to folder…</strong>.</li>
               <li>While browsing a folder, use <strong>Remove from this folder</strong> to unfile the selection.</li>
               <li>On a selected parent folder, toggle <strong>⊂</strong> to include or exclude its descendants.</li>
             </ol>
@@ -327,49 +272,34 @@ pnpm build</code></pre>
           </section>
 
           <section id="ghosts" class="docs-section">
-            <p class="eyebrow">Remembered identity</p>
             <h2>Ghosts</h2>
             <p>
-              A ghost is a document record with no remaining source instance. This can
-              happen after a live source scan confirms that the last indexed copy was
-              removed. The document identity is retained instead of being deleted.
+              A ghost is an indexed document with no remaining source copy. Ghosts are
+              hidden by default.
             </p>
             <ul>
-              <li>Ghosts are hidden from browse, search, and folder counts by default.</li>
-              <li><strong>Show ghosts</strong> reveals them and reports the current ghost count.</li>
-              <li>A ghost keeps its title, kind, search row, and folder membership, but has no source copy to open.</li>
-              <li>An unreachable connector or missing library is marked dormant; that condition alone does not remove its instances or create ghosts.</li>
+              <li><strong>Show ghosts</strong> reveals hidden ghost records.</li>
+              <li>A ghost retains its title, kind, search entry, and folder membership but cannot be opened.</li>
+              <li>An unavailable library is marked dormant and does not become a ghost solely because it is unreachable.</li>
             </ul>
           </section>
 
           <section id="limitations" class="docs-section">
-            <p class="eyebrow">Honest boundaries</p>
             <h2>Current limitations</h2>
-            <div class="docs-callout status-note warning" role="note">
-              <span class="status-dot" aria-hidden="true"></span>
-              <div>
-                <strong>This is a working rebuild, not a product release.</strong>
-                <p>The repository currently has no production installer, updater, checkout, account, or cloud service.</p>
-              </div>
-            </div>
             <ul class="limits-list">
-              <li><strong>Keyword search only.</strong> Search uses local SQLite FTS5; there is no semantic or AI search.</li>
-              <li><strong>No PDF text extraction or OCR.</strong> Search covers metadata, Zotero annotation text/comments, and Obsidian note bodies—not PDF page text.</li>
-              <li><strong>No in-app reader or editor.</strong> Astrolabe opens items in their source application and does not write annotations or metadata back.</li>
-              <li><strong>No Smart Folders.</strong> The rail currently shows a reserved “soon” label, with no creation or rule builder.</li>
-              <li><strong>Bounded result lists.</strong> The current frame loads at most 200 browse rows and 50 search hits; it has no paging or list virtualization.</li>
-              <li><strong>No qualified public installer yet.</strong> A production workflow is checked in for a signed, notarized Apple-silicon DMG, but it is gated on a real version, reviewed distribution terms, Apple credentials, and clean-machine qualification. No such artifact has been published.</li>
-              <li><strong>Sync is launch/manual driven.</strong> The composition root syncs on boot and through the Sync controls; there is no remote synchronization service.</li>
+              <li>Search is keyword-based. It does not extract PDF text or run OCR.</li>
+              <li>There is no in-app reader, editor, annotation write-back, or Smart Folder support.</li>
+              <li>The interface shows up to 200 browse results or 50 search results and has no pagination.</li>
+              <li>Sync runs at launch and when the user chooses <strong>Sync</strong>; there is no remote sync service.</li>
+              <li>No public installer has been released.</li>
             </ul>
           </section>
 
           <section id="developer-links" class="docs-section">
-            <p class="eyebrow">Read the implementation</p>
-            <h2>Developer and source links</h2>
+            <h2>Source</h2>
             <p>
-              The application code is the source of truth for the current behavior. Design
-              documents include clearly marked plans, so check implementation status before
-              treating a planned surface as shipped.
+              The rebuild branch contains the current implementation. Project notes also
+              include future plans.
             </p>
             <div class="docs-cards link-card-grid">
               <a class="docs-card link-card" href="https://github.com/AhmedKhan-GH/astrolabe/tree/rebuild">
@@ -382,7 +312,7 @@ pnpm build</code></pre>
               </a>
               <a class="docs-card link-card" href="https://github.com/AhmedKhan-GH/astrolabe/tree/rebuild/src/renderer/src/frame">
                 <span>Interface</span>
-                <strong>Rail, river, detail, and command palette <span aria-hidden="true">↗</span></strong>
+                <strong>Navigation, results, detail, and command palette <span aria-hidden="true">↗</span></strong>
               </a>
               <a class="docs-card link-card" href="https://github.com/AhmedKhan-GH/astrolabe/tree/rebuild/docs">
                 <span>Project notes</span>
@@ -395,30 +325,13 @@ pnpm build</code></pre>
     </main>
 
     <footer class="site-footer">
-      <div class="container footer-inner">
-        <div class="footer-brand">
-          <a class="wordmark" href="../">
-            <img src="../assets/mark.svg" alt="" width="28" height="28" />
-            <span>Astrolabe</span>
-          </a>
-          <p>A local view across the tools that hold your research.</p>
-        </div>
-        <nav class="footer-links" aria-label="Product links">
-          <p>Product</p>
-          <a href="../#product">What works</a>
-          <a href="../#workflow">How it works</a>
-          <a href="../#status">Release status</a>
-        </nav>
-        <nav class="footer-links" aria-label="Project links">
-          <p>Project</p>
+      <div class="container footer-compact">
+        <span>© 2026 Ahmed Khan</span>
+        <nav aria-label="Footer navigation">
           <a href="./">Documentation</a>
           <a href="https://github.com/AhmedKhan-GH/astrolabe">GitHub</a>
           <a href="mailto:emailahmedebadkhan@gmail.com">Contact</a>
         </nav>
-      </div>
-      <div class="container footer-bottom">
-        <span>© 2026 Ahmed Khan</span>
-        <span>Built without analytics or tracking.</span>
       </div>
     </footer>
   </body>
