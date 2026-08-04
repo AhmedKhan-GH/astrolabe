@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "packageManager": "pnpm@11.14.0",
   "type": "module",
-  "description": "Local-first macOS desktop index for searching and organizing Zotero, Obsidian, and Eagle libraries.",
+  "description": "Augment knowledge work across Zotero, Obsidian, and Eagle with a local desktop index.",
   "author": "Ahmed <emailahmedebadkhan@gmail.com>",
   "homepage": "https://ahmedkhan-gh.github.io/astrolabe/",
   "repository": {

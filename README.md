@@ -1,6 +1,6 @@
 # Astrolabe
 
-Astrolabe is a local-first macOS desktop application for searching, organizing, and opening work across Zotero, Obsidian, and Eagle from one interface.
+Astrolabe augments knowledge work across specialized applications. It indexes Zotero, Obsidian, and Eagle locally for unified search, organization, inspection, and source opening.
 
 [Website](https://ahmedkhan-gh.github.io/astrolabe/) · [Current documentation](https://ahmedkhan-gh.github.io/astrolabe/docs/) · [Project notes](docs/README.md)
 
