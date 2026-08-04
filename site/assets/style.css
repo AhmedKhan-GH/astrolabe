@@ -1,26 +1,26 @@
 :root {
-  --paper: #f4f1e8;
-  --paper-raised: #fcfaf4;
-  --paper-muted: #e7e2d5;
-  --ink: #101a2c;
-  --ink-soft: #2b3548;
-  --muted: #586276;
-  --faint: #747d8c;
-  --line: #b7b1a4;
-  --line-dark: #6a7080;
-  --inverse: #101a2c;
-  --inverse-soft: #bbc6d8;
-  --inverse-line: #60708c;
-  --inverse-text: #f8f4e9;
-  --link: #1d4e89;
-  --link-hover: #143a68;
-  --bearing: #8a5a0a;
-  --bearing-bright: #f1c56b;
-  --sky: #8fc6ff;
+  --paper: #05070b;
+  --paper-raised: #0b1018;
+  --paper-muted: #111927;
+  --ink: #f0f3f6;
+  --ink-soft: #d0d8e0;
+  --muted: #a9b4c0;
+  --faint: #758292;
+  --line: #2c3949;
+  --line-dark: #3c4b63;
+  --line-interactive: #4b5f7d;
+  --inverse: #070b12;
+  --inverse-soft: #9caabd;
+  --inverse-line: #29384d;
+  --inverse-text: #f0f3f6;
+  --link: #75a7e8;
+  --link-hover: #a9c8ee;
+  --action: #2b5e96;
+  --action-hover: #336aa3;
   --font-sans: Arial, "Helvetica Neue", Helvetica, sans-serif;
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   --container: 74rem;
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 *,
@@ -108,7 +108,7 @@ p {
 
 ::selection {
   color: var(--inverse-text);
-  background: var(--link);
+  background: var(--action);
 }
 
 :focus-visible {
@@ -128,7 +128,7 @@ p {
   z-index: 100;
   padding: 0.55rem 0.8rem;
   color: var(--inverse-text);
-  background: var(--link);
+  background: var(--action);
   transform: translateY(-180%);
 }
 
@@ -141,7 +141,7 @@ p {
   top: 0;
   z-index: 50;
   border-bottom: 1px solid var(--line-dark);
-  background: rgba(244, 241, 232, 0.97);
+  background: rgba(5, 7, 11, 0.97);
 }
 
 .header-inner {
@@ -195,7 +195,7 @@ p {
   justify-content: center;
   gap: 0.45rem;
   padding: 0.65rem 1rem;
-  border: 1px solid var(--line-dark);
+  border: 1px solid var(--line-interactive);
   background: transparent;
   color: var(--ink);
   font-size: 0.84rem;
@@ -205,13 +205,13 @@ p {
 
 .button--primary {
   color: var(--inverse-text);
-  border-color: var(--link);
-  background: var(--link);
+  border-color: var(--action);
+  background: var(--action);
 }
 
 .button--primary:hover {
-  border-color: var(--link-hover);
-  background: var(--link-hover);
+  border-color: var(--action-hover);
+  background: var(--action-hover);
 }
 
 .button--quiet:hover {
@@ -259,12 +259,34 @@ p {
 
 /* Landing page */
 .home-hero {
+  position: relative;
   display: grid;
+  isolation: isolate;
   min-height: 29rem;
   padding-block: clamp(4.5rem, 8vw, 7rem);
   align-items: start;
   grid-template-columns: minmax(0, 0.95fr) minmax(20rem, 0.75fr);
   gap: clamp(4rem, 9vw, 9rem);
+}
+
+.home-hero::after {
+  position: absolute;
+  bottom: 3rem;
+  left: 0;
+  z-index: -1;
+  width: min(18rem, 38vw);
+  height: 8rem;
+  border: 1px solid rgba(117, 167, 232, 0.18);
+  border-right-color: transparent;
+  border-left-color: transparent;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 12% 64%, rgba(117, 167, 232, 0.58) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 51% 29%, rgba(169, 200, 238, 0.46) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 87% 58%, rgba(117, 167, 232, 0.52) 0 1px, transparent 1.5px);
+  content: "";
+  pointer-events: none;
+  transform: rotate(-7deg);
 }
 
 .home-hero > *,
@@ -300,12 +322,12 @@ p {
   display: inline-block;
   width: 0.5rem;
   height: 0.5rem;
-  background: var(--bearing);
+  background: var(--link);
 }
 
 .system-strip {
   color: var(--inverse-text);
-  border-block: 1px solid var(--ink);
+  border-block: 1px solid var(--line-dark);
   background: var(--inverse);
 }
 
@@ -332,7 +354,7 @@ p {
 }
 
 .flow-label {
-  color: var(--sky);
+  color: var(--link);
   font-family: var(--font-mono);
   font-size: 0.63rem;
   letter-spacing: 0.1em;
@@ -355,7 +377,7 @@ p {
 }
 
 .system-flow > div:last-child .flow-label {
-  color: var(--bearing-bright);
+  color: var(--link-hover);
 }
 
 .home-section,
@@ -545,7 +567,7 @@ p {
 
 .site-footer {
   color: var(--inverse-text);
-  border-top: 1px solid var(--ink);
+  border-top: 1px solid var(--line-dark);
   background: var(--inverse);
 }
 
@@ -570,7 +592,7 @@ p {
 }
 
 .footer-compact a:hover {
-  color: var(--sky);
+  color: var(--link-hover);
 }
 
 /* Documentation */
@@ -997,6 +1019,10 @@ kbd {
 
   .home-hero {
     padding-block: 3.5rem;
+  }
+
+  .home-hero::after {
+    display: none;
   }
 
   h1 {
