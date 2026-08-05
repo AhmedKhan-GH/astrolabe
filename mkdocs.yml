@@ -1,0 +1,38 @@
+site_name: Astrolabe Documentation
+site_url: https://ahmedkhan-gh.github.io/astrolabe/docs/
+copyright: Copyright &copy; 2026 Ahmed Khan
+docs_dir: docs/wiki
+site_dir: build/wiki-site
+theme:
+  name: material
+  logo: assets/mark.svg
+  favicon: assets/favicon.svg
+  font: false
+  palette:
+    scheme: slate
+    primary: custom
+    accent: custom
+  features:
+    - navigation.sections
+    - content.code.copy
+    - search.suggest
+extra:
+  homepage: /astrolabe/
+extra_css:
+  - stylesheets/astrolabe.css
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+  - pymdownx.superfences
+nav:
+  - Home: index.md
+  - Tutorials:
+      - Run from source: getting-started.md
+  - How-to:
+      - Connect sources: using/connectors.md
+      - Search and navigate: using/search-and-navigation.md
+      - Organize with folders: using/folders.md
+  - Reference:
+      - Data model and ghosts: reference/data-model.md
+      - Current limitations: reference/limitations.md

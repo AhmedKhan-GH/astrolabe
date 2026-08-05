@@ -5,6 +5,10 @@ on:
     branches: [rebuild]
     paths:
       - site/**
+      - docs/wiki/**
+      - mkdocs.yml
+      - requirements-docs.txt
+      - scripts/assemble-site.mjs
       - scripts/validate-site.mjs
       - .github/workflows/pages.yml
   workflow_dispatch:
@@ -26,18 +30,23 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-      - name: Validate site
-        run: node scripts/validate-site.mjs
-      - name: Assemble Pages artifact
+      - name: Build documentation
         run: |
-          mkdir -p _pages
-          cp -R site/. _pages/
+          python3 -m pip install -r requirements-docs.txt
+          python3 -m mkdocs build --strict
+      - name: Assemble Pages artifact
+        run: node scripts/assemble-site.mjs
+      - name: Validate site
+        run: node scripts/validate-site.mjs build/pages
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: _pages
+          path: build/pages
       - id: deployment
         uses: actions/deploy-pages@v5

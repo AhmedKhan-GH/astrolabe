@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 out
+build/
 *.local
 
 # Environment & secrets — never committed (see docs/07, convention 2)

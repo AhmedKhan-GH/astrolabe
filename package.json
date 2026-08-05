@@ -31,7 +31,7 @@
     "test": "pnpm test:unit && pnpm test:integration",
     "package:dir": "pnpm build && electron-builder --dir",
     "dev:install:mac": "bash scripts/install-dev-mac.sh",
-    "site:check": "node scripts/validate-site.mjs"
+    "site:check": "python3 -m mkdocs build --strict && node scripts/assemble-site.mjs && node scripts/validate-site.mjs build/pages"
   },
   "dependencies": {
     "better-sqlite3": "^12.11.1",

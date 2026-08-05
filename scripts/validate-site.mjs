@@ -1,7 +1,18 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, normalize, relative, resolve } from 'node:path'
 
-const root = resolve('site')
+const target = process.argv[2]
+if (!target) {
+  console.error('Usage: node scripts/validate-site.mjs <assembled-site-root>')
+  process.exit(1)
+}
+
+const root = resolve(target)
+if (!existsSync(root)) {
+  console.error('Site root does not exist: ' + root)
+  process.exit(1)
+}
+
 const errors = []
 
 function walk(directory) {

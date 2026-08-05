@@ -1,6 +1,6 @@
 # Astrolabe
 
-Astrolabe augments knowledge work across specialized applications. It indexes Zotero, Obsidian, and Eagle locally for unified search, organization, inspection, and source opening.
+Astrolabe augments knowledge work across applications. It indexes Zotero, Obsidian, and Eagle locally for unified search, organization, inspection, and source opening.
 
 [Website](https://ahmedkhan-gh.github.io/astrolabe/) · [Current documentation](https://ahmedkhan-gh.github.io/astrolabe/docs/) · [Project notes](docs/README.md)
 
@@ -42,14 +42,22 @@ pnpm test
 pnpm build
 ```
 
+Build and validate the public site and documentation:
+
+```sh
+python3 -m pip install -r requirements-docs.txt
+pnpm site:check
+```
+
 ## Repository map
 
 - `src/main/` — Electron composition, connectors, local index, and IPC
 - `src/preload/` — typed renderer bridge
 - `src/renderer/` — React three-pane interface
 - `drizzle/` — local SQLite schema migrations
-- `docs/` — vision, architecture, decisions, and implementation records
-- `site/` — static GitHub Pages site and current user documentation
+- `docs/` — internal vision, architecture, decisions, and implementation records
+- `docs/wiki/` — public documentation source
+- `site/` — static GitHub Pages landing page and assets
 - `.github/workflows/` — application CI, Pages deployment, and release preparation
 
 ## Distribution status

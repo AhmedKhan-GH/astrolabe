@@ -1,0 +1,242 @@
+:root {
+  --astrolabe-bg: #05070b;
+  --astrolabe-surface: #0b1018;
+  --astrolabe-raised: #111927;
+  --astrolabe-text: #f0f3f6;
+  --astrolabe-text-soft: #d0d8e0;
+  --astrolabe-muted: #a9b4c0;
+  --astrolabe-line: #2c3949;
+  --astrolabe-line-strong: #506681;
+  --astrolabe-accent: #75a7e8;
+  --astrolabe-accent-hover: #a9c8ee;
+  --astrolabe-accent-ink: #05070b;
+  --astrolabe-panel: #070b12;
+  --astrolabe-panel-text: #f0f3f6;
+  --md-primary-fg-color: var(--astrolabe-bg);
+  --md-primary-bg-color: var(--astrolabe-text);
+  --md-accent-fg-color: var(--astrolabe-accent);
+  --md-typeset-a-color: var(--astrolabe-accent);
+  --md-text-font: Arial, "Helvetica Neue", Helvetica, sans-serif;
+  --md-code-font: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-default-fg-color: var(--astrolabe-text);
+  --md-default-fg-color--light: var(--astrolabe-text-soft);
+  --md-default-fg-color--lighter: var(--astrolabe-muted);
+  --md-default-fg-color--lightest: var(--astrolabe-line);
+  --md-default-bg-color: var(--astrolabe-bg);
+  --md-default-bg-color--light: var(--astrolabe-surface);
+  --md-default-bg-color--lighter: var(--astrolabe-raised);
+  --md-code-fg-color: var(--astrolabe-text);
+  --md-code-bg-color: var(--astrolabe-surface);
+  --md-footer-bg-color: var(--astrolabe-panel);
+  --md-footer-bg-color--dark: var(--astrolabe-panel);
+  --md-typeset-color: var(--astrolabe-text-soft);
+  --md-typeset-a-color: var(--astrolabe-accent);
+  --md-typeset-table-color: var(--astrolabe-line-strong);
+}
+
+body {
+  background: var(--astrolabe-bg);
+  font-family: var(--md-text-font);
+}
+
+.md-header {
+  color: var(--astrolabe-text);
+  border-bottom: 1px solid var(--astrolabe-line-strong);
+  background: rgba(5, 7, 11, 0.98);
+  box-shadow: none;
+}
+
+.md-header__title {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.md-search__form,
+.md-search__output,
+.md-search-result__meta,
+.md-search-result__item {
+  border-radius: 0;
+}
+
+.md-search__form {
+  border: 1px solid var(--astrolabe-line-strong);
+  background: var(--astrolabe-surface);
+}
+
+.md-search__form:hover {
+  background: var(--astrolabe-raised);
+}
+
+.md-main__inner {
+  margin-top: 1.8rem;
+}
+
+.md-sidebar {
+  scrollbar-color: var(--astrolabe-line-strong) transparent;
+}
+
+.md-nav__title,
+.md-nav__item .md-nav__link--active,
+.md-nav__item .md-nav__link:hover {
+  color: var(--astrolabe-accent);
+}
+
+.md-nav__title {
+  color: var(--astrolabe-text);
+  font-weight: 600;
+}
+
+.md-nav__link {
+  color: var(--astrolabe-muted);
+}
+
+.md-typeset {
+  color: var(--astrolabe-text-soft);
+  font-size: 0.78rem;
+  line-height: 1.68;
+}
+
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3,
+.md-typeset h4 {
+  color: var(--astrolabe-text);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+}
+
+.md-typeset h1 {
+  margin-bottom: 1.4rem;
+  font-size: clamp(2rem, 4vw, 2.75rem);
+  line-height: 1.1;
+}
+
+.md-typeset h2 {
+  margin-top: 2.8rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--astrolabe-line-strong);
+  font-size: 1.6rem;
+}
+
+.md-typeset h3 {
+  font-size: 1.15rem;
+}
+
+.md-typeset a:hover {
+  color: var(--astrolabe-accent-hover);
+}
+
+.md-typeset a:not(.md-button) {
+  text-decoration: underline;
+  text-decoration-color: var(--astrolabe-line-strong);
+  text-underline-offset: 0.15em;
+}
+
+.md-typeset code,
+.md-typeset pre,
+.md-typeset kbd,
+.md-typeset .admonition,
+.md-typeset details,
+.md-typeset .md-button,
+.md-typeset table:not([class]),
+.md-typeset .tabbed-set > input:first-child:checked ~ .tabbed-labels > :first-child,
+.highlight span.filename {
+  border-radius: 0;
+}
+
+.md-typeset code {
+  color: var(--astrolabe-text);
+  border: 1px solid var(--astrolabe-line);
+  background: var(--astrolabe-surface);
+}
+
+.md-typeset pre > code {
+  border-color: var(--astrolabe-line-strong);
+}
+
+.md-typeset .admonition,
+.md-typeset details {
+  border: 1px solid var(--astrolabe-line-strong);
+  border-left: 0.2rem solid var(--astrolabe-accent);
+  background: var(--astrolabe-surface);
+  box-shadow: none;
+}
+
+.md-typeset .admonition-title,
+.md-typeset summary {
+  background: var(--astrolabe-raised);
+}
+
+.md-typeset .admonition.note,
+.md-typeset details.note {
+  border-color: var(--astrolabe-line-strong);
+  border-left-color: var(--astrolabe-accent);
+}
+
+.md-typeset .admonition.note > .admonition-title,
+.md-typeset details.note > summary {
+  background: var(--astrolabe-raised);
+}
+
+.md-typeset .note > .admonition-title::before,
+.md-typeset .note > summary::before {
+  background-color: var(--astrolabe-accent);
+}
+
+.md-typeset table:not([class]) {
+  border: 1px solid var(--astrolabe-line-strong);
+  background: var(--astrolabe-surface);
+  box-shadow: none;
+}
+
+.md-typeset table:not([class]) th {
+  color: var(--astrolabe-text);
+  background: var(--astrolabe-raised);
+}
+
+.md-typeset table:not([class]) th,
+.md-typeset table:not([class]) td {
+  border-color: var(--astrolabe-line);
+}
+
+.md-typeset .md-button {
+  color: var(--astrolabe-text);
+  border-color: var(--astrolabe-line-strong);
+}
+
+.md-typeset .md-button--primary {
+  color: var(--astrolabe-accent-ink);
+  border-color: var(--astrolabe-accent);
+  background: var(--astrolabe-accent);
+}
+
+.md-typeset hr {
+  border-color: var(--astrolabe-line-strong);
+}
+
+.md-typeset blockquote {
+  color: var(--astrolabe-muted);
+  border-left-color: var(--astrolabe-accent);
+}
+
+.md-footer {
+  border-top: 1px solid var(--astrolabe-line-strong);
+}
+
+.md-footer-meta {
+  background: var(--astrolabe-panel);
+}
+
+@media screen and (max-width: 76.234375em) {
+  .md-nav--primary .md-nav__title[for="__drawer"] {
+    color: var(--astrolabe-text);
+    background: var(--astrolabe-bg);
+  }
+
+  .md-nav--primary .md-nav__title {
+    border-bottom: 1px solid var(--astrolabe-line-strong);
+  }
+}

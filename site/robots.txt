@@ -2,3 +2,4 @@ User-agent: *
 Allow: /
 
 Sitemap: https://ahmedkhan-gh.github.io/astrolabe/sitemap.xml
+Sitemap: https://ahmedkhan-gh.github.io/astrolabe/docs/sitemap.xml
