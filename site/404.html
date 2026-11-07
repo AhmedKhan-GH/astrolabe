@@ -1,30 +1,146 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="robots" content="noindex">
-  <meta name="theme-color" content="#05070b">
-  <meta name="color-scheme" content="dark">
-  <title>Page not found — Astrolabe</title>
-  <link rel="icon" href="/astrolabe/assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/astrolabe/assets/style.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#12110f">
+<title>Page not found · Astrolabe</title>
+<link rel="icon" href="/astrolabe/assets/astrolabe-icon.svg" type="image/svg+xml">
+<style>
+  @font-face { font-family: "Sternbild Display"; src: url("/astrolabe/assets/fonts/SternbildDisplay-Regular.woff2") format("woff2"); font-display: swap; }
+  @font-face { font-family: "Plex Condensed"; src: url("/astrolabe/assets/fonts/IBMPlexSansCondensed-Regular.ttf") format("truetype"); font-display: swap; }
+
+  /* The Sternbild palette, as on the Caliper site. */
+  :root {
+    --deep: #12110f;
+    --ground: #181715;
+    --plate: #201f1c;
+    --plate-hover: #2a2925;
+    --rule: #4b4945;
+    --rule-faint: #2c2b28;
+    --parchment: #e8e0d0;
+    --secondary: #c1baaa;
+    --faint: #8f897c;
+    --bronze: #b38b59;
+    --bronze-hover: #c49b68;
+    --max: 1160px;
+    --display: "Sternbild Display", "Plex Condensed", sans-serif;
+    --text: "Plex Condensed", -apple-system, "Helvetica Neue", sans-serif;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--ground); color: var(--parchment); font: 17px/1.65 var(--text); -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+  img { display: block; max-width: 100%; height: auto; }
+  .wrap { max-width: var(--max); margin: 0 auto; padding: 0 28px; }
+
+  /* Buttons: inscriptional caps on a ruled plate. */
+  .btn { display: inline-flex; align-items: center; gap: 10px; padding: 12px 22px 11px; font: 14px/1 var(--display);
+         letter-spacing: .16em; text-transform: uppercase; cursor: pointer; transition: background .15s, color .15s; }
+  /* A download that isn't out yet: greyed and not a link, as on the Caliper and Falcon sites. */
+  .btn .sep { font-family: var(--text); }   /* the display face has no middle dot */
+  .btn-soon { color: var(--faint); background: var(--plate); border: 1px solid var(--rule); border-radius: 4px; opacity: .6; cursor: not-allowed; }
+  .btn-ghost { color: var(--parchment); background: var(--plate); border: 1px solid var(--rule); border-radius: 4px; }
+  .btn-ghost:hover { background: var(--plate-hover); border-color: var(--faint); }
+
+  /* Navigation */
+  nav { position: sticky; top: 0; z-index: 20; background: rgba(18, 17, 15, .86); backdrop-filter: blur(12px); border-bottom: 1px solid var(--rule-faint); }
+  nav .wrap { display: flex; align-items: center; gap: 30px; height: 64px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand img { width: 36px; height: 36px; }
+  .brand span { font: 17px/1 var(--display); letter-spacing: .22em; padding-top: 2px; }
+  nav .links { display: flex; gap: 26px; margin-left: auto; color: var(--secondary); font: 13px/1 var(--display); letter-spacing: .18em; text-transform: uppercase; }
+  nav .links a:hover { color: var(--parchment); }
+  nav .btn { padding: 10px 16px 9px; font-size: 12px; }
+
+  /* Hero, lit as on the Caliper site: a fall of light from above and five beams along the seal's construction rays
+     (0, 18 and 36 degrees either side of the upright), rising from one point. */
+  header.hero { position: relative; overflow: hidden; padding: 92px 0 96px; text-align: center;
+                background: linear-gradient(180deg, var(--deep) 0%, var(--ground) 78%); }
+  header.hero::before { content: ""; position: absolute; inset: 0 0 auto; height: 520px; pointer-events: none;
+                        background: linear-gradient(180deg, rgba(232, 224, 208, .055), rgba(232, 224, 208, 0) 100%); }
+  .aura { position: absolute; left: 50%; top: 0; width: 1600px; height: 980px; transform: translateX(-50%); pointer-events: none; }
+  .hero .wrap { position: relative; }
+  .hero-mark { width: 136px; height: 136px; margin: 0 auto 26px; filter: drop-shadow(0 18px 30px rgba(0, 0, 0, .45)); }
+  /* The name is the hero's headline; the trailing letter-space is padded on the left so the word sits centred. */
+  .hero h1 { font: clamp(44px, 10.5vw, 116px)/1 var(--display); letter-spacing: .16em; padding-left: .16em; margin: 0 auto;
+             font-weight: normal; text-transform: uppercase; text-shadow: 0 18px 44px rgba(0, 0, 0, .55); }
+  .tagline { font: clamp(15px, 2vw, 22px)/1.4 var(--display); letter-spacing: .2em; padding-left: .2em; text-transform: uppercase;
+             color: var(--secondary); margin: 22px auto 26px; max-width: 980px; text-wrap: balance; }
+  .lede { color: var(--secondary); font-size: clamp(17px, 1.9vw, 20px); max-width: 640px; margin: 0 auto 36px; text-wrap: pretty; }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+  button.btn { margin: 0; }
+
+  /* Sections: ruled, one reading column with its figure. */
+  section { padding: 24px 0 0; }
+  section > .wrap { border-top: 1px solid var(--rule-faint); padding-top: 64px; }
+  .label { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+  .label::before { content: ""; width: 28px; height: 1px; background: var(--bronze); }
+  .eyebrow { font: 13px/1 var(--display); letter-spacing: .26em; color: var(--bronze); text-transform: uppercase; }
+  h2 { font: clamp(24px, 3vw, 36px)/1.2 var(--display); letter-spacing: .06em; text-transform: uppercase; margin: 0 0 18px; font-weight: normal; }
+  .intro { color: var(--secondary); max-width: 720px; margin: 0 0 40px; font-size: 18px; }
+
+  /* The flow: the app you learn in, then the app you work in, on two plates joined by a bronze rule. */
+  .flow { display: grid; grid-template-columns: minmax(0, 1fr) 132px minmax(0, 1fr); align-items: center; max-width: 860px; }
+  .stage { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 30px 22px 28px; text-align: center;
+           background: var(--deep); border: 1px solid var(--rule-faint); border-radius: 8px; transition: border-color .15s, background .15s; }
+  a.stage:hover { border-color: var(--rule); background: #161513; }
+  .stage.here { border-color: rgba(179, 139, 89, .5); }
+  .stage .step { font: 12px/1 var(--display); letter-spacing: .26em; color: var(--bronze); text-transform: uppercase; }
+  .stage img { width: 104px; height: 104px; margin: 14px 0 10px; }
+  .stage .name { font: 20px/1 var(--display); letter-spacing: .2em; padding-left: .2em; text-transform: uppercase; }
+  .stage .role { color: var(--faint); font-size: 15px; line-height: 1.4; }
+  .stage .visit { margin-top: 8px; font: 12px/1 var(--display); letter-spacing: .18em; text-transform: uppercase; color: var(--secondary); }
+  a.stage:hover .visit { color: var(--bronze-hover); }
+  .flow-arrow { display: block; width: 100%; height: 24px; overflow: visible; }
+  .flow-arrow line { stroke: var(--bronze); stroke-width: 1.5; }
+  .flow-arrow path { fill: var(--bronze); }
+
+  footer { margin-top: 120px; border-top: 1px solid var(--rule-faint); background: var(--deep); padding: 44px 0 56px; color: var(--faint); font-size: 14px; }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 28px; align-items: center; justify-content: space-between; }
+  .house { display: flex; align-items: center; gap: 20px; color: var(--secondary); }
+  .house img { width: 72px; height: 72px; }
+  .house-text { display: flex; flex-direction: column; gap: 10px; }
+  .house-name { font: 24px/1 var(--display); letter-spacing: .3em; color: var(--parchment); }
+  .house-url { font: 15px/1 var(--text); letter-spacing: .04em; color: var(--faint); }
+  .house:hover .house-url { color: var(--bronze-hover); }
+  footer .links { display: flex; gap: 22px; flex-wrap: wrap; font: 12px/1 var(--display); letter-spacing: .18em; text-transform: uppercase; }
+  footer a:hover { color: var(--parchment); }
+
+  @media (max-width: 900px) {
+    nav .links { display: none; }
+    nav .btn { margin-left: auto; }
+  }
+  @media (max-width: 680px) {
+    .flow { grid-template-columns: minmax(0, 1fr); max-width: 420px; }
+    .flow-arrow { width: 96px; margin: 36px auto; transform: rotate(90deg); }   /* the rule turns to point down */
+  }
+  @media (max-width: 520px) {
+    header.hero { padding-top: 64px; }
+    .wrap { padding: 0 18px; }
+  }
+
+  .missing { min-height: calc(100vh - 64px); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 64px 0; }
+  .missing .lede { margin-bottom: 30px; }
+</style>
 </head>
 <body>
-  <header class="site-header">
-    <div class="container header-inner">
-      <a class="wordmark" href="/astrolabe/"><img src="/astrolabe/assets/mark.svg" alt="" width="28" height="28"><span>Astrolabe</span></a>
-      <nav class="site-nav" aria-label="Primary navigation"><a href="/astrolabe/docs/">Documentation</a></nav>
-    </div>
-  </header>
-  <main class="container docs-hero">
-    <p class="section-label">404</p>
-    <h1>This page is not in the current chart.</h1>
-    <p>The address may have moved, or it may describe something Astrolabe has not published.</p>
-    <div class="button-row">
-      <a class="button button--primary" href="/astrolabe/">Return home</a>
-      <a class="button button--quiet" href="/astrolabe/docs/">Open documentation</a>
-    </div>
-  </main>
+<nav>
+  <div class="wrap">
+    <a class="brand" href="/astrolabe/"><img src="/astrolabe/assets/astrolabe-icon.svg" alt=""><span>ASTROLABE</span></a>
+    <div class="links"><a href="/astrolabe/docs/">Docs</a></div>
+  </div>
+</nav>
+<main class="wrap missing">
+  <div class="label"><span class="eyebrow">404</span></div>
+  <h2>Page not found</h2>
+  <p class="lede">The address may have moved, or the page was never published.</p>
+  <div class="actions">
+    <a class="btn btn-ghost" href="/astrolabe/">Astrolabe</a>
+    <a class="btn btn-ghost" href="/astrolabe/docs/">Docs</a>
+  </div>
+</main>
 </body>
 </html>

@@ -1,70 +1,29 @@
+// Once a signed Apple-silicon release is published on GitHub, the greyed download becomes a link to its disk image.
+// The checked-in page is the truthful no-release state, so failures and rate limits leave it as it is.
 (() => {
-  const card = document.querySelector('[data-release-card]')
-  if (!card) return
+  const control = document.querySelector('[data-release-download]')
+  if (!control) return
 
-  const api = 'https://api.github.com/repos/AhmedKhan-GH/astrolabe/releases/latest'
-
-  const formatBytes = (bytes) => {
-    if (!Number.isFinite(bytes) || bytes <= 0) return null
-    const megabytes = bytes / (1024 * 1024)
-    return `${megabytes >= 100 ? megabytes.toFixed(0) : megabytes.toFixed(1)} MB`
-  }
-
-  const formatDate = (value) => {
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return null
-    return new Intl.DateTimeFormat('en', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    }).format(date)
-  }
-
-  fetch(api, { headers: { Accept: 'application/vnd.github+json' } })
+  fetch('https://api.github.com/repos/AhmedKhan-GH/astrolabe/releases/latest', { headers: { Accept: 'application/vnd.github+json' } })
     .then((response) => {
       if (!response.ok) throw new Error('No public release')
       return response.json()
     })
     .then((release) => {
       if (release.draft || release.prerelease || !Array.isArray(release.assets)) return
-
       const dmg = release.assets.find((asset) =>
-        /^Astrolabe-.+-arm64\.dmg$/i.test(asset.name) &&
-        !asset.name.toLowerCase().includes('unsigned'),
-      )
+        /^Astrolabe-.+-arm64\.dmg$/i.test(asset.name) && !asset.name.toLowerCase().includes('unsigned'))
       const checksum = release.assets.find((asset) => asset.name === 'SHA256SUMS.txt')
       const manifest = release.assets.find((asset) => asset.name === 'release-manifest.json')
       if (!dmg || !checksum || !manifest) return
 
-      const state = card.querySelector('[data-release-state]')
-      const message = card.querySelector('[data-release-message]')
-      const download = card.querySelector('[data-release-download]')
-      const meta = card.querySelector('[data-release-meta]')
-      const notes = card.querySelector('[data-release-notes]')
-      const date = formatDate(release.published_at)
-      const size = formatBytes(dmg.size)
-
-      card.dataset.releaseReady = 'true'
-      state.textContent = 'Public release available'
-      message.textContent = `Astrolabe ${release.tag_name} for Apple silicon is available as a macOS disk image.`
-      const downloadLink = document.createElement('a')
-      downloadLink.className = 'button button--primary'
-      downloadLink.dataset.releaseDownload = ''
-      downloadLink.dataset.releaseAsset = dmg.name
-      downloadLink.href = dmg.browser_download_url
-      downloadLink.textContent = `Download ${release.tag_name}`
-      download.replaceWith(downloadLink)
-      meta.innerHTML = [
-        '<div><dt>Architecture</dt><dd>Apple silicon (arm64)</dd></div>',
-        date ? `<div><dt>Published</dt><dd>${date}</dd></div>` : '',
-        size ? `<div><dt>Download size</dt><dd>${size}</dd></div>` : '',
-        '<div><dt>Integrity</dt><dd>Checksum + manifest included</dd></div>',
-      ].join('')
-      notes.textContent = 'Release notes →'
-      notes.href = release.html_url
+      const link = document.createElement('a')
+      link.className = 'btn btn-ghost'
+      link.href = dmg.browser_download_url
+      link.dataset.releaseDownload = ''
+      link.dataset.releaseAsset = dmg.name
+      link.textContent = `Download ${release.tag_name}`
+      control.replaceWith(link)
     })
-    .catch(() => {
-      // The checked-in copy is already the truthful no-release state. Network
-      // failures and GitHub API rate limits should never invent availability.
-    })
+    .catch(() => {})
 })()

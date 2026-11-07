@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <filter id="filter-1" filterUnits="userSpaceOnUse" x="60" y="60" width="904" height="904" data-vc-blend="multiply" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="8"/><feOffset dx="0" dy="14" result="shadow"/><feFlood flood-color="#000000" flood-opacity="0.3"/><feComposite in2="shadow" operator="in" result="paint"/><feMerge><feMergeNode in="paint"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <linearGradient id="linear-gradient-1" x1="512" y1="100" x2="512" y2="924" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#36332d"/>
+      <stop offset="0.5" stop-color="#211f1b"/>
+      <stop offset="1" stop-color="#141311"/>
+    </linearGradient>
+    <filter id="filter-2" filterUnits="userSpaceOnUse" x="249" y="199.712" width="526" height="563.751" data-vc-blend="multiply" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="5"/><feOffset dx="0" dy="8" result="shadow"/><feFlood flood-color="#050403" flood-opacity="0.35"/><feComposite in2="shadow" operator="in" result="paint"/><feMerge><feMergeNode in="paint"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <linearGradient id="linear-gradient-2" x1="512" y1="230" x2="512" y2="815" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f6f0e4"/>
+      <stop offset="0.5" stop-color="#e8e0d0"/>
+      <stop offset="1" stop-color="#cfc3aa"/>
+    </linearGradient>
+    <linearGradient id="linear-gradient-3" x1="512" y1="336" x2="512" y2="584" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d8b27a"/>
+      <stop offset="0.55" stop-color="#b38b59"/>
+      <stop offset="1" stop-color="#8d6a3e"/>
+    </linearGradient>
+  </defs>
+  <title>Astrolabe</title>
+  <g id="Astrolabe_app_icon" data-name="Astrolabe app icon">
+    <g filter="url(#filter-1)">
+      <path id="Tile" d="M264.8 100 L759.2 100 L924 264.8 L924 759.2 L759.2 924 L264.8 924 L100 759.2 L100 264.8 Z" fill="url(#linear-gradient-1)"/>
+    </g>
+    <path id="Border" d="M269.465 111.261 L754.535 111.261 L912.739 269.465 L912.739 754.535 L754.535 912.739 L269.465 912.739 L111.261 754.535 L111.261 269.465 Z" fill="none" stroke="#e8e0d0" stroke-width="22.523"/>
+    <g filter="url(#filter-2)">
+      <g id="Astrolabe">
+        <g>
+          <path id="Mater" d="M482 247 C482 238.154 485.828 230.203 491.919 224.712 C489.411 228.509 487.95 233.059 487.95 237.95 C487.95 251.233 498.718 262 512 262 C525.282 262 536.05 251.233 536.05 237.95 C536.05 233.059 534.589 228.509 532.081 224.712 C538.172 230.203 542 238.154 542 247 C542 259.14 534.789 269.596 524.416 274.318 C650.089 280.777 750 384.721 750 512 C750 617.827 680.93 707.521 585.411 738.463 C667.274 708.52 725.703 629.935 725.703 537.703 C725.703 419.678 630.025 324 512 324 C393.975 324 298.297 419.678 298.297 537.703 C298.297 629.935 356.726 708.52 438.589 738.463 C343.07 707.521 274 617.827 274 512 C274 384.721 373.911 280.777 499.584 274.318 C489.211 269.596 482 259.14 482 247 Z" fill="url(#linear-gradient-2)"/>
+          <path id="Ecliptic_ring" data-name="Ecliptic ring" d="M388 460 C388 391.517 443.517 336 512 336 C517.149 336 522.224 336.314 527.208 336.923 C468.624 337.45 421.295 385.104 421.295 443.812 C421.295 502.848 469.152 550.705 528.188 550.705 C586.896 550.705 634.55 503.376 635.077 444.792 C635.686 449.776 636 454.851 636 460 C636 528.483 580.483 584 512 584 C443.517 584 388 528.483 388 460 Z" fill="url(#linear-gradient-3)"/>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>
