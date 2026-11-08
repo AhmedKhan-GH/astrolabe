@@ -1,0 +1,11 @@
+[package]
+name = "astrolabe"
+description = "The Astrolabe host: the command layer, the tools, the agent runtime and the workspace."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+astrolabe-contract = { path = "../astrolabe-contract" }
+serde_json.workspace = true
