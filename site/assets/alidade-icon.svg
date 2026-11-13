@@ -46,5 +46,11 @@
         </g>
       </g>
     </g>
+    <g id="Hinge_gap_group">
+          <circle id="Hinge_gap" cx="510.166" cy="315.963" r="49.076" fill="url(#linear-gradient-1)"/>
+    </g>
+    <g id="Hinge_group" filter="url(#filter-2)">
+          <circle id="Hinge" cx="510.166" cy="315.963" r="40.076" fill="url(#linear-gradient-2)"/>
+    </g>
   </g>
 </svg>
