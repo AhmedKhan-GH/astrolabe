@@ -31,9 +31,6 @@
           <g id="Telescope_pivot___exact_Caliper_hinge_ring_and_pin___ring" data-name="Telescope pivot — exact Caliper hinge ring and pin · ring">
             <path id="Telescope_pivot___exact_Caliper_hinge_ring_and_pin___ring-2" data-name="Telescope pivot — exact Caliper hinge ring and pin · ring" d="M470.09 315.963 C470.09 293.83 488.033 275.887 510.166 275.887 C532.3 275.887 550.242 293.83 550.242 315.963 C550.242 338.097 532.3 356.039 510.166 356.039 C488.033 356.039 470.09 338.097 470.09 315.963 Z M510.166 292.583 C497.254 292.583 486.786 303.051 486.786 315.963 C486.786 328.876 497.254 339.344 510.166 339.344 C523.079 339.344 533.547 328.876 533.547 315.963 C533.547 303.051 523.079 292.583 510.166 292.583 Z" fill="url(#linear-gradient-2)"/>
           </g>
-          <g id="Telescope_pivot___exact_Caliper_hinge_ring_and_pin___pin" data-name="Telescope pivot — exact Caliper hinge ring and pin · pin">
-            <path id="Telescope_pivot___exact_Caliper_hinge_ring_and_pin___pin-2" data-name="Telescope pivot — exact Caliper hinge ring and pin · pin" d="M494.17 315.963 C494.17 307.129 501.332 299.967 510.166 299.967 C519.001 299.967 526.162 307.129 526.162 315.963 C526.162 324.798 519.001 331.959 510.166 331.959 C501.332 331.959 494.17 324.798 494.17 315.963 Z" fill="url(#linear-gradient-3)"/>
-          </g>
           <g id="A-stand___whole_left_leg_over_bow_and_right_leg" data-name="A-stand — whole left leg over bow and right leg">
             <path id="A-stand___whole_left_leg_over_bow_and_right_leg-2" data-name="A-stand — whole left leg over bow and right leg" d="M483.646 358.499 C484.252 357.423 485.617 357.042 486.693 357.648 C500.166 365.244 516.543 365.792 530.432 359.299 C532.476 358.343 534.495 360.705 533.232 362.576 L250.884 780.916 C250.213 781.91 248.877 782.198 247.856 781.567 C246.835 780.937 246.494 779.613 247.082 778.568 Z" fill="url(#linear-gradient-2)"/>
           </g>
@@ -48,6 +45,12 @@
           </g>
         </g>
       </g>
+    </g>
+    <g id="Hinge_gap_group">
+          <circle id="Hinge_gap" cx="510.166" cy="315.963" r="49.076" fill="url(#linear-gradient-1)"/>
+    </g>
+    <g id="Hinge_group" filter="url(#filter-2)">
+          <circle id="Hinge" cx="510.166" cy="315.963" r="40.076" fill="url(#linear-gradient-2)"/>
     </g>
   </g>
 </svg>
