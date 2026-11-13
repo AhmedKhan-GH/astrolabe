@@ -25,6 +25,7 @@
       <path id="Tile" d="M264.8 100 L759.2 100 L924 264.8 L924 759.2 L759.2 924 L264.8 924 L100 759.2 L100 264.8 Z" fill="url(#linear-gradient-1)"/>
     </g>
     <path id="Border" d="M269.465 111.261 L754.535 111.261 L912.739 269.465 L912.739 754.535 L754.535 912.739 L269.465 912.739 L111.261 754.535 L111.261 269.465 Z" fill="none" stroke="#e8e0d0" stroke-width="22.523"/>
+    <circle id="Interior" cx="512" cy="512" r="237.5" fill="#12110f"/>
     <g filter="url(#filter-2)">
       <g id="Astrolabe">
         <g>
@@ -32,6 +33,10 @@
           <path id="Ecliptic_ring" data-name="Ecliptic ring" d="M388 460 C388 391.517 443.517 336 512 336 C517.149 336 522.224 336.314 527.208 336.923 C468.624 337.45 421.295 385.104 421.295 443.812 C421.295 502.848 469.152 550.705 528.188 550.705 C586.896 550.705 634.55 503.376 635.077 444.792 C635.686 449.776 636 454.851 636 460 C636 528.483 580.483 584 512 584 C443.517 584 388 528.483 388 460 Z" fill="url(#linear-gradient-3)"/>
         </g>
       </g>
+    </g>
+    <circle id="Shackle_gap" cx="512" cy="250" r="44" fill="url(#linear-gradient-1)"/>
+    <g filter="url(#filter-2)">
+      <circle id="Shackle" cx="512" cy="250" r="34" fill="url(#linear-gradient-2)"/>
     </g>
   </g>
 </svg>
