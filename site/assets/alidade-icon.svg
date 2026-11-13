@@ -7,7 +7,7 @@
       <stop offset="0.5" stop-color="#211f1b"/>
       <stop offset="1" stop-color="#141311"/>
     </linearGradient>
-    <filter id="filter-2" filterUnits="userSpaceOnUse" x="221.794" y="218.647" width="576.744" height="588.254" data-vc-blend="multiply" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="5"/><feOffset dx="0" dy="8" result="shadow"/><feFlood flood-color="#050403" flood-opacity="0.35"/><feComposite in2="shadow" operator="in" result="paint"/><feMerge><feMergeNode in="paint"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="filter-2" filterUnits="userSpaceOnUse" x="221.794" y="250.887" width="576.744" height="556.014" data-vc-blend="multiply" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="5"/><feOffset dx="0" dy="8" result="shadow"/><feFlood flood-color="#050403" flood-opacity="0.35"/><feComposite in2="shadow" operator="in" result="paint"/><feMerge><feMergeNode in="paint"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
     <linearGradient id="linear-gradient-2" x1="512" y1="219.6" x2="512" y2="804.4" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#f6f0e4"/>
       <stop offset="0.5" stop-color="#e8e0d0"/>
@@ -18,8 +18,13 @@
       <stop offset="0.55" stop-color="#b38b59"/>
       <stop offset="1" stop-color="#8d6a3e"/>
     </linearGradient>
+    <linearGradient id="linear-gradient-4" x1="512" y1="285.96" x2="512" y2="345.96" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d8b27a"/>
+      <stop offset="0.55" stop-color="#b38b59"/>
+      <stop offset="1" stop-color="#8d6a3e"/>
+    </linearGradient>
   </defs>
-  <title>Alidade</title>
+  <title>current.svg</title>
   <g id="Alidade_app_icon" data-name="Alidade app icon">
     <g filter="url(#filter-1)">
       <path id="Tile" d="M264.8 100 L759.2 100 L924 264.8 L924 759.2 L759.2 924 L264.8 924 L100 759.2 L100 264.8 Z" fill="url(#linear-gradient-1)"/>
@@ -31,6 +36,7 @@
           <g id="Telescope_pivot___exact_Caliper_hinge_ring_and_pin___ring" data-name="Telescope pivot — exact Caliper hinge ring and pin · ring">
             <path id="Telescope_pivot___exact_Caliper_hinge_ring_and_pin___ring-2" data-name="Telescope pivot — exact Caliper hinge ring and pin · ring" d="M470.09 315.963 C470.09 293.83 488.033 275.887 510.166 275.887 C532.3 275.887 550.242 293.83 550.242 315.963 C550.242 338.097 532.3 356.039 510.166 356.039 C488.033 356.039 470.09 338.097 470.09 315.963 Z M510.166 292.583 C497.254 292.583 486.786 303.051 486.786 315.963 C486.786 328.876 497.254 339.344 510.166 339.344 C523.079 339.344 533.547 328.876 533.547 315.963 C533.547 303.051 523.079 292.583 510.166 292.583 Z" fill="url(#linear-gradient-2)"/>
           </g>
+          <path id="Telescope" d="M643.45 294.11 L643.45 288.36 L706.17 288.36 L706.17 343.56 L643.45 343.56 L643.45 337.81 L554.82 336.365 C557.665 330.152 559.25 323.241 559.25 315.96 C559.25 308.679 557.665 301.768 554.82 295.555 Z M431.77 297.56 L464.878 297.02 C462.438 302.848 461.09 309.247 461.09 315.96 C461.09 322.673 462.438 329.072 464.878 334.9 L431.77 334.36 L431.77 329.76 L353.37 329.76 L353.37 325.735 L314.17 325.735 L314.17 306.185 L353.37 306.185 L353.37 302.16 L431.77 302.16 Z" fill="url(#linear-gradient-4)"/>
           <g id="A-stand___whole_left_leg_over_bow_and_right_leg" data-name="A-stand — whole left leg over bow and right leg">
             <path id="A-stand___whole_left_leg_over_bow_and_right_leg-2" data-name="A-stand — whole left leg over bow and right leg" d="M483.646 358.499 C484.252 357.423 485.617 357.042 486.693 357.648 C500.166 365.244 516.543 365.792 530.432 359.299 C532.476 358.343 534.495 360.705 533.232 362.576 L250.884 780.916 C250.213 781.91 248.877 782.198 247.856 781.567 C246.835 780.937 246.494 779.613 247.082 778.568 Z" fill="url(#linear-gradient-2)"/>
           </g>
@@ -39,9 +45,6 @@
           </g>
           <g id="Bow___62_degree_circle_crescent__behind_left_and_over_right" data-name="Bow — 62 degree circle crescent, behind left and over right">
             <path id="Bow___62_degree_circle_crescent__behind_left_and_over_right-2" data-name="Bow — 62 degree circle crescent, behind left and over right" d="M320.389 522.825 C321.313 522.176 322.575 522.318 323.332 523.155 C334.662 535.688 347.195 547.011 360.723 556.976 C361.632 557.646 361.899 558.889 361.345 559.874 L355.384 570.459 C354.64 571.779 352.823 571.992 351.794 570.881 C339.23 557.305 328.432 542.129 319.699 525.705 C319.169 524.708 319.465 523.473 320.389 522.825 Z M696.402 523.155 C697.159 522.318 698.421 522.176 699.345 522.825 C700.269 523.473 700.565 524.708 700.035 525.705 C670.401 581.439 617.767 621.39 556.117 634.945 C496.696 648.009 434.487 635.315 384.944 600.039 C383.956 599.335 383.709 597.972 384.388 596.967 L395.425 580.613 C396.051 579.685 397.267 579.364 398.271 579.861 C465.247 613.029 543.586 614.682 611.915 584.342 L611.915 584.342 C644.045 570.077 672.826 549.232 696.402 523.155 Z" fill="url(#linear-gradient-2)"/>
-          </g>
-          <g id="Telescope___original_refractor_scaled_to_bow-circle_chord" data-name="Telescope — original refractor scaled to bow-circle chord">
-            <path id="Telescope___original_refractor_scaled_to_bow-circle_chord-2" data-name="Telescope — original refractor scaled to bow-circle chord" d="M647.165 243.681 C647.526 243.564 647.915 243.761 648.032 244.123 L663.929 293.048 C664.046 293.41 663.849 293.798 663.487 293.915 L648.37 298.827 C648.009 298.944 647.62 298.747 647.503 298.385 L646.921 296.593 C617.901 306.022 588.88 315.45 559.79 324.661 C559.302 324.815 558.821 324.4 558.903 323.895 C561.457 308.113 556.287 292.163 544.931 280.901 C544.568 280.541 544.712 279.922 545.198 279.76 C574.148 270.112 603.168 260.681 632.188 251.252 L631.606 249.46 C631.489 249.098 631.687 248.71 632.048 248.593 Z M460.273 308.982 C460.755 308.81 461.251 309.208 461.187 309.717 C459.391 323.878 463.727 338.678 474.213 349.806 C474.564 350.179 474.397 350.794 473.905 350.938 C425.738 365.041 377.194 377.987 327.964 388.819 C327.619 388.895 327.271 388.696 327.162 388.36 L326.753 387.1 L304.008 394.49 C303.647 394.607 303.258 394.409 303.141 394.048 L296.782 374.478 C296.665 374.116 296.862 373.728 297.224 373.611 L319.969 366.221 L319.559 364.961 C319.45 364.624 319.614 364.259 319.938 364.117 C366.133 343.944 413.015 325.885 460.273 308.982 Z" fill="url(#linear-gradient-3)"/>
           </g>
         </g>
       </g>
