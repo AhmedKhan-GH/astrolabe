@@ -37,7 +37,7 @@
   .wrap { max-width: var(--max); margin: 0 auto; padding: 0 28px; }
 
   /* Buttons: inscriptional caps on a ruled plate. */
-  .btn { display: inline-flex; align-items: center; gap: 10px; padding: 12px 22px 11px; font: 14px/1 var(--display);
+  .btn { display: inline-flex; align-items: center; gap: 10px; padding: 12px 22px 11px; font: 14px/1 var(--text);
          letter-spacing: .16em; text-transform: uppercase; cursor: pointer; transition: background .15s, color .15s; }
   /* A download that isn't out yet: greyed and not a link, as on the Caliper and Falcon sites. */
   .btn .sep { font-family: var(--text); }   /* the display face has no middle dot */
@@ -51,7 +51,7 @@
   .brand { display: flex; align-items: center; gap: 12px; }
   .brand img { width: 36px; height: 36px; }
   .brand span { font: 17px/1 var(--display); letter-spacing: .22em; padding-top: 2px; }
-  nav .links { display: flex; gap: 26px; margin-left: auto; color: var(--secondary); font: 13px/1 var(--display); letter-spacing: .18em; text-transform: uppercase; }
+  nav .links { display: flex; gap: 26px; margin-left: auto; color: var(--secondary); font: 13px/1 var(--text); letter-spacing: .18em; text-transform: uppercase; }
   nav .links a:hover { color: var(--parchment); }
   nav .btn { padding: 10px 16px 9px; font-size: 12px; }
 
@@ -65,9 +65,9 @@
   .hero .wrap { position: relative; }
   .hero-mark { width: 136px; height: 136px; margin: 0 auto 26px; filter: drop-shadow(0 18px 30px rgba(0, 0, 0, .45)); }
   /* The name is the hero's headline; the trailing letter-space is padded on the left so the word sits centred. */
-  .hero h1 { font: clamp(44px, 10.5vw, 116px)/1 var(--display); letter-spacing: .16em; padding-left: .16em; margin: 0 auto;
+  .hero h1 { font: clamp(44px, 10.5vw, 116px)/1 var(--text); letter-spacing: .16em; padding-left: .16em; margin: 0 auto;
              font-weight: normal; text-transform: uppercase; text-shadow: 0 18px 44px rgba(0, 0, 0, .55); }
-  .tagline { font: clamp(15px, 2vw, 22px)/1.4 var(--display); letter-spacing: .2em; padding-left: .2em; text-transform: uppercase;
+  .tagline { font: clamp(15px, 2vw, 22px)/1.4 var(--text); letter-spacing: .2em; padding-left: .2em; text-transform: uppercase;
              color: var(--secondary); margin: 22px auto 26px; max-width: 980px; text-wrap: balance; }
   .lede { color: var(--secondary); font-size: clamp(17px, 1.9vw, 20px); max-width: 640px; margin: 0 auto 36px; text-wrap: pretty; }
   .actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
@@ -78,8 +78,8 @@
   section > .wrap { border-top: 1px solid var(--rule-faint); padding-top: 64px; }
   .label { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
   .label::before { content: ""; width: 28px; height: 1px; background: var(--bronze); }
-  .eyebrow { font: 13px/1 var(--display); letter-spacing: .26em; color: var(--bronze); text-transform: uppercase; }
-  h2 { font: clamp(24px, 3vw, 36px)/1.2 var(--display); letter-spacing: .06em; text-transform: uppercase; margin: 0 0 18px; font-weight: normal; }
+  .eyebrow { font: 13px/1 var(--text); letter-spacing: .26em; color: var(--bronze); text-transform: uppercase; }
+  h2 { font: clamp(24px, 3vw, 36px)/1.2 var(--text); letter-spacing: .06em; text-transform: uppercase; margin: 0 0 18px; font-weight: normal; }
   .intro { color: var(--secondary); max-width: 720px; margin: 0 0 40px; font-size: 18px; }
 
   /* The flow: the app you learn in, then the app you work in, on two plates joined by a bronze rule. */
@@ -88,11 +88,11 @@
            background: var(--deep); border: 1px solid var(--rule-faint); border-radius: 8px; transition: border-color .15s, background .15s; }
   a.stage:hover { border-color: var(--rule); background: #161513; }
   .stage.here { border-color: rgba(179, 139, 89, .5); }
-  .stage .step { font: 12px/1 var(--display); letter-spacing: .26em; color: var(--bronze); text-transform: uppercase; }
+  .stage .step { font: 12px/1 var(--text); letter-spacing: .26em; color: var(--bronze); text-transform: uppercase; }
   .stage img { width: 104px; height: 104px; margin: 14px 0 10px; }
   .stage .name { font: 20px/1 var(--display); letter-spacing: .2em; padding-left: .2em; text-transform: uppercase; }
   .stage .role { color: var(--faint); font-size: 15px; line-height: 1.4; }
-  .stage .visit { margin-top: 8px; font: 12px/1 var(--display); letter-spacing: .18em; text-transform: uppercase; color: var(--secondary); }
+  .stage .visit { margin-top: 8px; font: 12px/1 var(--text); letter-spacing: .18em; text-transform: uppercase; color: var(--secondary); }
   a.stage:hover .visit { color: var(--bronze-hover); }
   .flow-arrow { display: block; width: 100%; height: 24px; overflow: visible; }
   .flow-arrow line { stroke: var(--bronze); stroke-width: 1.5; }
@@ -106,7 +106,7 @@
   .house-name { font: 24px/1 var(--display); letter-spacing: .3em; color: var(--parchment); }
   .house-url { font: 15px/1 var(--text); letter-spacing: .04em; color: var(--faint); }
   .house:hover .house-url { color: var(--bronze-hover); }
-  footer .links { display: flex; gap: 22px; flex-wrap: wrap; font: 12px/1 var(--display); letter-spacing: .18em; text-transform: uppercase; }
+  footer .links { display: flex; gap: 22px; flex-wrap: wrap; font: 12px/1 var(--text); letter-spacing: .18em; text-transform: uppercase; }
   footer a:hover { color: var(--parchment); }
 
   @media (max-width: 900px) {
