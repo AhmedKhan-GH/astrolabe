@@ -18,7 +18,7 @@
       <stop offset="0.55" stop-color="#b38b59"/>
       <stop offset="1" stop-color="#8d6a3e"/>
     </linearGradient>
-  <linearGradient id="rim" x1="512" y1="100" x2="512" y2="924" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#8ba9f0"/><stop offset="0.5" stop-color="#6884c6"/><stop offset="1" stop-color="#4b639c"/></linearGradient></defs>
+  <linearGradient id="rim" x1="512" y1="100" x2="512" y2="924" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6b7fd6"/><stop offset="0.5" stop-color="#4a5bac"/><stop offset="1" stop-color="#2f3c82"/></linearGradient></defs>
   <title>Astrolabe</title>
   <g id="Astrolabe_app_icon" data-name="Astrolabe app icon">
     <g filter="url(#filter-1)">
