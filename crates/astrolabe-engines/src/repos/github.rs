@@ -120,7 +120,7 @@ impl Transport for UreqTransport {
         let mut req = self
             .agent
             .get(url)
-            .header("User-Agent", "repo-monitor")
+            .header("User-Agent", "astrolabe")
             .header("Accept", "application/vnd.github+json")
             .header("X-GitHub-Api-Version", "2022-11-28");
         if let Some(etag) = etag {

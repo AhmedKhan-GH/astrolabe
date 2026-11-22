@@ -11,7 +11,7 @@ use super::tags::is_automatic;
 use super::{paths, remote};
 
 /// The text at the top of every saved file.
-const HEADER: &str = "# Tags and folders for Repo Monitor. Repositories are named by their remote
+const HEADER: &str = "# Tags and folders for Astrolabe. Repositories are named by their remote
 # (host/owner/name), or by their path when they have none. Edit freely; the
 # app rereads this file when it changes.
 
@@ -646,7 +646,7 @@ exclude = ["~/Creative/old-site"]
     fn round_trip() {
         let o = rich();
         let text = o.to_toml();
-        assert!(text.starts_with("# Tags and folders for Repo Monitor."), "{text}");
+        assert!(text.starts_with("# Tags and folders for Astrolabe."), "{text}");
         assert!(text.contains("[[folder.folder]]"), "{text}");
         assert!(text.contains("[[folder.folder.folder]]"), "{text}");
         assert_eq!(parse(&text), Ok(o));

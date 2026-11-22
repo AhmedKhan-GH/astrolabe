@@ -134,7 +134,7 @@ pub fn load_prefs(path: &Path) -> Prefs {
 
 pub fn save_prefs(path: &Path, prefs: &Prefs) -> Result<(), String> {
     let text = toml::to_string(prefs).map_err(|e| e.to_string())?;
-    let text = format!("# The window's own choices; Repo Monitor rewrites this file.\n\n{text}");
+    let text = format!("# The window's own choices; Astrolabe rewrites this file.\n\n{text}");
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
@@ -528,6 +528,26 @@ mod tests {
         assert_eq!(tag.nav(), Nav::Tag("uncommitted".into()));
         let broken: Prefs = toml::from_str("grouping = \"sideways\"").unwrap_or_default();
         assert_eq!(broken, Prefs::default());
+    }
+
+    #[test]
+    fn save_and_load_prefs_round_trip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("window.toml");
+        let prefs = Prefs {
+            folder: vec!["Northstar".into(), "Products".into()],
+            tag: String::new(),
+            grouping: Grouping::Tag,
+            density: Density::Compact,
+            sort: Sort::Recent,
+            descending: true,
+            folded: ["folder/Northstar".to_owned()].into(),
+        };
+        assert_ne!(prefs, Prefs::default());
+        save_prefs(&path, &prefs).unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(text.starts_with("# The window's own choices; Astrolabe rewrites this file.\n\n"), "{text}");
+        assert_eq!(load_prefs(&path), prefs);
     }
 
     #[test]
