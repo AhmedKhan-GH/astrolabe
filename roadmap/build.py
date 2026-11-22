@@ -1,12 +1,8 @@
-"""Generates the Astrolabe roadmap page and registry data files from roadmap/*.yml.
+"""Generates the Astrolabe roadmap pages and data files from roadmap/*.yml.
 
-Runs in three modes:
-- Script (single page, default):
-    python3 roadmap/build.py [--output docs/roadmap/index.md] [--root REPO_ROOT]
-- Script (multi-page directory):
-    python3 roadmap/build.py --out DIR [--root REPO_ROOT]
-- MkDocs hook (`hooks:` in mkdocs.yml):
-    adds roadmap/index.md, pillar pages, feature pages, roadmap/graph.json, and roadmap.json.
+Used two ways. As an MkDocs hook (`hooks:` in mkdocs.yml) it adds the generated pillar pages,
+feature pages, roadmap/graph.json, and roadmap.json to the site in memory. As a script,
+`python3 roadmap/build.py --out DIR`, it writes the same files under DIR at their source paths.
 
 Uses PyYAML and Markdown when installed, with pure standard library fallbacks so the script
 runs cleanly under bare `python3`.
@@ -19,7 +15,6 @@ import os
 import re
 import sys
 import unicodedata
-from collections import Counter
 from pathlib import Path
 
 try:
@@ -34,7 +29,6 @@ except ImportError:
 
 REGISTRY = Path(__file__).resolve().parent
 ROOT = REGISTRY.parent
-DEFAULT_OUTPUT = Path("docs") / "roadmap" / "index.md"
 
 STATUS_ORDER = ["shipped", "planned"]
 STATUS_RANK = {
@@ -49,18 +43,16 @@ BADGE_LABELS = {
     "shipped": "Shipped",
     "planned": "Planned",
 }
-STATUS_MEANINGS = {
-    "shipped": "Astrolabe includes this feature in the current application.",
-    "planned": "Astrolabe schedules this feature for a future release.",
-}
-PRIORITY_LABELS = {
+SCOPE_LABELS = {
     "core": "Core",
     "supporting": "Supporting",
+    "peripheral": "Peripheral",
 }
 FEATURE_KEYS = [
     "id",
     "title",
     "status",
+    "scope",
     "priority",
     "summary",
     "depends_on",
@@ -325,6 +317,7 @@ def slugify(value, separator="-"):
 
 
 def _site_url(root=ROOT):
+    """The docs site address from mkdocs.yml, for standalone script runs."""
     try:
         data = load_yaml((Path(root) / "mkdocs.yml").read_text(encoding="utf-8"))
         return (data or {}).get("site_url") or "/"
@@ -356,6 +349,7 @@ _ATX = re.compile(r"^\s{0,3}(#{1,6})[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$")
 
 
 def heading_text(raw):
+    """Returns heading text as MkDocs slugs it: inline code, link syntax, and HTML tags removed."""
     text = re.sub(r"(?<!`)<[A-Za-z/][^<>`]*>(?!`)", "", raw)
     text = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", text)
     text = re.sub(r"!?\[([^\]]*)\]\[[^\]]*\]", r"\1", text)
@@ -366,10 +360,21 @@ def heading_text(raw):
 
 
 def parse_headings(markdown_text):
+    """Returns [(level, text, slug)] for the ATX headings of a Markdown source.
+
+    YAML frontmatter and fenced code blocks are skipped. Repeated slugs receive _1, _2, and so on.
+    """
     found = []
     seen = set()
     fence = None
-    for line in markdown_text.splitlines():
+    lines = markdown_text.splitlines()
+    start = 0
+    if lines and lines[0].strip() == "---":
+        for idx in range(1, len(lines)):
+            if lines[idx].strip() in ("---", "..."):
+                start = idx + 1
+                break
+    for line in lines[start:]:
         m = _FENCE.match(line)
         if m:
             marker = m.group(1)
@@ -395,13 +400,22 @@ def parse_headings(markdown_text):
 
 
 def read_headings(path):
+    """Returns headings of the file at path, or None when it cannot be read."""
     try:
         return parse_headings(Path(path).read_text(encoding="utf-8"))
     except OSError:
         return None
 
 
+def first_heading(headings):
+    for level, text, _ in headings:
+        if level == 1:
+            return text
+    return None
+
+
 def split_ref(ref):
+    """'docs/a.md#x' -> ('docs/a.md', 'x'); no anchor gives None."""
     path, _, anchor = ref.partition("#")
     return path, (anchor or None)
 
@@ -422,7 +436,11 @@ def read_files(root):
 
 
 def load_registry(root):
-    """Returns (pillars, features) from roadmap/*.yml under root."""
+    """Returns (pillars, features) from roadmap/*.yml under root.
+
+    Pillars are sorted by order and hold their features sorted by id. Every feature gets its
+    resolved `scope`, pillar metadata, and computed `unblocks` list.
+    """
     pillars = []
     features = {}
     for name, data in read_files(root):
@@ -442,6 +460,7 @@ def load_registry(root):
             if fid in features:
                 raise RegistryError("%s: %s: duplicate id" % (name, fid))
             feature = {key: raw.get(key) for key in FEATURE_KEYS}
+            feature["scope"] = raw.get("scope") or raw.get("priority") or "core"
             feature["depends_on"] = sorted(raw.get("depends_on") or [], key=id_key)
             feature["pillar"] = pillar["prefix"]
             feature["pillar_title"] = pillar["title"]
@@ -466,156 +485,26 @@ def load_registry(root):
     return pillars, features
 
 
-# Rendering helpers
+# Page generators
 
-def _node_id(fid):
-    return fid.replace("-", "_")
-
-
-def _mermaid_label(fid, title):
-    clean = str(title).replace('"', "'")
-    return "%s %s" % (fid, clean)
-
-
-def _node_class(feature):
-    return feature["status"]
-
-
-def _pillar_mermaid(pillar, features):
-    in_pillar = {f["id"] for f in pillar["features"]}
-    external_deps = sorted(
-        {
-            dep
-            for f in pillar["features"]
-            for dep in f["depends_on"]
-            if dep not in in_pillar
-        },
-        key=id_key,
-    )
-    lines = ["```mermaid", "flowchart LR"]
-    for f in pillar["features"]:
-        label = _mermaid_label(f["id"], f["title"])
-        lines.append('  %s["%s"]:::%s' % (_node_id(f["id"]), label, _node_class(f)))
-    for dep in external_deps:
-        target = features[dep]
-        label = _mermaid_label(target["id"], target["title"])
-        lines.append('  %s["%s"]:::external' % (_node_id(dep), label))
-    for f in pillar["features"]:
-        for dep in f["depends_on"]:
-            arrow = "-.->" if dep not in in_pillar else "-->"
-            lines.append("  %s %s %s" % (_node_id(dep), arrow, _node_id(f["id"])))
-    lines += [
-        "  classDef shipped fill:#1b4332,stroke:#52b788,color:#f8f9fa",
-        "  classDef planned fill:#2b2d42,stroke:#9ca3af,color:#f8f9fa",
-        "  classDef external fill:#1f242d,stroke:#868e96,color:#dee2e6,stroke-dasharray:5 3",
-        "```",
-    ]
-    return lines
-
-
-def _format_deps(ids):
-    if not ids:
-        return "None"
-    return ", ".join("`%s`" % fid for fid in ids)
-
-
-def _format_docs(base_dir, ref):
-    if not ref:
-        return "None"
-    path, _ = split_ref(ref)
+def _heading_link(root, base_dir, ref):
+    """Returns a Markdown link for a docs reference, labeled by its page heading."""
+    path, anchor = split_ref(ref)
+    headings = read_headings(Path(root) / path) or []
+    title = first_heading(headings) or path
+    text = title
+    if anchor:
+        for _, htext, slug in headings:
+            if slug == anchor:
+                text = "%s, %s" % (title, htext)
+                break
     if path.startswith("docs/"):
         target = os.path.relpath(path[len("docs/"):], base_dir).replace(os.sep, "/")
-        return "[`%s`](%s)" % (Path(path).name, target)
-    return "`%s`" % ref
+        if anchor:
+            target += "#" + anchor
+        return "[%s](%s)" % (md(text), target)
+    return md(ref)
 
-
-def render_page(root):
-    """Generates the single-page Markdown roadmap registry with per-pillar Mermaid graphs."""
-    pillars, features = load_registry(root)
-    all_features = [features[fid] for fid in sorted(features, key=id_key)]
-    status_counts = Counter(f["status"] for f in all_features)
-    edge_count = sum(len(f["depends_on"]) for f in all_features)
-
-    lines = [
-        "<!-- Generated by roadmap/build.py from roadmap/*.yml. Do not edit by hand. -->",
-        "",
-        "# Roadmap",
-        "",
-        "This page lists every product feature of Astrolabe across five pillars.",
-        "Each feature has a status of Shipped or Planned and lists its direct dependencies.",
-        "The dependency graphs show how planned features build on shipped foundations across pillars.",
-        "",
-        "## Registry Overview",
-        "",
-        "The registry tracks %d features and %d dependency edges across %d pillars."
-        % (len(all_features), edge_count, len(pillars)),
-        "",
-        "### Status Counts",
-        "",
-        "| Status | Count | Meaning |",
-        "| --- | ---: | --- |",
-    ]
-    for status in STATUS_ORDER:
-        lines.append(
-            "| %s | %d | %s |"
-            % (BADGE_LABELS[status], status_counts[status], STATUS_MEANINGS[status])
-        )
-    lines += [
-        "",
-        "### Pillar Breakdown",
-        "",
-        "| Pillar | Prefix | Total | Shipped | Planned |",
-        "| --- | --- | ---: | ---: | ---: |",
-    ]
-    for p in pillars:
-        pf = p["features"]
-        pcounts = Counter(f["status"] for f in pf)
-        anchor = slugify(p["title"], "-")
-        lines.append(
-            "| [%s](#%s) | `%s` | %d | %d | %d |"
-            % (
-                md(p["title"]),
-                anchor,
-                p["prefix"],
-                len(pf),
-                pcounts["shipped"],
-                pcounts["planned"],
-            )
-        )
-    lines.append("")
-
-    for p in pillars:
-        lines += [
-            "## %s" % md(p["title"]),
-            "",
-            md(p["summary"]),
-            "",
-        ]
-        lines += _pillar_mermaid(p, features)
-        lines += [
-            "",
-            "| ID | Feature | Status | Priority | Depends On | Docs | Summary |",
-            "| --- | --- | --- | --- | --- | --- | --- |",
-        ]
-        for f in p["features"]:
-            lines.append(
-                "| `%s` | %s | %s | %s | %s | %s | %s |"
-                % (
-                    f["id"],
-                    md(f["title"]),
-                    BADGE_LABELS[f["status"]],
-                    PRIORITY_LABELS[f["priority"]],
-                    _format_deps(f["depends_on"]),
-                    _format_docs("roadmap", f.get("docs")),
-                    md(f["summary"]),
-                )
-            )
-        lines.append("")
-
-    return "\n".join(lines)
-
-
-# Multi-page and JSON generators
 
 def _feature_links(ids, features):
     if not ids:
@@ -625,17 +514,21 @@ def _feature_links(ids, features):
     )
 
 
-def pillar_page(pillar, features):
+def pillar_page(pillar):
+    """Generates the Markdown page for one roadmap pillar."""
     lines = [
+        "---",
+        "template: roadmap.html",
+        "---",
+        "",
         "# " + md(pillar["title"]),
         "",
         md(pillar["summary"]),
         "",
-        "Return to [Roadmap](index.md) for cross-pillar counts and the full feature list.",
+        "The [roadmap graph](index.md) shows how these features depend on features in "
+        "other pillars.",
         "",
     ]
-    lines += _pillar_mermaid(pillar, features)
-    lines.append("")
     for status in STATUS_ORDER:
         items = [f for f in pillar["features"] if f["status"] == status]
         if not items:
@@ -643,30 +536,64 @@ def pillar_page(pillar, features):
         lines += ["## " + SECTION_TITLES[status], ""]
         for f in items:
             lines.append(
-                "- `%s` [%s](%s.md). %s"
+                '- <span class="roadmap-id">%s</span> [%s](%s.md). %s'
                 % (f["id"], md(f["title"]), f["id"].lower(), md(f["summary"]))
             )
         lines.append("")
     return "\n".join(lines)
 
 
-def feature_page(feature, pillars_by_prefix, features):
+def feature_page(feature, pillars_by_prefix, features, root):
+    """Generates the Markdown page for one roadmap feature."""
     pillar = pillars_by_prefix[feature["pillar"]]
+    status = feature["status"]
+    scope = feature["scope"]
+    docs = (
+        _heading_link(root, "roadmap", feature["docs"])
+        if feature.get("docs")
+        else "None"
+    )
     rows = [
         ("ID", "`%s`" % feature["id"]),
-        ("Status", BADGE_LABELS[feature["status"]]),
-        ("Priority", PRIORITY_LABELS[feature["priority"]]),
+        (
+            "Status",
+            '<span class="roadmap-badge roadmap-badge--%s">%s</span>'
+            % (status, BADGE_LABELS[status]),
+        ),
+        (
+            "Scope",
+            '<span class="roadmap-scope roadmap-scope--%s">%s</span>'
+            % (scope, SCOPE_LABELS.get(scope, "None")),
+        ),
         ("Pillar", "[%s](%s.md)" % (md(pillar["title"]), pillar["slug"])),
         ("Depends On", _feature_links(feature["depends_on"], features)),
         ("Unblocks", _feature_links(feature["unblocks"], features)),
-        ("Docs", _format_docs("roadmap", feature.get("docs"))),
+        ("Docs", docs),
     ]
-    lines = ["# " + md(feature["title"]), "", md(feature["summary"]), ""]
-    lines += ["| Field | Value |", "| --- | --- |"]
+    lines = [
+        "---",
+        "template: roadmap.html",
+        "---",
+        "",
+        "# " + md(feature["title"]),
+        "",
+        md(feature["summary"]),
+        "",
+        "| Field | Value |",
+        "| --- | --- |",
+    ]
     lines += ["| %s | %s |" % row for row in rows]
-    lines.append("")
+    lines += [
+        "",
+        # Raw links because the node anchor exists only once the graph is drawn.
+        '<a class="md-button" href="../">Roadmap Graph</a> '
+        '<a class="md-button" href="../#%s">Feature in Graph</a>' % feature["id"],
+        "",
+    ]
     return "\n".join(lines)
 
+
+# JSON generators
 
 def _dump(obj):
     return json.dumps(obj, indent=2, ensure_ascii=False) + "\n"
@@ -681,10 +608,9 @@ def graph_json(pillars, features):
                 "id": f["id"],
                 "title": f["title"],
                 "status": f["status"],
-                "priority": f["priority"],
+                "scope": f["scope"],
                 "pillar": f["pillar"],
                 "summary": f["summary"],
-                "docs": f["docs"],
                 "url": f["id"].lower() + "/",
             }
         )
@@ -694,11 +620,11 @@ def graph_json(pillars, features):
             edges.append(
                 {
                     "id": "%s>%s" % (dep, f["id"]),
-                    "from": dep,
-                    "to": f["id"],
+                    "source": dep,
+                    "target": f["id"],
                 }
             )
-    edges.sort(key=lambda e: (id_key(e["to"]), id_key(e["from"])))
+    edges.sort(key=lambda e: (id_key(e["target"]), id_key(e["source"])))
     return _dump(
         {
             "pillars": [
@@ -738,7 +664,7 @@ def registry_json(pillars, features, site):
                     "id": f["id"],
                     "title": f["title"],
                     "status": f["status"],
-                    "priority": f["priority"],
+                    "scope": f["scope"],
                     "pillar": f["pillar"],
                     "summary": f["summary"],
                     "depends_on": f["depends_on"],
@@ -753,19 +679,19 @@ def registry_json(pillars, features, site):
 
 
 def generate(root, site=DEFAULT_SITE):
-    """Returns [(src_uri, content, in_nav)] for multi-page and MkDocs hook output."""
+    """Returns [(src_uri, content, in_nav)] for every generated file, in a stable order."""
     if not site.endswith("/"):
         site += "/"
     pillars, features = load_registry(root)
     by_prefix = {p["prefix"]: p for p in pillars}
-    out = [("roadmap/index.md", render_page(root), True)]
+    out = []
     for p in pillars:
-        out.append(("roadmap/%s.md" % p["slug"], pillar_page(p, features), True))
+        out.append(("roadmap/%s.md" % p["slug"], pillar_page(p), True))
     for fid in sorted(features, key=id_key):
         out.append(
             (
                 "roadmap/%s.md" % fid.lower(),
-                feature_page(features[fid], by_prefix, features),
+                feature_page(features[fid], by_prefix, features, root),
                 False,
             )
         )
@@ -786,48 +712,22 @@ def on_files(files, config):
     return files
 
 
-def resolve_output(root, output_arg):
-    if output_arg:
-        path = Path(output_arg)
-        return path if path.is_absolute() else Path(root) / path
-    return Path(root) / DEFAULT_OUTPUT
-
-
 def main(argv=None):
-    parser = argparse.ArgumentParser(
-        description="Generate the Astrolabe roadmap page or multi-page files from roadmap/*.yml."
-    )
-    parser.add_argument(
-        "--output",
-        default=None,
-        help="output Markdown file path (defaults to docs/roadmap/index.md)",
-    )
-    parser.add_argument(
-        "--out",
-        default=None,
-        help="optional directory for multi-page Markdown and JSON output",
-    )
+    parser = argparse.ArgumentParser(description="Write the generated roadmap files to a folder.")
+    parser.add_argument("--out", required=True, help="folder that receives the files")
     parser.add_argument("--site-url", default=DEFAULT_SITE)
     parser.add_argument("--root", default=str(ROOT), help="repository root")
     args = parser.parse_args(argv)
-    root = Path(args.root)
     try:
-        if args.out:
-            generated = generate(root, args.site_url)
-            for src_uri, content, _ in generated:
-                target = Path(args.out) / src_uri
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_text(content, encoding="utf-8")
-            print("wrote %d files under %s" % (len(generated), args.out))
-            return 0
-        page = render_page(root)
+        generated = generate(Path(args.root), args.site_url)
     except RegistryError as err:
         print(err, file=sys.stderr)
         return 1
-    target = resolve_output(root, args.output)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(page, encoding="utf-8")
-    print("wrote %s" % target)
+    for src_uri, content, _ in generated:
+        target = Path(args.out) / src_uri
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+    print("wrote %d files under %s" % (len(generated), args.out))
     return 0
 
 

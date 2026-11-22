@@ -28,8 +28,14 @@ extra:
   # The header logo opens the full docs tree (docs/contents.md, filled by docs-theme/hooks/contents.py).
   homepage: contents/
 # The navigation follows the folders under docs/; a .nav.yml in a folder sets its order.
+# Generates the roadmap pages and data files from the registry in roadmap/.
 hooks:
+  - roadmap/build.py
   - docs-theme/hooks/contents.py
+# A local `mkdocs serve` rebuilds when the registry or theme files change.
+watch:
+  - roadmap
+  - docs-theme
 plugins:
   - search
   - awesome-nav

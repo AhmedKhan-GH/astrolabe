@@ -16,7 +16,7 @@ sequenceDiagram
     C-->>D: tests pass
     D->>C: ./scripts/bundle.sh
     C-->>D: Astrolabe.app
-    D->>R: build.py and check.py
+    D->>R: roadmap/check.py
     R-->>D: registry valid
     D->>M: check_doc_headings.py and mkdocs build --strict
     M-->>D: static site ready
@@ -81,19 +81,15 @@ The script builds the release `astrolabe` binary and forwards extra CLI argument
 
 The script also generates `AppIcon.icns` from `docs-theme/assets/astrolabe-icon-minerals.svg` through `resvg`, `rsvg-convert`, or `sips` with `iconutil`. Then `codesign` applies and verifies an ad-hoc signature on the bundle.
 
-### Roadmap Build and Check
+### Roadmap Check
 
-1. Regenerate the roadmap Markdown page from `roadmap/*.yml`.
-
-    ```bash
-    python3 roadmap/build.py
-    ```
-
-2. Validate the roadmap registry, dependency graph, doc links, privacy checks, and generated page.
+1. Validate the roadmap registry, dependency graph, doc links, and privacy rules.
 
     ```bash
     python3 roadmap/check.py
     ```
+
+`mkdocs.yml` runs `roadmap/build.py` as an MkDocs hook during the site build. The hook generates the pillar pages, feature pages, `roadmap/graph.json`, and `roadmap.json` in memory. Run `python3 roadmap/build.py --out DIR` to write those output files to a folder.
 
 ### Documentation Checks and Build
 
@@ -121,14 +117,14 @@ The script also generates `AppIcon.icns` from `docs-theme/assets/astrolabe-icon-
 
 ## Result
 
-All workspace builds and tests pass, and `./scripts/bundle.sh` writes a verified `Astrolabe.app` bundle. Both roadmap scripts exit with code 0. Zero documentation headings fail `check_doc_headings.py`, and MkDocs writes the static site to `build/docs-site` with exit code 0.
+All workspace builds and tests pass, and `./scripts/bundle.sh` writes a verified `Astrolabe.app` bundle. `roadmap/check.py` exits with code 0. Zero documentation headings fail `check_doc_headings.py`, and MkDocs writes the static site to `build/docs-site` with exit code 0.
 
 ## Errors
 
 | Symptom | Cause | Remedy |
 |---|---|---|
 | Bundle script fails on icon | Icon SVG missing from `docs-theme/assets/` | Restore `docs-theme/assets/astrolabe-icon-minerals.svg` and rerun `./scripts/bundle.sh` |
-| Roadmap check reports out of date | `roadmap/*.yml` changed without regeneration | Run `python3 roadmap/build.py` and repeat `python3 roadmap/check.py` |
+| Roadmap check exits 1 | Invalid YAML, broken link, or missing pillar nav entry | Fix the reported `roadmap/*.yml` or `docs/roadmap/.nav.yml` entry and repeat `python3 roadmap/check.py` |
 | Heading check exits 1 | Heading breaks Title Case or article rules | Rewrite the heading as a Title Case noun phrase without articles |
 | Strict build warns on anchor | Internal link targets a missing heading | Fix the target anchor or page path in Markdown |
 | `uvx: command not found` | `uv` is not on `PATH` | Install `uv` and repeat the documentation build command |

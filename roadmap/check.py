@@ -1,7 +1,4 @@
-"""Checks the Astrolabe roadmap registry and generated roadmap page.
-
-Usage:
-    python3 roadmap/check.py [--output docs/roadmap/index.md] [--root REPO_ROOT]
+"""Checks the Astrolabe roadmap registry: `python3 roadmap/check.py [--root REPO_ROOT]`.
 
 Prints one line per problem as `<file>: <id>: <message>`. Exits 1 when any error is found
 and 0 otherwise. Warnings print with the word warning and do not change the exit code.
@@ -25,6 +22,9 @@ except ImportError:
 
 sys.dont_write_bytecode = True
 import build
+
+STATUSES = build.STATUS_ORDER
+SCOPES = ("core", "supporting", "peripheral")
 
 MINOR_WORDS = frozenset(
     "a an the and but or nor for so yet as at by in of on per to up via vs "
@@ -293,13 +293,14 @@ def _scan_privacy(value, name, fid, errors):
 
 
 def _find_cycle(graph):
+    """Returns one cycle as a list of ids, first id repeated at the end, or None."""
     state = {}
     stack = []
 
     def visit(node):
         state[node] = 1
         stack.append(node)
-        for nxt in sorted(graph.get(node, [])):
+        for nxt in sorted(graph.get(node, []), key=build.id_key):
             if nxt not in graph:
                 continue
             if state.get(nxt) == 1:
@@ -312,7 +313,7 @@ def _find_cycle(graph):
         state[node] = 2
         return None
 
-    for node in sorted(graph):
+    for node in sorted(graph, key=build.id_key):
         if node not in state:
             found = visit(node)
             if found:
@@ -333,7 +334,7 @@ def _check_ref(root, name, fid, field, ref, errors):
         )
 
 
-def run_checks(root, output_path=None, check_output=True):
+def run_checks(root):
     """Returns (errors, warnings, summary) for the registry under root."""
     root = Path(root)
     errors, warnings = [], []
@@ -394,7 +395,20 @@ def run_checks(root, output_path=None, check_output=True):
         if reason:
             errors.append('%s: -: pillar title "%s" %s' % (name, data["title"], reason))
 
+    # The roadmap section navigation is written by hand and must list every pillar page.
+    nav_rel = "docs/roadmap/.nav.yml"
+    nav_path = root / nav_rel
+    if nav_path.is_file():
+        nav_text = nav_path.read_text(encoding="utf-8")
+        for name, _ in valid:
+            page = Path(name).stem + ".md"
+            if not re.search(r"^\s*-\s*%s\s*$" % re.escape(page), nav_text, re.M):
+                errors.append(
+                    "%s: -: %s does not list the pillar page %s" % (name, nav_rel, page)
+                )
+
     features = {}
+    feature_pillar = {}
     for name, data in valid:
         for f in data["features"]:
             fid = f["id"]
@@ -402,9 +416,15 @@ def run_checks(root, output_path=None, check_output=True):
                 errors.append("%s: %s: duplicate id, also in %s" % (name, fid, features[fid][0]))
                 continue
             features[fid] = (name, f)
+            feature_pillar[fid] = data["prefix"]
             if not fid.startswith(data["prefix"] + "-"):
                 errors.append(
                     "%s: %s: id does not use pillar prefix %s" % (name, fid, data["prefix"])
+                )
+            if f.get("scope") not in SCOPES:
+                errors.append(
+                    "%s: %s: scope %r is not one of %s"
+                    % (name, fid, f.get("scope"), ", ".join(SCOPES))
                 )
             for field in _todo_fields(f):
                 errors.append("%s: %s: %s contains TODO" % (name, fid, field))
@@ -414,6 +434,7 @@ def run_checks(root, output_path=None, check_output=True):
                 errors.append('%s: %s: title "%s" %s' % (name, fid, f["title"], reason))
 
     graph = {}
+    cross_pillar_edges = 0
     for fid, (name, f) in sorted(features.items(), key=lambda item: build.id_key(item[0])):
         deps = f.get("depends_on") or []
         graph[fid] = deps
@@ -422,6 +443,8 @@ def run_checks(root, output_path=None, check_output=True):
                 errors.append("%s: %s: depends on itself" % (name, fid))
             elif dep not in features:
                 errors.append("%s: %s: depends_on %s, which does not exist" % (name, fid, dep))
+            elif feature_pillar[dep] != feature_pillar[fid]:
+                cross_pillar_edges += 1
 
     cycle = _find_cycle({k: [d for d in v if d != k] for k, v in graph.items()})
     if cycle:
@@ -432,6 +455,8 @@ def run_checks(root, output_path=None, check_output=True):
 
     rank = build.STATUS_RANK
     for fid, (name, f) in sorted(features.items(), key=lambda item: build.id_key(item[0])):
+        if f["status"] == "shipped" and not f.get("docs"):
+            errors.append("%s: %s: shipped feature has no docs" % (name, fid))
         if f.get("docs"):
             _check_ref(root, name, fid, "docs", f["docs"], errors)
         for dep in f.get("depends_on") or []:
@@ -443,7 +468,19 @@ def run_checks(root, output_path=None, check_output=True):
                         "%s: %s: %s depends on %s, which is %s and has a higher status rank"
                         % (name, fid, f["status"], dep, dstatus)
                     )
+                if f.get("scope") == "core" and dep_feature.get("scope") != "core":
+                    errors.append(
+                        "%s: %s: core feature depends on %s, which has scope %s"
+                        % (name, fid, dep, dep_feature.get("scope"))
+                    )
 
+    if not errors:
+        try:
+            build.load_registry(root)
+        except build.RegistryError as err:
+            errors.append(str(err))
+
+    # Redundant edges: a dependency already reachable through another dependency.
     def reach(start, seen):
         for nxt in graph.get(start, []):
             if nxt in graph and nxt not in seen:
@@ -471,53 +508,24 @@ def run_checks(root, output_path=None, check_output=True):
             for label in _privacy_hits(text):
                 errors.append("roadmap/%s: -: privacy check failed (%s)" % (code_name, label))
 
-    if check_output and not errors:
-        target = build.resolve_output(root, output_path)
-        expected = build.render_page(root)
-        if not target.is_file():
-            errors.append("%s: -: generated roadmap page is missing (run roadmap/build.py)" % target)
-        else:
-            actual = target.read_text(encoding="utf-8")
-            if actual != expected:
-                errors.append(
-                    "%s: -: generated roadmap page is out of date (run roadmap/build.py)" % target
-                )
-            for label in _privacy_hits(actual):
-                errors.append("%s: -: privacy check failed (%s)" % (target, label))
-            for level, text, _ in build.parse_headings(actual):
-                if level <= 3:
-                    reason = judge_title(text)
-                    if reason:
-                        errors.append('%s: -: heading "%s" %s' % (target, text, reason))
-
     status_counts = Counter(f["status"] for _, f in features.values())
+    scope_counts = Counter(f["scope"] for _, f in features.values())
     edges = sum(len(v) for v in graph.values())
-    summary = "%d features, %d edges (%d shipped, %d planned)" % (
+    summary = "%d features, %d edges (%s; %s; %d cross-pillar)" % (
         len(features),
         edges,
-        status_counts["shipped"],
-        status_counts["planned"],
+        ", ".join("%d %s" % (status_counts[s], s) for s in STATUSES),
+        ", ".join("%d %s" % (scope_counts[s], s) for s in SCOPES),
+        cross_pillar_edges,
     )
     return errors, warnings, summary
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Check the Astrolabe roadmap registry.")
-    parser.add_argument(
-        "--output",
-        default=None,
-        help="generated roadmap Markdown page to verify (defaults to docs/roadmap/index.md)",
-    )
     parser.add_argument("--root", default=str(build.ROOT), help="repository root")
-    parser.add_argument(
-        "--skip-output",
-        action="store_true",
-        help="validate only roadmap/*.yml and schema without checking the generated page",
-    )
     args = parser.parse_args(argv)
-    errors, warnings, summary = run_checks(
-        args.root, output_path=args.output, check_output=not args.skip_output
-    )
+    errors, warnings, summary = run_checks(args.root)
     for line in errors + warnings:
         print(line)
     if errors:
