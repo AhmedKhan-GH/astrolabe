@@ -1,0 +1,12 @@
+{
+  "id": 7777,
+  "name": "widgets",
+  "full_name": "someone/widgets",
+  "private": false,
+  "owner": { "login": "someone", "id": 2, "type": "Organization" },
+  "html_url": "https://github.com/someone/widgets",
+  "fork": true,
+  "archived": false,
+  "default_branch": "master",
+  "visibility": "public"
+}

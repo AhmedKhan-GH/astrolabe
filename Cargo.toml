@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/astrolabe-contract", "crates/astrolabe-kit", "crates/astrolabe"]
+members = ["crates/astrolabe-contract", "crates/astrolabe-engines", "crates/astrolabe-kit", "crates/astrolabe"]
 
 [workspace.package]
 version = "0.1.0"

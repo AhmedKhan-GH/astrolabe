@@ -1,0 +1,14 @@
+{
+  "id": 424242,
+  "name": "secret-sauce",
+  "full_name": "octocat/secret-sauce",
+  "private": true,
+  "owner": { "login": "octocat", "id": 1, "type": "User" },
+  "html_url": "https://github.com/octocat/secret-sauce",
+  "description": null,
+  "fork": false,
+  "archived": true,
+  "default_branch": "trunk",
+  "visibility": "private",
+  "permissions": { "admin": true, "maintain": true, "push": true, "triage": true, "pull": true }
+}

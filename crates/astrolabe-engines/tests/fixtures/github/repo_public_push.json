@@ -1,0 +1,16 @@
+{
+  "id": 1296269,
+  "node_id": "MDEwOlJlcG9zaXRvcnkxMjk2MjY5",
+  "name": "Hello-World",
+  "full_name": "Octocat/Hello-World",
+  "private": false,
+  "owner": { "login": "Octocat", "id": 1, "type": "User" },
+  "html_url": "https://github.com/Octocat/Hello-World",
+  "description": "My first repository on GitHub!",
+  "fork": false,
+  "archived": false,
+  "disabled": false,
+  "default_branch": "main",
+  "visibility": "public",
+  "permissions": { "admin": true, "maintain": true, "push": true, "triage": true, "pull": true }
+}
