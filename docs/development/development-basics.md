@@ -10,19 +10,19 @@ Build the Rust workspace, run tests, package the macOS app bundle, verify the ro
 sequenceDiagram
     participant D as Developer
     participant C as Cargo and Bundle
-    participant R as Roadmap Scripts
-    participant M as Docs Tools
+    participant S as Sternbild Docs
+    participant M as MkDocs
     D->>C: cargo build and cargo test
     C-->>D: tests pass
     D->>C: ./scripts/bundle.sh
     C-->>D: Astrolabe.app
-    D->>R: roadmap/check.py
-    R-->>D: registry valid
-    D->>M: check_doc_headings.py and mkdocs build --strict
+    D->>S: sternbild-docs check-roadmap and check-headings
+    S-->>D: registry and headings valid
+    D->>M: mkdocs build --strict
     M-->>D: static site ready
 ```
 
-Local build and verification sequence across Cargo, bundle tools, roadmap scripts, and MkDocs.
+Local build and verification sequence across Cargo, bundle tools, `sternbild-docs`, and MkDocs.
 
 ## Requirements
 
@@ -32,8 +32,8 @@ The table lists the tools required on macOS for a full local build and verificat
 |---|---|
 | Rust toolchain | Rust compiler and Cargo with Edition 2024 support |
 | macOS tools | `plutil`, `sips`, `iconutil`, and `codesign` for app bundling |
-| Python | Python 3 for roadmap scripts and heading checks |
-| `uv` | `uvx` runner for pinned MkDocs builds |
+| Python | Python 3 for `sternbild-docs` checks and MkDocs builds |
+| `uv` | `uvx` runner for `sternbild-docs` and pinned MkDocs commands |
 
 ## Steps
 
@@ -79,37 +79,51 @@ The suite verifies Git and query logic, provider parsers, Keychain caching, layo
 
 The script builds the release `astrolabe` binary and forwards extra CLI arguments directly to `cargo build`. It writes `${CARGO_TARGET_DIR:-target}/bundle/Astrolabe.app` (`target/bundle/Astrolabe.app` by default) with a validated `Info.plist` for macOS 13.0 or newer.
 
-The script also generates `AppIcon.icns` from `docs-theme/assets/astrolabe-icon-minerals.svg` through `resvg`, `rsvg-convert`, or `sips` with `iconutil`. Then `codesign` applies and verifies an ad-hoc signature on the bundle.
+The script also generates `AppIcon.icns` from `site/assets/astrolabe-icon-minerals.svg` through `resvg`, `rsvg-convert`, or `sips` with `iconutil`. Then `codesign` applies and verifies an ad-hoc signature on the bundle.
 
 ### Roadmap Check
 
 1. Validate the roadmap registry, dependency graph, doc links, and privacy rules.
 
     ```bash
-    python3 roadmap/check.py
+    uvx --from "git+https://github.com/AhmedKhan-GH/organization@docs-v1.0.0#subdirectory=packages/sternbild-docs" \
+      sternbild-docs check-roadmap --strict-titles --strict-core-scope
     ```
 
-`mkdocs.yml` runs `roadmap/build.py` as an MkDocs hook during the site build. The hook generates the pillar pages, feature pages, `roadmap/graph.json`, and `roadmap.json` in memory. Run `python3 roadmap/build.py --out DIR` to write those output files to a folder.
+`mkdocs.yml` enables the `sternbild` plugin during the site build. The plugin generates the pillar pages, feature pages, `roadmap/graph.json`, and `roadmap.json` in memory. Run `sternbild-docs build-roadmap --out DIR` to write those files to a folder.
 
 ### Documentation Checks and Build
 
 1. Check every Markdown heading under `docs/` against the Title Case rule.
 
     ```bash
-    python3 scripts/check_doc_headings.py
+    uvx --from "git+https://github.com/AhmedKhan-GH/organization@docs-v1.0.0#subdirectory=packages/sternbild-docs" \
+      sternbild-docs check-headings
     ```
 
     ```text
     0 of N docs headings break the title rule
     ```
 
-2. Build the documentation site in strict mode with pinned `uvx` packages.
+2. Serve the documentation site locally with live reload for edits.
 
     ```bash
     uvx --from mkdocs==1.6.1 \
       --with mkdocs-material==9.8.1 \
       --with mkdocs-awesome-nav==3.3.0 \
       --with pymdown-extensions==13.1 \
+      --with "git+https://github.com/AhmedKhan-GH/organization@docs-v1.0.0#subdirectory=packages/sternbild-docs" \
+      mkdocs serve
+    ```
+
+3. Build the documentation site in strict mode with pinned `uvx` packages.
+
+    ```bash
+    uvx --from mkdocs==1.6.1 \
+      --with mkdocs-material==9.8.1 \
+      --with mkdocs-awesome-nav==3.3.0 \
+      --with pymdown-extensions==13.1 \
+      --with "git+https://github.com/AhmedKhan-GH/organization@docs-v1.0.0#subdirectory=packages/sternbild-docs" \
       mkdocs build --strict -d build/docs-site
     ```
 
@@ -117,14 +131,14 @@ The script also generates `AppIcon.icns` from `docs-theme/assets/astrolabe-icon-
 
 ## Result
 
-All workspace builds and tests pass, and `./scripts/bundle.sh` writes a verified `Astrolabe.app` bundle. `roadmap/check.py` exits with code 0. Zero documentation headings fail `check_doc_headings.py`, and MkDocs writes the static site to `build/docs-site` with exit code 0.
+All workspace builds and tests pass, and `./scripts/bundle.sh` writes a verified `Astrolabe.app` bundle. `sternbild-docs check-roadmap` exits with code 0. Zero documentation headings fail `sternbild-docs check-headings`, and MkDocs writes the static site to `build/docs-site` with exit code 0.
 
 ## Errors
 
 | Symptom | Cause | Remedy |
 |---|---|---|
-| Bundle script fails on icon | Icon SVG missing from `docs-theme/assets/` | Restore `docs-theme/assets/astrolabe-icon-minerals.svg` and rerun `./scripts/bundle.sh` |
-| Roadmap check exits 1 | Invalid YAML, broken link, or missing pillar nav entry | Fix the reported `roadmap/*.yml` or `docs/roadmap/.nav.yml` entry and repeat `python3 roadmap/check.py` |
+| Bundle script fails on icon | Icon SVG absent from `site/assets/` | Restore `site/assets/astrolabe-icon-minerals.svg` and rerun `./scripts/bundle.sh` |
+| Roadmap check exits 1 | Invalid YAML, broken link, or absent pillar entry | Fix the reported `roadmap/*.yml` or `docs/roadmap/.nav.yml` entry and repeat `sternbild-docs check-roadmap` |
 | Heading check exits 1 | Heading breaks Title Case or article rules | Rewrite the heading as a Title Case noun phrase without articles |
-| Strict build warns on anchor | Internal link targets a missing heading | Fix the target anchor or page path in Markdown |
+| Strict build warns on anchor | Internal link targets an absent heading | Fix the target anchor or page path in Markdown |
 | `uvx: command not found` | `uv` is not on `PATH` | Install `uv` and repeat the documentation build command |

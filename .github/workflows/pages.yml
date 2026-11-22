@@ -3,7 +3,7 @@ name: Deploy Pages
 on:
   push:
     branches: [main]
-    paths: ['site/**', 'docs/**', 'docs-theme/**', 'roadmap/**', 'mkdocs.yml', '.github/workflows/pages.yml']
+    paths: ['site/**', 'docs/**', 'roadmap/**', 'mkdocs.yml', '.github/workflows/pages.yml']
   workflow_dispatch:
 permissions:
   actions: read
@@ -24,9 +24,10 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
-      # The docs (MkDocs Material) are served under /docs/ on the same Pages site,
-      # pinned as in Development Basics. --strict keeps the links honest.
-      - run: pip install mkdocs==1.6.1 mkdocs-material==9.8.1 mkdocs-awesome-nav==3.3.0 pymdown-extensions==13.1
+      # The docs (MkDocs Material with sternbild-docs) are served under /docs/ on the same
+      # Pages site, pinned as in Development Basics. --strict keeps the links honest.
+      - run: pip install mkdocs==1.6.1 mkdocs-material==9.8.1 mkdocs-awesome-nav==3.3.0 pymdown-extensions==13.1 "git+https://github.com/AhmedKhan-GH/organization@docs-v1.0.0#subdirectory=packages/sternbild-docs"
+      - run: sternbild-docs check-headings && sternbild-docs check-roadmap
       - run: mkdocs build --strict
       # Assemble the Pages artifact: landing page at /, docs at /docs/.
       - run: |

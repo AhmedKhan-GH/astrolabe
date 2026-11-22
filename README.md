@@ -25,7 +25,7 @@ The Cargo workspace splits the application into four crates with clear boundarie
 
 ## Development and Verification
 
-Local development requires a Rust toolchain with Edition 2024 support, Python 3, and `uv` for pinned documentation builds. Cargo builds and tests the Rust workspace, while shell and Python scripts package the macOS bundle and check documentation rules. Full development procedures appear in [docs/development/development-basics.md](docs/development/development-basics.md).
+Local development requires a Rust toolchain with Edition 2024 support, Python 3, and `uv` for pinned documentation builds. Cargo builds and tests the Rust workspace, while `./scripts/bundle.sh` packages the macOS bundle and `sternbild-docs` checks documentation rules. Full development procedures appear in [docs/development/development-basics.md](docs/development/development-basics.md).
 
 ### Application Launch
 
@@ -47,14 +47,17 @@ cargo test
 
 ### Documentation and Roadmap Checks
 
-Check the roadmap registry and all documentation headings with Python 3. Then build the MkDocs site in strict mode with pinned package versions.
+Check the roadmap registry and all documentation headings with `sternbild-docs`. Then build the MkDocs site in strict mode with pinned package versions.
 
 ```sh
-python3 roadmap/check.py
-python3 scripts/check_doc_headings.py
+uvx --from "git+https://github.com/AhmedKhan-GH/organization@docs-v1.0.0#subdirectory=packages/sternbild-docs" \
+  sternbild-docs check-roadmap --strict-titles --strict-core-scope
+uvx --from "git+https://github.com/AhmedKhan-GH/organization@docs-v1.0.0#subdirectory=packages/sternbild-docs" \
+  sternbild-docs check-headings
 uvx --from mkdocs==1.6.1 \
   --with mkdocs-material==9.8.1 \
   --with mkdocs-awesome-nav==3.3.0 \
   --with pymdown-extensions==13.1 \
+  --with "git+https://github.com/AhmedKhan-GH/organization@docs-v1.0.0#subdirectory=packages/sternbild-docs" \
   mkdocs build --strict -d build/docs-site
 ```

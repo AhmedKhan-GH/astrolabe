@@ -9,7 +9,7 @@ Development covers workspace builds, tests, macOS app bundles, roadmap verificat
 ```mermaid
 flowchart LR
     src[Rust Workspace] -->|build, test, bundle| app[Astrolabe.app]
-    roadmap[Roadmap YAML] -->|check and hook| rmdoc[Roadmap Pages]
+    roadmap[Roadmap YAML] -->|check and plugin| rmdoc[Roadmap Pages]
     docs[Markdown Sources] -->|headings and mkdocs| site[Docs Site]
 ```
 
@@ -21,4 +21,4 @@ One Cargo workspace compiles `astrolabe`, `astrolabe-kit`, `astrolabe-engines`, 
 
 ## Roadmap and Documentation
 
-`roadmap/check.py` validates the roadmap YAML files under `roadmap/`, and MkDocs runs `roadmap/build.py` as a hook. Documentation lives under `docs/` and compiles with pinned MkDocs Material packages in strict mode. Every heading must pass `scripts/check_doc_headings.py`, and every interface change must follow [UI Principles](../interface/ui-principles.md).
+`sternbild-docs check-roadmap` validates the roadmap YAML files under `roadmap/`, and the `sternbild` plugin generates roadmap pages during the MkDocs build. Documentation lives under `docs/` and compiles in strict mode with `sternbild-docs` and pinned MkDocs packages. Every heading must pass `sternbild-docs check-headings`, and every interface change must follow [UI Principles](../interface/ui-principles.md).

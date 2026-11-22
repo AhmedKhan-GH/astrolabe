@@ -53,7 +53,7 @@ impl CommandBar {
 }
 
 /// The Astrolabe app icon (the Minerals icon with its lapis border), from
-/// `docs-theme/assets/astrolabe-icon-minerals.svg`, rendered at 96 px.
+/// `site/assets/astrolabe-icon-minerals.svg`, rendered at 96 px.
 const ICON_PNG: &[u8] = include_bytes!("../assets/astrolabe-icon.png");
 
 /// The icon's texture, decoded once per context and kept in its temporary data.
