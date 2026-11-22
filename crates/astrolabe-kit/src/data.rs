@@ -14,18 +14,23 @@ use crate::tokens::{StatusTone, color, font_size, metric};
 
 fn chip_job(text: &str, tone: StatusTone) -> egui::text::LayoutJob {
     let upper = text.to_ascii_uppercase();
-    theme::job(&upper, egui::FontId::new(font_size::CHIP, theme::mono_family()), tone.color(), 0.85)
+    theme::job(
+        &upper,
+        egui::FontId::new(font_size::CHIP, theme::mono_family()),
+        tone.color(),
+        sternbild_tokens::tracking::UI_LABEL * font_size::CHIP,
+    )
 }
 
 /// Measures the exact logical size of an uppercase status chip.
 pub fn status_chip_size(painter: &Painter, text: &str) -> Vec2 {
-    painter.layout_job(chip_job(text, StatusTone::Neutral)).size() + vec2(12.0, 6.0)
+    painter.layout_job(chip_job(text, StatusTone::Neutral)).size() + vec2(12.0, 4.0)
 }
 
 /// Paints a square outlined status chip with left edge `left` centered on `center_y`.
 pub fn paint_status_chip(painter: &Painter, left: f32, center_y: f32, text: &str, tone: StatusTone) -> Rect {
     let galley = painter.layout_job(chip_job(text, tone));
-    let size = vec2((galley.size().x + 12.0).ceil(), (galley.size().y + 6.0).ceil());
+    let size = vec2((galley.size().x + 12.0).ceil(), (galley.size().y + 4.0).ceil());
     let rect = Rect::from_min_size(pos2(left.floor(), (center_y - size.y * 0.5).floor()), size);
     painter.rect_filled(rect, 0.0, tone.chip_fill());
     draw::box_outline(painter, rect, tone.chip_stroke());
@@ -66,7 +71,7 @@ pub fn paint_usage_bar(
     value_text: Option<&str>,
 ) {
     let clamped = fraction.clamp(0.0, 1.0);
-    let value_reserve = if value_text.is_some() { 44.0 } else { 0.0 };
+    let value_reserve = if value_text.is_some() { 48.0 } else { 0.0 };
     let track_right = (rect.right() - value_reserve).max(rect.left() + 12.0);
     let track_h = 6.0;
     let track = Rect::from_min_max(
@@ -106,11 +111,11 @@ pub fn labeled_usage_bar(
         info.value = Some((fraction.clamp(0.0, 1.0) * 100.0) as f64);
         info
     });
-    let label_w = (width * 0.30).clamp(64.0, 108.0).floor();
+    let label_w = (width * 0.30).clamp(72.0, 116.0).floor();
     let label_rect = Rect::from_min_size(rect.min, vec2(label_w, rect.height()));
     let meter_rect = Rect::from_min_max(pos2(rect.left() + label_w + 6.0, rect.top()), rect.max);
     let p = ui.painter();
-    theme::paint_job(p, label_rect, theme::label_job(label, color::FAINT), Align::Min, true);
+    theme::paint_job(p, label_rect, theme::label_job(label, color::TEXT_FAINT), Align::Min, true);
     paint_usage_bar(p, meter_rect, fraction, tone, Some(value_text));
     resp
 }
@@ -165,41 +170,41 @@ pub fn metric_tile(ui: &mut Ui, rect: Rect, spec: &MetricTileSpec<'_>) -> Respon
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Label, true, format!("{}: {}", spec.label, spec.value)));
 
     let p = ui.painter();
-    let bg = if resp.hovered() { color::PLATE_HOVER } else { color::PLATE };
+    let bg = if resp.hovered() { color::SURFACE_HOVER } else { color::SURFACE };
     let border = if resp.hovered() { color::RULE } else { color::RULE_FAINT };
     p.rect_filled(rect, 0.0, bg);
     draw::box_outline(p, rect, border);
 
-    let pad_x = 10.0;
-    let pad_y = 8.0;
+    let pad_x = metric::PAD;
+    let pad_y = 6.0;
     let inner = Rect::from_min_max(
         pos2(rect.left() + pad_x, rect.top() + pad_y),
         pos2((rect.right() - pad_x).max(rect.left() + pad_x), (rect.bottom() - pad_y).max(rect.top() + pad_y)),
     );
 
     // Top row: uppercase tracked label + optional geometric icon on right.
-    let head_rect = Rect::from_min_size(inner.min, vec2((inner.width() - 18.0).max(1.0), 14.0));
-    theme::paint_job(p, head_rect, theme::label_job(spec.label, color::SECONDARY), Align::Min, true);
+    let head_rect = Rect::from_min_size(inner.min, vec2((inner.width() - 18.0).max(1.0), 16.0));
+    theme::paint_job(p, head_rect, theme::label_job(spec.label, color::TEXT_MUTED), Align::Min, true);
     if let Some(icon) = spec.icon {
-        draw::icon_glyph(p, pos2(inner.right() - 7.0, head_rect.center().y), icon, color::FAINT);
+        draw::icon_glyph(p, pos2(inner.right() - 7.0, head_rect.center().y), icon, color::TEXT_FAINT);
     }
 
     // Value band kept on a consistent vertical baseline across tiles with or without a bottom meter.
-    let val_top = head_rect.bottom() + 6.0;
-    let val_bottom = (val_top + 26.0).min(inner.bottom() - if spec.meter.is_some() { 10.0 } else { 0.0 });
+    let val_top = head_rect.bottom() + 2.0;
+    let val_bottom = (val_top + 32.0).min(inner.bottom() - if spec.meter.is_some() { 8.0 } else { 0.0 });
     let val_rect = Rect::from_min_max(pos2(inner.left(), val_top), pos2(inner.right(), val_bottom.max(val_top + 1.0)));
     let val_w = theme::paint_job(
         p,
         val_rect,
-        theme::mono_job(spec.value, font_size::METRIC_VALUE, color::PARCHMENT),
+        theme::mono_job(spec.value, font_size::METRIC_VALUE, color::TEXT),
         Align::Min,
         true,
     );
 
     if let Some(meta) = spec.meta {
-        let meta_left = val_rect.left() + val_w + 8.0;
+        let meta_left = val_rect.left() + val_w + sternbild_tokens::space::S2;
         if meta_left + 12.0 < inner.right() {
-            let meta_rect = Rect::from_min_max(pos2(meta_left, val_rect.top() + 5.0), pos2(inner.right(), val_rect.bottom()));
+            let meta_rect = Rect::from_min_max(pos2(meta_left, val_rect.top() + 4.0), pos2(inner.right(), val_rect.bottom()));
             theme::paint_job(
                 p,
                 meta_rect,
@@ -224,7 +229,7 @@ pub fn metric_tile_row(ui: &mut Ui, width: f32, tiles: &[MetricTileSpec<'_>]) {
         return;
     }
     let (row_rect, _) = ui.allocate_exact_size(vec2(width, metric::TILE_H), Sense::hover());
-    let cells = grid_rects(row_rect, tiles.len(), 8.0);
+    let cells = grid_rects(row_rect, tiles.len(), sternbild_tokens::space::S2);
     for (cell, spec) in cells.into_iter().zip(tiles.iter()) {
         metric_tile(ui, cell, spec);
     }
@@ -235,50 +240,51 @@ pub fn metric_tile_row(ui: &mut Ui, width: f32, tiles: &[MetricTileSpec<'_>]) {
 
 /// Draws an uppercase tracked section divider with optional right-aligned count or note.
 pub fn section_heading(ui: &mut Ui, width: f32, title: &str, right_meta: Option<&str>) {
-    let (rect, _) = ui.allocate_exact_size(vec2(width, 24.0), Sense::hover());
+    let (rect, _) = ui.allocate_exact_size(vec2(width, metric::PANE_HEADER), Sense::hover());
     let p = ui.painter();
     let meta_w = right_meta.map_or(0.0, |m| {
-        theme::paint_job(p, rect, theme::mono_job(m, font_size::MONO_SMALL, color::FAINT), Align::Max, false) + 8.0
+        theme::paint_job(p, rect, theme::mono_job(m, font_size::MONO_SMALL, color::TEXT_FAINT), Align::Max, false)
+            + sternbild_tokens::space::S2
     });
     let title_rect = Rect::from_min_max(rect.min, pos2((rect.right() - meta_w).max(rect.left() + 1.0), rect.bottom()));
-    theme::paint_job(p, title_rect, theme::label_job(title, color::SECONDARY), Align::Min, true);
+    theme::paint_job(p, title_rect, theme::label_job(title, color::TEXT_MUTED), Align::Min, true);
     draw::rule_h(p, rect.left(), rect.right(), rect.bottom() - 1.0, color::RULE_FAINT);
 }
 
 /// Draws a square badge tile beside an item title and short metadata.
 pub fn item_header_tile(ui: &mut Ui, width: f32, badge: &str, title: &str, meta: Option<&str>) {
-    let height = 42.0;
+    let height = 46.0;
     let (rect, _) = ui.allocate_exact_size(vec2(width, height), Sense::hover());
     let p = ui.painter();
 
-    let tile_size = 34.0;
+    let tile_size = 36.0;
     let tile_rect = Rect::from_center_size(pos2(rect.left() + tile_size * 0.5, rect.center().y), Vec2::splat(tile_size));
-    p.rect_filled(tile_rect, 0.0, color::PLATE);
+    p.rect_filled(tile_rect, 0.0, color::SURFACE);
     draw::box_outline(p, tile_rect, color::RULE);
     let glyph = badge.chars().next().unwrap_or('?').to_ascii_uppercase().to_string();
-    theme::paint_job(p, tile_rect, theme::mono_job(&glyph, 16.0, color::PARCHMENT), Align::Center, false);
+    theme::paint_job(p, tile_rect, theme::mono_job(&glyph, font_size::TITLE, color::TEXT), Align::Center, false);
 
-    let text_left = tile_rect.right() + 10.0;
+    let text_left = tile_rect.right() + sternbild_tokens::space::S2;
     let mid = rect.center().y;
     if let Some(meta_text) = meta {
-        let l1 = Rect::from_min_max(pos2(text_left, mid - 16.0), pos2(rect.right(), mid));
-        let l2 = Rect::from_min_max(pos2(text_left, mid + 1.0), pos2(rect.right(), mid + 16.0));
-        theme::paint_job(p, l1, theme::sans_job(title, font_size::TITLE, color::PARCHMENT, true), Align::Min, true);
-        theme::paint_job(p, l2, theme::mono_job(meta_text, font_size::MONO_SMALL, color::SECONDARY), Align::Min, true);
+        let l1 = Rect::from_min_max(pos2(text_left, mid - 20.0), pos2(rect.right(), mid + 1.0));
+        let l2 = Rect::from_min_max(pos2(text_left, mid + 1.0), pos2(rect.right(), mid + 20.0));
+        theme::paint_job(p, l1, theme::sans_job(title, font_size::TITLE, color::TEXT, true), Align::Min, true);
+        theme::paint_job(p, l2, theme::mono_job(meta_text, font_size::MONO_SMALL, color::TEXT_MUTED), Align::Min, true);
     } else {
         let line = Rect::from_min_max(pos2(text_left, rect.top()), rect.max);
-        theme::paint_job(p, line, theme::sans_job(title, font_size::TITLE, color::PARCHMENT, true), Align::Min, true);
+        theme::paint_job(p, line, theme::sans_job(title, font_size::TITLE, color::TEXT, true), Align::Min, true);
     }
 }
 
 /// Draws a dense key-value field row (`LABEL` on left, value on right in mono or sans).
 pub fn field_row(ui: &mut Ui, width: f32, label: &str, value: &str, value_color: Color32, mono: bool) {
     let (rect, _) = ui.allocate_exact_size(vec2(width, metric::FIELD_ROW), Sense::hover());
-    let label_w = (width * 0.28).clamp(76.0, 108.0).floor();
+    let label_w = (width * 0.30).clamp(84.0, 124.0).floor();
     let label_rect = Rect::from_min_size(rect.min, vec2(label_w, rect.height()));
     let value_rect = Rect::from_min_max(pos2(rect.left() + label_w + 6.0, rect.top()), rect.max);
     let p = ui.painter();
-    theme::paint_job(p, label_rect, theme::label_job(label, color::FAINT), Align::Min, true);
+    theme::paint_job(p, label_rect, theme::label_job(label, color::TEXT_FAINT), Align::Min, true);
     let value_job = if mono {
         theme::mono_job(value, font_size::MONO, value_color)
     } else {
@@ -460,7 +466,7 @@ impl<'a> DataTable<'a> {
         // Sticky booktabs header row: faint toprule, uppercase tracked heads, bronze sort chevron, rule midrule.
         let (header_rect, _) = ui.allocate_exact_size(vec2(width, metric::TABLE_HEADER), Sense::hover());
         let p = ui.painter().clone();
-        draw::rule_h(&p, header_rect.left(), header_rect.right(), header_rect.top(), color::FAINT);
+        draw::rule_h(&p, header_rect.left(), header_rect.right(), header_rect.top(), color::TEXT_FAINT);
         draw::rule_h(&p, header_rect.left(), header_rect.right(), header_rect.bottom() - 1.0, color::RULE);
 
         let cell_pad_x = 6.0;
@@ -476,7 +482,7 @@ impl<'a> DataTable<'a> {
             );
             resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, col.sortable, col.label));
             if col.sortable && resp.hovered() {
-                p.rect_filled(cell_rect, 0.0, color::PLATE_HOVER);
+                p.rect_filled(cell_rect, 0.0, color::SURFACE_HOVER);
             }
             if col.sortable && resp.on_hover_cursor(CursorIcon::PointingHand).clicked() {
                 let next = match self.sort {
@@ -491,7 +497,7 @@ impl<'a> DataTable<'a> {
                 pos2(cell_rect.left() + cell_pad_x, cell_rect.top()),
                 pos2((cell_rect.right() - cell_pad_x).max(cell_rect.left() + cell_pad_x), cell_rect.bottom()),
             );
-            let label_color = if is_sorted { color::PARCHMENT } else { color::SECONDARY };
+            let label_color = if is_sorted { color::TEXT } else { color::TEXT_MUTED };
             let job = theme::label_job(col.label, label_color);
             let align = match col.align {
                 ColumnAlign::Left => Align::Min,
@@ -504,7 +510,7 @@ impl<'a> DataTable<'a> {
                     ColumnAlign::Left => (inner.left() + w + chevron_gap).min(inner.right() - chevron_w),
                     ColumnAlign::Right => (inner.right() - w - chevron_gap - chevron_w).max(inner.left()),
                 };
-                draw::sort_chevron(&p, chev_x, inner.center().y, sort.ascending, color::BRONZE);
+                draw::sort_chevron(&p, chev_x, inner.center().y, sort.ascending, color::ACCENT);
             }
         }
 
@@ -526,14 +532,14 @@ impl<'a> DataTable<'a> {
 
                 let rp = ui.painter();
                 if selected {
-                    rp.rect_filled(row_rect, 0.0, color::PLATE);
+                    rp.rect_filled(row_rect, 0.0, color::SELECTED);
                     rp.rect_filled(
                         Rect::from_min_size(row_rect.min, vec2(metric::SELECTION_BAR, row_rect.height())),
                         0.0,
-                        color::BRONZE,
+                        color::ACCENT,
                     );
                 } else if resp.hovered() {
-                    rp.rect_filled(row_rect, 0.0, color::PLATE_HOVER);
+                    rp.rect_filled(row_rect, 0.0, color::SURFACE_HOVER);
                 }
 
                 if row_idx + 1 < self.rows.len() {
@@ -564,9 +570,9 @@ impl<'a> DataTable<'a> {
             }
         });
 
-        // Booktabs bottomrule (`FAINT`) below the visible rows or scroll viewport.
+        // Booktabs bottomrule (`TEXT_FAINT`) below the visible rows or scroll viewport.
         let bottom_y = scroll_out.inner_rect.bottom().min(scroll_out.content_size.y + scroll_out.inner_rect.top());
-        draw::rule_h(ui.painter(), left, left + width, bottom_y, color::FAINT);
+        draw::rule_h(ui.painter(), left, left + width, bottom_y, color::TEXT_FAINT);
 
         event
     }
@@ -581,8 +587,8 @@ fn cell_a11y_label(cell: &TableCell) -> String {
 }
 
 fn paint_cell(painter: &Painter, rect: Rect, cell: &TableCell, align: Align, selected: bool) {
-    let primary_ink = if selected { color::BRONZE } else { color::PARCHMENT };
-    let secondary_ink = if selected { color::BRONZE } else { color::SECONDARY };
+    let primary_ink = if selected { color::ACCENT } else { color::TEXT };
+    let secondary_ink = if selected { color::ACCENT } else { color::TEXT_MUTED };
     match cell {
         TableCell::Text(text) => {
             theme::paint_job(painter, rect, theme::sans_job(text, font_size::BODY, primary_ink, selected), align, true);
@@ -609,8 +615,8 @@ fn paint_cell(painter: &Painter, rect: Rect, cell: &TableCell, align: Align, sel
         TableCell::BadgeText { badge, text } => {
             let side = 18.0;
             let b_rect = Rect::from_center_size(pos2(rect.left() + side * 0.5, rect.center().y), Vec2::splat(side));
-            painter.rect_filled(b_rect, 0.0, color::DEEP);
-            draw::box_outline(painter, b_rect, if selected { color::BRONZE } else { color::RULE_FAINT });
+            painter.rect_filled(b_rect, 0.0, color::WELL);
+            draw::box_outline(painter, b_rect, if selected { color::ACCENT } else { color::RULE_FAINT });
             let ch = badge.chars().next().unwrap_or('?').to_ascii_uppercase().to_string();
             theme::paint_job(painter, b_rect, theme::mono_job(&ch, font_size::CHIP, primary_ink), Align::Center, false);
             let text_rect = Rect::from_min_max(pos2(b_rect.right() + 7.0, rect.top()), rect.max);

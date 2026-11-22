@@ -394,7 +394,7 @@ impl ShowcaseState {
     /// Renders the complete workstation shell inside `ui.max_rect()`.
     pub fn show(&mut self, ui: &mut Ui) {
         let full = ui.max_rect();
-        ui.painter().rect_filled(full, 0.0, color::GROUND);
+        ui.painter().rect_filled(full, 0.0, color::BACKGROUND_APP);
 
         let shell = ShellSpec::default().compute(full);
 
@@ -551,14 +551,14 @@ impl ShowcaseState {
             shell.status_bar,
             |ui| {
                 status_indicator(ui, "CONNECTED", true, StatusTone::Ok);
-                status_item(ui, "12 ITEMS", color::SECONDARY);
+                status_item(ui, "12 ITEMS", color::TEXT_MUTED);
                 status_item(ui, "2 QUEUED", color::INFO);
                 status_item(ui, "1 ERROR", color::ERROR);
             },
             |ui| {
-                status_item(ui, "MEMORY 64.2%", color::SECONDARY);
-                status_item(ui, "LATENCY 12.4 MS", color::SECONDARY);
-                status_item(ui, "LOCAL", color::FAINT);
+                status_item(ui, "MEMORY 64.2%", color::TEXT_MUTED);
+                status_item(ui, "LATENCY 12.4 MS", color::TEXT_MUTED);
+                status_item(ui, "LOCAL", color::TEXT_FAINT);
             },
         );
     }
@@ -603,12 +603,12 @@ impl ShowcaseState {
         // Dense booktabs table.
         let columns = [
             TableColumn::left("item", "Item", ColumnWidth::Weight(2.4)),
-            TableColumn::left("kind", "Kind", ColumnWidth::Exact(76.0)),
-            TableColumn::left("status", "Status", ColumnWidth::Exact(84.0)),
-            TableColumn::left("load", "Load", ColumnWidth::Exact(126.0)),
-            TableColumn::right("items", "Items", ColumnWidth::Exact(70.0)),
-            TableColumn::right("latency", "Latency", ColumnWidth::Exact(82.0)),
-            TableColumn::right("updated", "Updated", ColumnWidth::Exact(66.0)),
+            TableColumn::left("kind", "Kind", ColumnWidth::Exact(84.0)),
+            TableColumn::left("status", "Status", ColumnWidth::Exact(92.0)),
+            TableColumn::left("load", "Load", ColumnWidth::Exact(132.0)),
+            TableColumn::right("items", "Items", ColumnWidth::Exact(76.0)),
+            TableColumn::right("latency", "Latency", ColumnWidth::Exact(96.0)),
+            TableColumn::right("updated", "Updated", ColumnWidth::Exact(82.0)),
         ];
 
         let rows: Vec<TableRow> = self
@@ -676,11 +676,11 @@ impl ShowcaseState {
         section_heading(ui, width, "Specification", None);
         ui.add_space(4.0);
         let item_ref = format!("astrolabe://catalog/{}/{}", entry.kind.to_ascii_lowercase(), entry.id);
-        field_row(ui, width, "Reference", &item_ref, color::PARCHMENT, true);
-        field_row(ui, width, "Revision", &entry.revision, color::PARCHMENT, true);
-        field_row(ui, width, "Workers", &entry.workers.to_string(), color::PARCHMENT, true);
-        field_row(ui, width, "P95 Latency", &format!("{:.1} ms", entry.p95_ms), color::PARCHMENT, true);
-        field_row(ui, width, "Checked", &entry.checked, color::SECONDARY, true);
+        field_row(ui, width, "Reference", &item_ref, color::TEXT, true);
+        field_row(ui, width, "Revision", &entry.revision, color::TEXT, true);
+        field_row(ui, width, "Workers", &entry.workers.to_string(), color::TEXT, true);
+        field_row(ui, width, "P95 Latency", &format!("{:.1} ms", entry.p95_ms), color::TEXT, true);
+        field_row(ui, width, "Checked", &entry.checked, color::TEXT_MUTED, true);
 
         ui.add_space(10.0);
         section_heading(ui, width, "Utilization", None);
@@ -694,16 +694,16 @@ impl ShowcaseState {
         section_heading(ui, width, "Relations", Some(&entry.relations.len().to_string()));
         ui.add_space(4.0);
         for (target, role) in &entry.relations {
-            field_row(ui, width, role, target, color::PARCHMENT, true);
+            field_row(ui, width, role, target, color::TEXT, true);
         }
     }
 
     fn operations_body(&self, ui: &mut Ui) {
         let columns = [
             TableColumn::left("command", "Command", ColumnWidth::Weight(1.8)).unsortable(),
-            TableColumn::left("actor", "Actor", ColumnWidth::Exact(66.0)).unsortable(),
-            TableColumn::left("status", "Status", ColumnWidth::Exact(74.0)).unsortable(),
-            TableColumn::right("duration", "Duration", ColumnWidth::Exact(70.0)).unsortable(),
+            TableColumn::left("actor", "Actor", ColumnWidth::Exact(82.0)).unsortable(),
+            TableColumn::left("status", "Status", ColumnWidth::Exact(86.0)).unsortable(),
+            TableColumn::right("duration", "Duration", ColumnWidth::Exact(88.0)).unsortable(),
         ];
 
         let rows: Vec<TableRow> = self

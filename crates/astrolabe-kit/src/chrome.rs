@@ -1,7 +1,7 @@
 //! Workstation layout chrome: command bar, status bar, sidebar navigation rail,
 //! pane container, pane header, and Sternbild action controls.
 //!
-//! Bronze (`color::BRONZE`) appears strictly for focus and active selection.
+//! Bronze (`color::ACCENT` / `color::FOCUS`) appears strictly for focus and active selection.
 
 use egui::{
     Align, AsIdSalt, Color32, CursorIcon, FontId, Id, Layout, Margin, Rect, Response, RichText, ScrollArea, Sense,
@@ -16,7 +16,7 @@ use crate::tokens::{StatusTone, color, font_size, metric};
 // ---------------------------------------------------------------------------
 // Command Bar
 
-/// Top shell command bar strip (`GROUND` fill, 1 px bottom rule).
+/// Top shell command bar strip (`BACKGROUND_APP` fill, 1 px bottom rule).
 pub struct CommandBar;
 
 impl CommandBar {
@@ -28,7 +28,7 @@ impl CommandBar {
         right: impl FnOnce(&mut Ui),
     ) {
         let p = ui.painter();
-        p.rect_filled(rect, 0.0, color::GROUND);
+        p.rect_filled(rect, 0.0, color::BACKGROUND_APP);
         draw::rule_h(p, rect.left(), rect.right(), rect.bottom() - 1.0, color::RULE);
 
         let inner = Rect::from_min_max(
@@ -42,19 +42,18 @@ impl CommandBar {
                 .layout(Layout::left_to_right(Align::Center)),
         );
         bar_ui.set_clip_rect(inner.intersect(ui.clip_rect()));
-        bar_ui.spacing_mut().item_spacing.x = 8.0;
+        bar_ui.spacing_mut().item_spacing.x = sternbild_tokens::space::S2;
 
         left(&mut bar_ui);
         bar_ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            ui.spacing_mut().item_spacing.x = 8.0;
+            ui.spacing_mut().item_spacing.x = sternbild_tokens::space::S2;
             right(ui);
         });
     }
 }
 
-/// The Astrolabe app icon (the Minerals icon with its lapis border), from
-/// `site/assets/astrolabe-icon-minerals.svg`, rendered at 96 px.
-const ICON_PNG: &[u8] = include_bytes!("../assets/astrolabe-icon.png");
+/// Canonical Astrolabe Minerals icon PNG embedded directly from `sternbild-tokens`.
+const ICON_PNG: &[u8] = sternbild_tokens::icons::ASTROLABE_PNG_256;
 
 /// The icon's texture, decoded once per context and kept in its temporary data.
 fn icon_texture(ctx: &egui::Context) -> Option<egui::TextureHandle> {
@@ -72,11 +71,11 @@ fn icon_texture(ctx: &egui::Context) -> Option<egui::TextureHandle> {
 
 /// Draws the Astrolabe icon and uppercase tracked wordmark inside a command bar.
 pub fn masthead(ui: &mut Ui, wordmark: &str) -> Response {
-    let mark_size = 22.0;
-    let mark_gap = 8.0;
-    let job = theme::wordmark_job(wordmark, color::PARCHMENT);
+    let mark_size = metric::MARK;
+    let mark_gap = sternbild_tokens::space::S2;
+    let job = theme::wordmark_job(wordmark, color::TEXT);
     let word_w = theme::job_width(ui, job.clone());
-    let total_w = mark_size + mark_gap + word_w + 4.0;
+    let total_w = mark_size + mark_gap + word_w + sternbild_tokens::space::S1;
     let (rect, resp) = ui.allocate_exact_size(vec2(total_w, metric::COMMAND_BAR - 2.0), Sense::hover());
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Label, true, wordmark));
 
@@ -89,7 +88,7 @@ pub fn masthead(ui: &mut Ui, wordmark: &str) -> Response {
             let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0));
             p.image(texture.id(), mark_rect, uv, Color32::WHITE);
         }
-        None => draw::astrolabe_mark(p, mark_min, mark_size, color::PARCHMENT),
+        None => draw::astrolabe_mark(p, mark_min, mark_size, color::TEXT),
     }
 
     let text_rect = Rect::from_min_max(pos2(mark_min.x + mark_size + mark_gap, rect.top()), rect.max);
@@ -97,9 +96,9 @@ pub fn masthead(ui: &mut Ui, wordmark: &str) -> Response {
     resp
 }
 
-/// Monospace command or filter input in a `DEEP` well with a 1 px border.
+/// Monospace command or filter input in a `WELL` with a 1 px border.
 ///
-/// The border turns `BRONZE` while focused and remains `RULE` at rest.
+/// The border turns `FOCUS` while focused and remains `RULE` at rest.
 pub fn command_input(
     ui: &mut Ui,
     id_salt: impl AsIdSalt,
@@ -107,18 +106,18 @@ pub fn command_input(
     placeholder: &str,
     width: f32,
 ) -> Response {
-    let height = 24.0;
+    let height = metric::ROW;
     let (rect, _) = ui.allocate_exact_size(vec2(width.max(100.0), height), Sense::hover());
     let id = ui.scope_id().with(id_salt);
     let edit = TextEdit::singleline(text)
         .id(id)
-        .frame(egui::Frame::new().fill(color::DEEP).inner_margin(Margin::symmetric(8, 4)))
+        .frame(egui::Frame::new().fill(color::WELL).inner_margin(Margin::symmetric(8, 2)))
         .font(FontId::new(font_size::MONO, theme::mono_family()))
-        .text_color(color::PARCHMENT)
-        .hint_text(RichText::new(placeholder).font(FontId::new(font_size::MONO, theme::mono_family())).color(color::FAINT))
+        .text_color(color::TEXT)
+        .hint_text(RichText::new(placeholder).font(FontId::new(font_size::MONO, theme::mono_family())).color(color::TEXT_FAINT))
         .desired_width(rect.width());
     let resp = ui.put(rect, edit);
-    let border = if resp.has_focus() { color::BRONZE } else { color::RULE };
+    let border = if resp.has_focus() { color::FOCUS } else { color::RULE };
     draw::box_outline(ui.painter(), rect, border);
     resp
 }
@@ -139,12 +138,12 @@ pub fn key_button(
     let key_job = if key.is_empty() {
         None
     } else {
-        Some(theme::mono_job(key, font_size::MONO_SMALL, color::SECONDARY))
+        Some(theme::mono_job(key, font_size::MONO_SMALL, color::TEXT_MUTED))
     };
     let action_job = if action.is_empty() {
         None
     } else {
-        Some(theme::sans_job(action, font_size::BODY, color::PARCHMENT, false))
+        Some(theme::sans_job(action, font_size::BODY, color::TEXT, false))
     };
 
     let key_w = key_job.as_ref().map_or(0.0, |j| theme::job_width(ui, j.clone()));
@@ -163,13 +162,13 @@ pub fn key_button(
     let focused = enabled && resp.has_focus();
 
     let (fill, outline, key_ink, action_ink) = if !enabled {
-        (None, color::RULE_FAINT, color::FAINT, color::FAINT)
+        (None, color::RULE_FAINT, color::TEXT_FAINT, color::TEXT_FAINT)
     } else if held && hovered {
-        (Some(color::PARCHMENT), color::PARCHMENT, color::DEEP, color::DEEP)
+        (Some(color::TEXT), color::TEXT, color::WELL, color::WELL)
     } else if hovered {
-        (Some(color::PLATE_HOVER), if focused { color::BRONZE } else { color::RULE }, color::BRONZE, color::PARCHMENT)
+        (Some(color::SURFACE_HOVER), if focused { color::FOCUS } else { color::RULE }, color::ACCENT, color::TEXT)
     } else {
-        (None, if focused { color::BRONZE } else { color::RULE }, color::SECONDARY, color::PARCHMENT)
+        (None, if focused { color::FOCUS } else { color::RULE }, color::TEXT_MUTED, color::TEXT)
     };
 
     let p = ui.painter();
@@ -204,9 +203,9 @@ pub fn primary_button(ui: &mut Ui, label: &str, key: Option<&str>, enabled: bool
     let key_w = if key_str.is_empty() {
         0.0
     } else {
-        theme::job_width(ui, theme::mono_job(key_str, font_size::MONO_SMALL, color::PARCHMENT))
+        theme::job_width(ui, theme::mono_job(key_str, font_size::MONO_SMALL, color::TEXT))
     };
-    let label_w = theme::job_width(ui, theme::sans_job(label, font_size::BODY, color::PARCHMENT, true));
+    let label_w = theme::job_width(ui, theme::sans_job(label, font_size::BODY, color::TEXT, true));
     let inner_gap = if key_w > 0.0 { 6.0 } else { 0.0 };
     let content_w = key_w + inner_gap + label_w;
     let width = (content_w + 24.0).ceil();
@@ -220,22 +219,22 @@ pub fn primary_button(ui: &mut Ui, label: &str, key: Option<&str>, enabled: bool
     let focused = enabled && resp.has_focus();
 
     let (outline, fill, key_ink, label_ink) = if !enabled {
-        (color::RULE, None, color::FAINT, color::FAINT)
+        (color::RULE, None, color::TEXT_FAINT, color::TEXT_FAINT)
     } else if held && hovered {
-        (color::PARCHMENT, Some(color::PARCHMENT), color::DEEP, color::DEEP)
+        (color::TEXT, Some(color::TEXT), color::WELL, color::WELL)
     } else if hovered {
         (
-            if focused { color::BRONZE } else { color::PARCHMENT },
-            Some(color::PLATE_HOVER),
-            color::BRONZE,
-            color::PARCHMENT,
+            if focused { color::FOCUS } else { color::TEXT },
+            Some(color::SURFACE_HOVER),
+            color::ACCENT,
+            color::TEXT,
         )
     } else {
         (
-            if focused { color::BRONZE } else { color::PARCHMENT },
+            if focused { color::FOCUS } else { color::TEXT },
             None,
-            color::SECONDARY,
-            color::PARCHMENT,
+            color::TEXT_MUTED,
+            color::TEXT,
         )
     };
 
@@ -259,26 +258,26 @@ pub fn primary_button(ui: &mut Ui, label: &str, key: Option<&str>, enabled: bool
 
 /// Secondary action as a bare parchment word with a 1 px underline on hover or focus.
 pub fn word_button(ui: &mut Ui, label: &str) -> Response {
-    let w = theme::job_width(ui, theme::sans_job(label, font_size::BODY, color::PARCHMENT, false));
+    let w = theme::job_width(ui, theme::sans_job(label, font_size::BODY, color::TEXT, false));
     let (rect, resp) = ui.allocate_exact_size(vec2(w.ceil() + 2.0, metric::KEY_BUTTON_H), Sense::click());
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, label));
 
     let p = ui.painter();
-    theme::paint_job(p, rect, theme::sans_job(label, font_size::BODY, color::PARCHMENT, false), Align::Min, false);
+    theme::paint_job(p, rect, theme::sans_job(label, font_size::BODY, color::TEXT, false), Align::Min, false);
     if resp.hovered() || resp.has_focus() {
-        let line_color = if resp.has_focus() && !resp.hovered() { color::BRONZE } else { color::PARCHMENT };
-        draw::rule_h(p, rect.left(), rect.right() - 2.0, rect.bottom() - 3.0, line_color);
+        let line_color = if resp.has_focus() && !resp.hovered() { color::FOCUS } else { color::TEXT };
+        draw::rule_h(p, rect.left(), rect.right() - 2.0, rect.bottom() - 2.0, line_color);
     }
     resp.on_hover_cursor(CursorIcon::PointingHand)
 }
 
 /// Honest disabled action displaying the muted control name and short reason inline.
 pub fn unavailable_action(ui: &mut Ui, label: &str, reason: &str) {
-    let label_job = theme::sans_job(label, font_size::BODY, color::FAINT, false);
-    let reason_job = theme::mono_job(reason, font_size::MONO_SMALL, color::FAINT);
+    let label_job = theme::sans_job(label, font_size::BODY, color::TEXT_FAINT, false);
+    let reason_job = theme::mono_job(reason, font_size::MONO_SMALL, color::TEXT_FAINT);
     let lw = theme::job_width(ui, label_job.clone());
     let rw = theme::job_width(ui, reason_job.clone());
-    let gap = 8.0;
+    let gap = sternbild_tokens::space::S2;
     let (rect, resp) = ui.allocate_exact_size(vec2((lw + gap + rw).ceil(), metric::KEY_BUTTON_H), Sense::hover());
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Label, false, format!("{label}: {reason}")));
     let p = ui.painter();
@@ -293,7 +292,7 @@ pub fn unavailable_action(ui: &mut Ui, label: &str, reason: &str) {
 
 const STATUS_SEP_KEY: &str = "astrolabe_kit_status_sep";
 
-/// Bottom persistent status strip (`DEEP` fill, 1 px top rule).
+/// Bottom persistent status strip (`WELL` fill, 1 px top rule).
 pub struct StatusBar;
 
 impl StatusBar {
@@ -305,7 +304,7 @@ impl StatusBar {
         right: impl FnOnce(&mut Ui),
     ) {
         let p = ui.painter();
-        p.rect_filled(rect, 0.0, color::DEEP);
+        p.rect_filled(rect, 0.0, color::WELL);
         draw::rule_h(p, rect.left(), rect.right(), rect.top(), color::RULE);
 
         let inner = Rect::from_min_max(
@@ -342,12 +341,12 @@ fn next_status_sep(ui: &mut Ui, right_to_left: bool) {
     let id = Id::unique((STATUS_SEP_KEY, tag));
     let had_prev = ui.ctx().data(|d| d.get_temp::<bool>(id).unwrap_or(false));
     if had_prev {
-        let sep_w = 16.0;
+        let sep_w = metric::GAP;
         let (r, _) = ui.allocate_exact_size(vec2(sep_w, metric::STATUS_BAR - 2.0), Sense::hover());
         theme::paint_job(
             ui.painter(),
             r,
-            theme::mono_job("·", font_size::MONO_SMALL, color::FAINT),
+            theme::mono_job("·", font_size::MONO_SMALL, color::TEXT_FAINT),
             Align::Center,
             false,
         );
@@ -405,10 +404,10 @@ pub fn pane_header(ui: &mut Ui, rect: Rect, spec: PaneHeaderSpec<'_>) -> Respons
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, spec.title));
 
     let hovered = !spec.focused && resp.hovered();
-    let bg = if hovered { color::PLATE_HOVER } else { color::PLATE };
-    let title_color = if spec.focused { color::BRONZE } else { color::PARCHMENT };
-    let rule_color = if spec.focused { color::BRONZE } else { color::RULE };
-    let key_color = if spec.focused { color::BRONZE } else { color::SECONDARY };
+    let bg = if hovered { color::SURFACE_HOVER } else { color::SURFACE };
+    let title_color = if spec.focused { color::ACCENT } else { color::TEXT };
+    let rule_color = if spec.focused { color::FOCUS } else { color::RULE };
+    let key_color = if spec.focused { color::ACCENT } else { color::TEXT_MUTED };
 
     let p = ui.painter();
     p.rect_filled(rect, 0.0, bg);
@@ -431,7 +430,7 @@ pub fn pane_header(ui: &mut Ui, rect: Rect, spec: PaneHeaderSpec<'_>) -> Respons
         let meta_left = title_rect.left() + title_w + metric::GAP;
         if meta_left + 12.0 < left_limit {
             let meta_rect = Rect::from_min_max(pos2(meta_left, text_band.top()), pos2(left_limit, text_band.bottom()));
-            theme::paint_job(p, meta_rect, theme::mono_job(meta, font_size::MONO_SMALL, color::SECONDARY), Align::Min, true);
+            theme::paint_job(p, meta_rect, theme::mono_job(meta, font_size::MONO_SMALL, color::TEXT_MUTED), Align::Min, true);
         }
     }
 
@@ -500,7 +499,7 @@ impl<'a> Pane<'a> {
     /// Renders the pane inside `rect` and invokes `body` in the content region below the header.
     pub fn show(self, ui: &mut Ui, rect: Rect, body: impl FnOnce(&mut Ui)) -> PaneResponse {
         let p = ui.painter();
-        p.rect_filled(rect, 0.0, color::GROUND);
+        p.rect_filled(rect, 0.0, color::BACKGROUND_APP);
 
         let left_offset = if self.left_rule {
             draw::rule_v(p, rect.left(), rect.top(), rect.bottom(), color::RULE);
@@ -605,10 +604,10 @@ pub enum SidebarAction {
     Toggled(String),
 }
 
-/// Vertical sidebar navigation rail on `GROUND` with a 1 px right border.
+/// Vertical sidebar navigation rail on `BACKGROUND_APP` with a 1 px right border.
 ///
-/// Active selection is marked by a `PLATE` fill, a 2 px left `BRONZE` bar, and
-/// `BRONZE` label ink.
+/// Active selection is marked by a `SELECTED` fill, a 2 px left `ACCENT` bar, and
+/// `ACCENT` label ink.
 pub struct SidebarRail<'a> {
     pub id: &'a str,
     pub sections: Vec<SidebarSection<'a>>,
@@ -621,7 +620,7 @@ impl<'a> SidebarRail<'a> {
 
     pub fn show(self, ui: &mut Ui, rect: Rect) -> Option<SidebarAction> {
         let p = ui.painter();
-        p.rect_filled(rect, 0.0, color::GROUND);
+        p.rect_filled(rect, 0.0, color::BACKGROUND_APP);
         draw::rule_v(p, rect.right() - 1.0, rect.top(), rect.bottom(), color::RULE);
 
         let inner = Rect::from_min_max(rect.min, pos2((rect.right() - 1.0).max(rect.left()), rect.bottom()));
@@ -631,21 +630,21 @@ impl<'a> SidebarRail<'a> {
             ScrollArea::vertical().id_salt((self.id, "scroll")).auto_shrink([false, false]).show(ui, |ui| {
                 ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
                 let width = ui.available_width();
-                ui.add_space(6.0);
+                ui.add_space(sternbild_tokens::space::S2);
 
                 for (idx, section) in self.sections.iter().enumerate() {
                     if idx > 0 {
-                        ui.add_space(8.0);
+                        ui.add_space(sternbild_tokens::space::S2);
                         let y = ui.cursor().top();
                         draw::rule_h(ui.painter(), inner.left() + metric::PAD, inner.right() - metric::PAD, y, color::RULE_FAINT);
-                        ui.add_space(4.0);
+                        ui.add_space(sternbild_tokens::space::S1);
                     }
                     let (head_rect, _) = ui.allocate_exact_size(vec2(width, metric::SIDEBAR_HEADING), Sense::hover());
                     let title_rect = Rect::from_min_max(
                         pos2(head_rect.left() + metric::PAD, head_rect.top()),
                         pos2(head_rect.right() - metric::PAD, head_rect.bottom()),
                     );
-                    theme::paint_job(ui.painter(), title_rect, theme::label_job(section.title, color::FAINT), Align::Min, true);
+                    theme::paint_job(ui.painter(), title_rect, theme::label_job(section.title, color::TEXT_FAINT), Align::Min, true);
 
                     for item in &section.items {
                         if let Some(ev) = draw_sidebar_item(ui, width, item) {
@@ -653,7 +652,7 @@ impl<'a> SidebarRail<'a> {
                         }
                     }
                 }
-                ui.add_space(12.0);
+                ui.add_space(sternbild_tokens::space::S3);
             });
         });
 
@@ -667,10 +666,10 @@ fn draw_sidebar_item(ui: &mut Ui, width: f32, item: &SidebarItem<'_>) -> Option<
 
     let p = ui.painter().clone();
     if item.active {
-        p.rect_filled(rect, 0.0, color::PLATE);
-        p.rect_filled(Rect::from_min_size(rect.min, vec2(metric::SELECTION_BAR, rect.height())), 0.0, color::BRONZE);
+        p.rect_filled(rect, 0.0, color::SELECTED);
+        p.rect_filled(Rect::from_min_size(rect.min, vec2(metric::SELECTION_BAR, rect.height())), 0.0, color::ACCENT);
     } else if resp.hovered() {
-        p.rect_filled(rect, 0.0, color::PLATE_HOVER);
+        p.rect_filled(rect, 0.0, color::SURFACE_HOVER);
     }
 
     let indent = item.depth as f32 * 14.0;
@@ -682,11 +681,11 @@ fn draw_sidebar_item(ui: &mut Ui, width: f32, item: &SidebarItem<'_>) -> Option<
         let hit = Rect::from_center_size(pos2(x + 4.0, mid_y), vec2(14.0, metric::SIDEBAR_ROW));
         let fold_resp = ui.interact(hit, ui.scope_id().with(("sidebar_fold", item.id)), Sense::click());
         let tri_color = if fold_resp.hovered() {
-            color::PARCHMENT
+            color::TEXT
         } else if item.active {
-            color::BRONZE
+            color::ACCENT
         } else {
-            color::FAINT
+            color::TEXT_FAINT
         };
         draw::disclosure(&p, pos2(x + 4.0, mid_y), open, tri_color);
         if fold_resp.on_hover_cursor(CursorIcon::PointingHand).clicked() {
@@ -696,7 +695,7 @@ fn draw_sidebar_item(ui: &mut Ui, width: f32, item: &SidebarItem<'_>) -> Option<
     }
 
     if let Some(icon) = item.icon {
-        let icon_color = if item.active { color::BRONZE } else { color::SECONDARY };
+        let icon_color = if item.active { color::ACCENT } else { color::TEXT_MUTED };
         draw::icon_glyph(&p, pos2(x + 6.0, mid_y), icon, icon_color);
         x += 18.0;
     }
@@ -704,25 +703,25 @@ fn draw_sidebar_item(ui: &mut Ui, width: f32, item: &SidebarItem<'_>) -> Option<
     let count_w = if let Some(n) = item.count {
         let count_str = n.to_string();
         let count_color = if n == 0 {
-            color::FAINT
+            color::TEXT_FAINT
         } else if item.active {
-            color::BRONZE
+            color::ACCENT
         } else {
-            color::FAINT
+            color::TEXT_FAINT
         };
         let count_rect = Rect::from_min_max(
             pos2(rect.right() - 48.0, rect.top()),
             pos2(rect.right() - metric::PAD, rect.bottom()),
         );
         theme::paint_job(&p, count_rect, theme::mono_job(&count_str, font_size::MONO_SMALL, count_color), Align::Max, false)
-            + 8.0
+            + sternbild_tokens::space::S2
     } else {
         0.0
     };
 
     let text_right = (rect.right() - metric::PAD - count_w).max(x + 1.0);
     let text_rect = Rect::from_min_max(pos2(x, rect.top()), pos2(text_right, rect.bottom()));
-    let text_color = if item.active { color::BRONZE } else { color::PARCHMENT };
+    let text_color = if item.active { color::ACCENT } else { color::TEXT };
     theme::paint_job(&p, text_rect, theme::sans_job(item.label, font_size::BODY, text_color, item.active), Align::Min, true);
 
     let resp = resp.on_hover_cursor(CursorIcon::PointingHand);
@@ -749,7 +748,7 @@ mod tests {
             |_| {},
             |ui| {
                 let full = ui.max_rect();
-                ui.painter().rect_filled(full, 0.0, color::GROUND);
+                ui.painter().rect_filled(full, 0.0, color::BACKGROUND_APP);
                 let inner = Rect::from_min_size(pos2(16.0, 16.0), vec2(160.0, 48.0));
                 pane_child(ui, "primary_button_test", inner, |ui| {
                     let resp = primary_button(ui, "Run", Some("⏎"), true);
@@ -764,8 +763,8 @@ mod tests {
         let y0 = rect.top().floor() as u32;
         let x1 = (rect.right().floor() - 1.0) as u32;
         let y1 = (rect.bottom().floor() - 1.0) as u32;
-        let parchment = image::Rgba([color::PARCHMENT.r(), color::PARCHMENT.g(), color::PARCHMENT.b(), 255]);
-        let ground = image::Rgba([color::GROUND.r(), color::GROUND.g(), color::GROUND.b(), 255]);
+        let text = image::Rgba([color::TEXT.r(), color::TEXT.g(), color::TEXT.b(), 255]);
+        let ground = image::Rgba([color::BACKGROUND_APP.r(), color::BACKGROUND_APP.g(), color::BACKGROUND_APP.b(), 255]);
 
         for (name, x, y) in [
             ("top-left", x0, y0),
@@ -775,8 +774,8 @@ mod tests {
         ] {
             assert_eq!(
                 *image.get_pixel(x, y),
-                parchment,
-                "{name} outer corner pixel ({x}, {y}) of primary_button rect {rect:?} must be PARCHMENT"
+                text,
+                "{name} outer corner pixel ({x}, {y}) of primary_button rect {rect:?} must be TEXT"
             );
         }
 
@@ -789,7 +788,7 @@ mod tests {
             assert_eq!(
                 *image.get_pixel(x, y),
                 ground,
-                "{name} pixel ({x}, {y}) outside primary_button rect {rect:?} must remain GROUND"
+                "{name} pixel ({x}, {y}) outside primary_button rect {rect:?} must remain BACKGROUND_APP"
             );
         }
     }
