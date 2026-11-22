@@ -4,122 +4,108 @@ kind: concept
 
 # Astrolabe Architecture
 
-Astrolabe runs as one Rust application built on live data readers, engines in `astrolabe-engines`, and UI widgets in `astrolabe-kit`.
+Astrolabe runs as one native macOS desktop application in Rust, built on `eframe`, `egui`, a shared UI kit, and decoupled background engines.
 
 ```mermaid
 flowchart TB
-    subgraph host[Astrolabe Application]
+    subgraph desktop[Astrolabe Desktop Application]
         app[astrolabe Binary] -->|draws with| kit[astrolabe-kit]
         app -->|calls| engines[astrolabe-engines]
+        app -->|routes via| contract[astrolabe-contract]
     end
-    engines -->|reads| readers[Live Data Readers]
-    readers -->|inspects| repos[Git Repositories]
-    readers -->|probes| providers[Agent Providers]
+    engines -->|watches and reads| git[Local Git and GitHub]
+    engines -->|probes and polls| agents[CLIs, Provider APIs, Ollama]
+    engines -->|reads and writes| storage[Application Support and Keychain]
+    demo["--demo Fixtures"] -.->|replaces live sources| engines
 ```
 
-Current architecture of the single Astrolabe Rust application, its crates, and its live data readers.
+Current runtime architecture of the Astrolabe crates, live sources, local storage, and deterministic demo mode.
 
-## Components
+## Workspace Crates
 
-The table lists the core parts of the current Astrolabe architecture.
+Four Cargo crates separate window ownership, visual widgets, domain engines, and tool contracts. Each crate carries a single responsibility with strict dependency boundaries.
 
-| Component | Responsibility |
-|---|---|
-| `astrolabe` | Single Rust desktop application that owns the window, navigation, and built-in app views |
-| `astrolabe-kit` | Shared UI widgets, Sternbild theme tokens, layout primitives, and reusable controls |
-| `astrolabe-engines` | Domain engines migrated from Repo Monitor and Agent Monitor |
-| Live data readers | Direct on-demand readers for local Git repositories, files, and provider CLI probes |
-| `astrolabe-contract` | Early command, inspection, and rendering trait prototype for later tool integration |
+| Crate | Role | Key Types and Modules |
+|---|---|---|
+| `astrolabe` | Native macOS desktop application (`eframe` and `egui`) | `AstrolabeApp`, `LaunchOptions`, `Host`, `repos_panel`, `agents_panel` |
+| `astrolabe-kit` | Shared UI kit and offscreen snapshot helpers | `tokens`, `theme`, `layout`, `chrome`, `data`, `draw`, `capture` |
+| `astrolabe-engines` | Headless domain engines with zero UI dependencies | `repos::Engine`, `agents::Engine`, `query`, `tags`, `watch`, `keychain` |
+| `astrolabe-contract` | Shared tool and item contract definitions | `Tool`, `CommandSpec`, `Effect`, `Actor`, `Invocation`, `Outcome`, `ItemRef` |
 
-Astrolabe is the single application now. One Rust executable hosts both the [Repos](../apps/repos.md) and [Agents](../apps/agents.md) views in one process. Thus state and navigation stay direct. Shared interface elements live in `astrolabe-kit` under [UI Principles](../interface/ui-principles.md).
+The `astrolabe` binary owns the native window (`1440 x 900` default and `1180 x 640` minimum), top command bar, sidebar navigation, status bar, and panels. It mounts both [Repos](../apps/repos.md) and [Agents](../apps/agents.md) inside one process and holds an in-process `Host` command router.
 
-## Monitor Consolidation
+The `astrolabe-kit` crate implements the visual system defined in [UI Principles](../interface/ui-principles.md). It provides the mineral dark palette, typography tokens, shell chrome, tables, summary metric tiles, status chips, usage bars, and pure layout geometry. Its optional `capture` feature drives headless `egui_kittest` and `wgpu` rendering for offscreen PNG snapshots.
 
-The monitors move their engines into `astrolabe-engines`, and their views move into `astrolabe`. Standalone Repo Monitor and standalone Agent Monitor retire when Astrolabe matches their capabilities. One application removes duplicate themes, shells, and probe code. Future views can also link repositories directly to agent sessions.
+The `astrolabe-engines` crate holds all domain logic and depends on zero `egui` or `eframe` crates. Its `repos` module runs filesystem watchers, Git readers, GitHub checks, boolean queries, automatic tags, and smart folder rules. Its `agents` module runs tool discovery, CLI pseudo-terminal probes, hosted HTTP quota readers, and Ollama memory polls.
 
-## Deferred Infrastructure
+The `astrolabe-contract` crate defines a uniform interface for interactive tools and automation. Each `Tool` publishes a command catalog with JSON Schema inputs and outputs, an `Effect` class (`Read`, `Write`, `Destructive`, or `External`), structured inspection, render support, and stable `astrolabe://<tool>/<kind>/<id>` references.
 
-Persistence, record IDs, event logs, protocol crates, and a daemon are added only when a feature needs them. The current build reads live data directly from local Git checkouts, configuration files, and provider CLI probes without a database or background service.
+## Live Data Flow
 
-This restraint keeps the codebase small while monitor consolidation proceeds. When a concrete feature needs SQLite indexes, stable `astrolabe://<tool>/<kind>/<id>` record IDs, or an event log, that piece enters the workspace. The same rule applies to protocol crates and a background daemon.
+All filesystem, Git, subprocess, and network operations run on background worker threads off the UI thread. Workers deliver immutable updates and trigger UI repaints, and never block input or frame rendering.
 
-## Layer Model
+In the repository engine, one coordinator thread owns settings, root discovery, and the `notify` filesystem watcher. Four Git reader threads inspect local checkouts, three checker threads run `git ls-remote`, and one GitHub thread refreshes remote metadata. The coordinator pushes typed `Msg` values over an `mpsc` channel and wakes the UI frame loop.
 
-[Product Direction](../introduction/direction.md#layer-model) organizes the wider system into five layers: environments, orchestration, interfaces, workflows, and an optional backbone. The single Rust application anchors the interfaces layer today and grows into the local host shown below as later features arrive.
+In the agent engine, each live provider runs on its own background thread on a fixed interval. Codex session files refresh every 30 seconds, CLI probes and hosted APIs refresh every 120 seconds, and tool discovery runs every 600 seconds. Local Ollama memory and model checks poll `http://127.0.0.1:11434` every 5 seconds.
+
+Each agent worker writes into one mutex-guarded `Shared` snapshot and notifies the UI to repaint. A manual `Check Now` request wakes eligible workers while a 30-second minimum gap prevents rapid repeat polls.
+
+## Deterministic Demo Mode
+
+Start Astrolabe with `--demo` to replace every live worker with deterministic in-memory fixtures anchored at fixed timestamps. Optional `--panel repos` or `--panel agents` flags open the requested panel immediately.
+
+In demo mode, Repos starts an idle engine with 11 synthetic repositories under `/demo/workspaces/`. Agents starts a fixed engine with 13 synthetic providers and 4 local Ollama models. Demo mode keeps all edits in memory and performs zero reads or writes against real repositories, configuration files, Keychain entries, CLIs, or network endpoints. As a result, contributors run repeatable visual reviews, screenshots, and offscreen tests.
+
+## Local Settings and Credentials
+
+Astrolabe stores plain TOML configuration and view state under `~/Library/Application Support/Astrolabe/`. Three files keep responsibilities clear: `config.toml` holds watched folders and skip rules, `organize.toml` holds manual folders and tags, and `window.toml` holds active panel preferences. Local caches live under `~/Library/Caches/astrolabe/`.
+
+Agent CLI probes execute inside a dedicated empty probe folder under `~/Library/Application Support/` and never touch project repositories. If a probe leaves unexpected files in that directory, the status bar raises a warning.
+
+Optional API keys for hosted providers live only in the macOS login Keychain and never enter TOML files. Each provider worker caches its first Keychain lookup in private memory. Thus periodic polls do not trigger repeated macOS access dialogs.
+
+## Planned Architecture
+
+Astrolabe grows from the single desktop binary into a local service architecture that keeps observation, index updates, and agent execution active beyond one window.
 
 ```mermaid
 flowchart TB
-    shell[Shell and Panes] -->|invokes| commands[Command Layer]
-    agent[Agent and Workflows] -->|invokes| commands
-    mcp[MCP Surface] -->|invokes| commands
-    commands -->|routes to| tools[In-Process and External Tools]
-    tools -->|reads| sources[Live Readers and Sources]
+    ui[Astrolabe Desktop UI] -->|attaches to| daemon[Background Service]
+    daemon -->|maintains| index[Knowledge and Asset Index]
+    daemon -->|runs| workflows[Agent Workflows]
+    workflows -->|executes inside| vms[Managed Linux VMs]
+    daemon -->|connects over encrypted link| remote[Remote Linux and macOS Hosts]
+    index -->|links native files| sources[Repositories, Notes, Libraries, Media]
 ```
 
-Target local host capabilities that build on top of the consolidated Rust application.
+Planned service architecture across the desktop UI, background daemon, local index, workflows, managed VMs, and remote hosts.
 
-Artisan and Alchemist VMs supply desktop environments outside the local host. Loggia supplies the internal Astrolabe installation and drives orchestration requirements. The shared Sternbild backend handles optional accounts, sync, licensing, and billing while local work stays independent of network availability.
+### Background Service
 
-## Agent Loop and Contract
+A local background daemon maintains filesystem watchers, index updates, and active agent runs independently of the desktop window. When the user closes the window, watchers and active runs stay active. When the user reopens Astrolabe, the UI attaches directly to live daemon state without cold restarts.
 
-Future agent automation inside Astrolabe follows one closed loop across tools and interfaces.
+### Knowledge and Asset Index
 
-### Agent Loop
+A rebuildable local SQLite and full-text index connects repositories, notes, reference libraries, and media assets across specialized applications. Source files stay in their native tools and folders on disk. Stable `ItemRef` addresses link related items across views, and removal of the index never risks primary user files.
 
-Every agent action follows four steps in order:
+### Agent Workflows
 
-1. Act through a named command.
-2. Inspect structured state from the target tool.
-3. Render the output as an image, page, or export.
-4. Compare the rendered output with the goal and repeat until complete.
+Structured multi-step workflows run agents with scoped context, automated verification checks, and explicit human review gates. Every workflow action calls named commands through the `astrolabe-contract` boundary with full actor attribution. Automated checks collect test output, diffs, or rendered captures as evidence, and external or destructive actions wait for human approval.
 
-Verification stays inside the loop. Thus every claim carries visible evidence. The person can watch the timeline, pause execution, take over, or undo reversible actions.
+### Managed Linux VMs
 
-### Tool Contract
+Isolated Linux virtual machines give agent workflows dedicated environments for builds, command tools, and browsers. Each virtual machine enforces explicit CPU, memory, and disk budgets. When a workflow finishes, the environment resets or shuts down cleanly and returns host capacity.
 
-The `astrolabe-contract` crate prototypes the interface for tools that join the command layer when that capability is needed. A tool exposes a named command catalog with JSON Schema inputs and outputs, an effect classification (`Read`, `Write`, `Destructive`, or `External`), structured inspection, rendering, and stable item references.
+### Remote Hosts
 
-Buttons in the interface and agent invocations call the same commands, and no agent action stays hidden. Destructive or external commands initiated by an agent or workflow pause at an approval gate until the person approves them.
-
-### Workflows
-
-A workflow combines a spec, rules and checks, evidence, and history under one definition. That definition runs locally, on hosted capacity, in parallel, or for a team. Saved command chains with named inputs can trigger updates when source inputs change, and they use the same approval gates and actor attribution as agents. The declared workflow format remains an open decision.
-
-### MCP Surface
-
-When external agent control is added, the host exposes its command catalog, inspection calls, and rendering calls through an MCP server. Outside agents such as Claude Code and Codex then drive tools through the same boundary as built-in agents without per-agent adapters.
-
-## Caliper Integration
-
-The table places Astrolabe alongside related Sternbild projects.
-
-| Project | Role | Stack |
-|---|---|---|
-| Astrolabe | Single productivity application across five layers | Rust |
-| Caliper | Machine-learning instrument | C++ with ImGui, Metal, and Vulkan |
-| Alidade | Learning platform | Web |
-| Compass | Practice platform | Web |
-| Constellation | Organization knowledge base | To be decided |
-
-Caliper stays a standalone C++ product because it relies on LibTorch and zero-copy GPU memory access. Astrolabe embeds Caliper views inside a pane through `libcaliper` (Caliper Embed) and can expose Caliper commands through a thin adapter when cross-tool orchestration needs them.
+Encrypted connections to remote Linux and macOS machines bring remote repositories, models, and agent runs into one workspace. The desktop UI observes remote hosts beside local resources with the same status semantics, quota views, and workflow controls.
 
 ## Design Decisions
 
-**Single application first.** Direct consolidation of Repo Monitor and Agent Monitor into `astrolabe` delivers one workspace now. This choice avoids parallel standalone apps and a long contract phase.
+**Decoupled engines and UI.** Because `astrolabe-engines` holds zero graphics or widget crates, unit tests verify all Git, query, and quota logic directly. The same crate boundary lets engines move into the planned background service with no reader rewrite.
 
-**Live readers before persistence.** Direct reads of Git state and provider quotas keep the current architecture fast and simple. Persistence, record IDs, event logs, protocol crates, and a daemon stay deferred until a feature needs them.
+**Non-blocking snapshots.** All disk, Git, PTY, and HTTP operations run on background threads, and desktop rendering stays smooth at every scale. The UI reads snapshots and dispatches asynchronous commands, and never blocks frames.
 
-**Rust for core crates.** Rust gives strong compile-time verification across `astrolabe`, `astrolabe-kit`, and `astrolabe-engines`, which matters when agents generate and modify much of the code.
+**Deterministic test fixtures.** Fixed-timestamp demo snapshots and headless `wgpu` rendering allow automated layout checks and visual captures without real repositories or network state.
 
-**Approval gates for risk.** Any automated command with a destructive or external effect waits for explicit human approval before execution.
-
-## Open Decisions
-
-Six design questions stay open until future features force a choice:
-
-- **Falcon integration:** Extract shared library, PDF, and media crates while Falcon stays standalone, or make Falcon a built-in Astrolabe library tool.
-- **Rich reading panes:** Choose between native views, Falcon PDF crates, or a contained web view for long-form reading and editing alongside instrument-style panes.
-- **Shared backend name:** Select a distinct name for the shared backend service so it does not collide with the Alidade learning platform.
-- **Out-of-process transport:** Confirm JSON over a local socket when the first non-Rust tool attaches to the host.
-- **Workflow format:** Define the declared format that carries specs, rules, checks, evidence, and history across environments and scales.
-- **Host license:** Finalize the license model for the Astrolabe host under internal commercial strategy.
+**Approval gates for risk.** Any automated command classified as `Destructive` or `External` in `astrolabe-contract` pauses at a human approval gate before execution.

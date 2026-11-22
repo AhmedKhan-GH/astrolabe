@@ -4,101 +4,89 @@ kind: concept
 
 # Product Direction
 
-Product direction defines the purpose, requirements, workflow definition, layer model, and single-application consolidation plan for Astrolabe.
+Astrolabe is an ecosystem that manages knowledge and assets across specialized applications. It lets people observe everything and never lose track of it. It adds agentic integration where that integration is instrumental to accelerate workflows and create new ones. The design emphasizes principled and organized thought across every view and workflow.
 
 ```mermaid
 flowchart TB
-    workflows[Workflows] -->|runs in| interfaces[Interfaces]
-    workflows -->|schedules through| orchestration[Orchestration]
-    orchestration -->|dispatches to| environments[Environments]
-    interfaces -->|optional sync| backbone[Backbone]
-    orchestration -->|optional sync| backbone
+    apps[Specialized Applications] -->|metadata and state| index[Knowledge Index and Readers]
+    index -->|live views| views[Observation Views and Built-in Apps]
+    views -->|review and control| person[Person]
+    person -->|specs and approvals| agents[Supervised Agent Workflows]
+    agents -->|runs inside| envs["Local Host, Linux VMs, and Remote Hosts"]
 ```
 
-Five layers that organize Astrolabe from local interfaces to hosted workflows.
+System flow across specialized applications, observation views, human review, and supervised workflows.
 
-## Components
+## Core Principles
 
-Astrolabe is a single desktop productivity application for specialized work and agent supervision. It brings containerized Artisan workflows, Repo Monitor, and Agent Monitor into one Rust application. People use it to build clean workflows that carry literature and taste, observe each run, and intervene when necessary.
+Astrolabe preserves specialized applications instead of a single general editor. Notes, reference libraries, media libraries, and source repositories already have capable native tools. Astrolabe observes state across those tools and connects related items in one workspace. As a result, people keep expert tools while they gain one shared view of active work.
 
-Astrolabe takes a workflow that works for one person and runs it at production scale with expertise built in. The same workflow definition applies on one machine, on hosted capacity, in parallel, and for a team. A change of scale does not demand a new workflow.
+Complete observation removes blind spots across projects and machines. When files, repositories, quotas, and automated tasks stay visible in one window, nothing slips out of sight. Each view surfaces current status and loose ends directly from live sources. People spot stale branches, uncommitted changes, quota pressure, or open decisions immediately.
 
-Astrolabe combines agent orchestration with specialized interfaces. Each app keeps an interface that fits its work, and shared context connects the views. A document, selection, source, or link can pass between views while the person chooses where agents act and observes the result in the same application.
+Agentic integration enters a workflow only when automation accelerates work or enables a new capability. Every agent task begins with a clear specification, obeys durable workspace rules, and produces visible evidence beside each result. People inspect progress, verify outputs, and approve external or destructive actions before execution. Thus automation stays accountable to human judgment.
 
-## Pain Points as Requirements
+Principled and organized thought guides both the interface and the workflow model. Consistent labels, quiet screens, explicit structures, and repeatable checks reduce noise during deep work. Every control owns one clear purpose, and every claim links back to concrete artifacts.
 
-Product reviews identify nine operational problems across earlier projects. Four requirements matter most: an agreed spec, durable feedback, visibility with evidence, and a durable ledger. Agent routing, managed environments, and hosted capacity extend that foundation.
+## Current Capabilities
 
-**Wrong brief.** Agents produced mismatched demos and drafts when tasks started without alignment. Each task must start with a short plan that the person approves, and that agreed spec must govern both the work and the checks.
+Astrolabe ships today as one native Rust application for macOS with two built-in apps and a deterministic demo mode.
 
-**Repeated corrections.** Style instructions and project rules needed repeated explanation across sections, agents, and memory files. Each correction must become a durable rule or check that every agent and model inherits on later runs.
+### Repos
 
-**Hidden progress.** People had to request status and inspect background runs by hand. Astrolabe must show the progress, changes, and blockers of each run as they occur and notify the person when a run needs attention.
+[Repos](../apps/repos.md) provides live repository observation across watched folders on macOS. Direct Git readers inspect branches, linked worktrees, stashes, submodules, sibling copies, and remote divergence status without a background daemon. Status flags highlight unreadable repositories, absent remotes, uncommitted changes, unpushed commits, behind branches, and remote updates in priority order.
 
-**Claims without proof.** Reports of complete work needed extra checks when tests were unreliable. Every claim must carry its evidence, and tests, captures, and diffs must stay with the result they support.
+The sidebar organizes repositories through Repository Location filters (`Local Only`, `Remote Only`, and `Both`) alongside automatic status, app, language, and category tags. The Watched Folders view adds, edits, and removes root paths in `config.toml` and triggers immediate rescans. People can also organize checkouts with manual tags, nested folders, and boolean smart folders that share one query grammar.
 
-**Separate agents, accounts, and limits.** Claude, Codex, Kimi, GLM, Antigravity, and Ollama each brought separate quotas, sign-ins, permission prompts, and CLI behavior. Astrolabe must give one layer across agents that routes tasks by model and available capacity. The [Agents](../apps/agents.md) app supplies the basis through its view of limits across providers.
+### Agents
 
-**Overloaded machines and abandoned resources.** Build jobs saturated local hardware, and agent runs left open applications behind. Environments must apply resource budgets and clean up when a run ends, and work must move to extra capacity when the local machine is full.
+[Agents](../apps/agents.md) tracks subscription quota windows and credit balances across command-line tools and hosted providers. Background probes discover installed agent tools and report usage windows, reset countdowns, credit balances, or setup states across 13 providers. Pseudo-terminal probes run inside an isolated folder and spend zero model tokens.
 
-**Repeated boundaries.** Rules about repository copies, pushes, protected machines, and email needed repeated statements. These rules must belong to the workspace, and Astrolabe must apply them through the standard permission settings of each tool.
+The lower pane inspects local Ollama models through the local API every five seconds. It reports disk size, resident memory, GPU footprint, active context length, KV cache estimates, loaded duration, and a 10-minute memory sparkline. API key settings store optional credentials for five hosted providers in the macOS login Keychain.
 
-**Lost work and context.** Context compaction, reboot losses, uncommitted edits, and queues held only in conversation caused gaps between sessions. A durable ledger must keep open work, decisions, and handoffs across sessions and machines when workflow orchestration needs it.
+### Workspace and Demo Mode
 
-**Mixed project threads.** Work on Caliper, Atlas, the monitors, Artisan, and experiments shared one conversation. Each project must keep a separate thread with its own state, visible from one place.
+The Rust binary (`astrolabe`) hosts the window chrome, navigation, and built-in views. Shared interface widgets and theme tokens live in `astrolabe-kit`, while live domain engines live in `astrolabe-engines`. [Astrolabe Architecture](../architecture/architecture.md) and [UI Principles](../interface/ui-principles.md) document the crate layout and visual rules.
 
-## Workflow Definition
+A deterministic `--demo` mode runs the full interface with synthetic in-memory fixtures. Run `astrolabe --demo --panel repos` or `astrolabe --demo --panel agents` to inspect every panel state safely. Demo mode makes zero reads or writes to real repositories, configuration files, external apps, Keychain entries, or network hosts.
 
-A workflow is a spec, plus its rules and checks, plus its evidence, plus its history. The spec records the intended result before work starts. Rules and checks hold the constraints and the verification method, evidence supports the claims from each run, and history keeps the work and its corrections.
+## Planned Direction
 
-One definition applies at every scale. The workflow that runs locally must also run on hosted capacity, in parallel, and for a team without a rewrite. Environments and workflows need explicit declarations to support this transfer, and the declared format remains an open design decision.
+Astrolabe grows incrementally from the current desktop application toward cross-application knowledge management, unified workspace observation, supervised agent workflows, and a background service.
 
-Literature and taste enter the workflow through rules, checks, and curated sources. Literature supplies sources that support the work and its evidence. Taste supplies standards for the result, and corrections turn those standards into repeatable checks.
+### Knowledge and Asset Index
 
-Curated expertise must arrive as a tested, versioned workflow with evaluations. A team can then assess a workflow through its measured results before adoption. Observation must scale with execution. Thus local and hosted agents appear in the same interfaces with the same budgets and history.
+Astrolabe will build a unified index for knowledge and assets across specialized desktop applications. The index will span notes, reference libraries, media libraries, and source repositories under one shared model. It will capture metadata, links, tags, and activity timestamps without a forced migration into a new file format.
 
-## Layer Model
+Specialized tools remain the primary editors and viewers for their domains. Astrolabe links an item in a reference library to its notes, media assets, and code repositories. Thus related material stays connected across tools, and people can trace a project from one search or view.
 
-Astrolabe spans five layers that give each current project a clear role.
+### Workspace Observation Views
 
-**Environments** supply the places where agents run. Artisan supplies the first environment type as a desktop VM where agents operate real applications, and Alchemist is another instance of that type. Containers and hosted capacity also belong in this layer while the Craft apps stay applications that agents use inside those environments.
+Cross-domain observation views will unify status across projects, repositories, agents, and local hardware. Four primary views organize daily attention:
 
-**Orchestration** decides which agent runs each task, where it runs, when it runs, and what budget it gets. Loggia supplies the internal installation of Astrolabe, and its code forms the orchestration layer. Quota data from the Agents app informs routing decisions.
+- `Overview`: Summarizes active projects, recent movement across linked assets, and current workspace health.
+- `Loose Ends`: Collects uncommitted edits, unpushed branches, stale drafts, and unfinished items before they disappear from view.
+- `Needs You`: Lists open approval gates, blocked agent runs, and review items that wait for a decision.
+- `Machine`: Reports local CPU pressure, memory load, resident models, and active workspace processes.
 
-**Interfaces** let the person observe and steer work through views that fit each domain. Built-in Astrolabe apps such as [Repos](../apps/repos.md) and [Agents](../apps/agents.md), along with Artisan Apps and the Craft apps, occupy this layer. Caliper stays a separate C++ product for machine learning, and Astrolabe embeds its views through Caliper Embed.
+GitHub observation will extend repository status with pull requests, issues, review requests, and remote activity alongside local Git state. Local checkouts and remote collaboration stay aligned inside the same workspace.
 
-**Workflows** package expertise with checks and evidence. Writing loops, design loops, and research workflows live in this layer. Environments run the agents, orchestration schedules them, and interfaces show the results for review before the next run.
+### Supervised Agent Workflows
 
-**Backbone** services supply shared accounts, sync, licensing, and billing across products. The backend name remains open because Alidade also names the learning platform. Local work must never depend on server availability.
+An integrated agent launcher will start and supervise agent workflows across local environments, managed Linux VMs, and remote hosts. Managed Linux VMs isolate automated work with clear resource budgets and clean teardown after each run. Remote hosts extend capacity when heavy builds or parallel runs exceed local hardware limits.
 
-## Consolidation Plan
+Every supervised workflow pairs an explicit specification with durable workspace rules, automated checks, and visible evidence. People watch live progress, inspect diffs or rendered results, pause execution, or take over directly inside the workspace. Every external or destructive action pauses for explicit human review and approval before execution.
 
-Astrolabe is the single application now. The monitors move their engines into Astrolabe instead of separate standalone apps. Standalone Repo Monitor and Agent Monitor retire when Astrolabe matches them.
+### Background Service
 
-The current architecture is one Rust app (`astrolabe`), live data readers, engines in `astrolabe-engines`, and UI widgets in `astrolabe-kit`. When monitor logic moves into `astrolabe-engines` and shared widgets move into `astrolabe-kit`, Astrolabe delivers Repos and Agents in one window.
+An optional background service will enter the architecture when continuous features require work outside an open window. The service will support continuous index updates across specialized applications, persistent workspace observation, and unattended workflow execution. Direct local readers remain the foundation until a feature needs persistent background state.
 
-Persistence, record IDs, event logs, protocol crates, and a daemon enter the architecture only when a feature needs them. [Astrolabe Architecture](../architecture/architecture.md) records the crate layout, deferred infrastructure rules, and open design decisions.
+## Capability Horizon
 
-## First Release
+The table contrasts current shipped capabilities with planned product capabilities across core areas.
 
-The first release ships the single Astrolabe application on the interfaces layer with the Repos and Agents apps. Live views of local repositories and cross-provider subscription limits give immediate daily value in one window. Other layers stay internal or deferred until the consolidated application needs them.
-
-## Existing Solutions and Gap
-
-The table records an assessment of current tools across the nine requirements.
-
-| Need | Existing Solutions | Gap |
+| Area | Current | Planned |
 |---|---|---|
-| Spec before work | Kiro, GitHub Spec Kit, Tessl, plan modes in Claude Code, Cursor, and Codex | Specs stay inside one tool or session and do not govern checks. |
-| Durable feedback and rules | `AGENTS.md`, `CLAUDE.md`, Cursor rules, Claude Code skills, promptfoo, Braintrust, Langfuse | Agents can ignore text rules, and evaluation tools target AI app developers. |
-| Visibility of agents | Conductor, Vibe Kanban, Claude Squad, Crystal, Sculptor, cloud agents, Devin, tracing tools | Most views cover code or one vendor, and tracing serves pipeline debugging. |
-| Evidence for claims | Pull-request CI, Copilot agent, Devin, session recordings | Evidence covers code without an equivalent for designs, documents, or research. |
-| Agents, accounts, and limits | OpenRouter, LiteLLM, Portkey, OpenCode, Goose, Aider, ccusage, menu-bar limit monitors | Gateways route API calls rather than subscription CLIs with separate quotas. |
-| Environments and capacity | E2B, Daytona, Modal, Runloop, Morph, Tart, Orka, Cua | Infrastructure lacks links to workflows, rules, and unified observation. |
-| Workspace boundaries | Claude Code and Codex permission settings, sandbox modes, guardrail tools | Each tool needs separate configuration of the same workspace rules. |
-| Durable ledger | Linear, GitHub Issues, Beads, Taskmaster, Temporal, Inngest, Restate | Trackers lack live agent context, and durable engines are developer frameworks. |
-| Packaged workflows and expertise | Apify Store, Claude plugin marketplaces, n8n, Zapier templates, GPT Store | Templates lack measured results that prove a workflow before adoption. |
-
-The gap sits around the complete workflow: spec, rules, evidence, and history across vendors and across local and hosted environments. Nearest products cover single parts such as multi-agent code panels, single-vendor pull requests, or raw desktop VM infrastructure.
-
-Astrolabe can adopt current infrastructure where it fits these requirements. Sandbox providers can supply capacity, and standard permission settings can enforce workspace rules. The value of Astrolabe comes from the direct connection across specialized interfaces, live observation, and repeatable workflows.
+| Knowledge and Assets | Live observation of Git repositories across watched folders. | Unified index across notes, reference libraries, media libraries, and repositories. |
+| Observation Views | Built-in [Repos](../apps/repos.md) and [Agents](../apps/agents.md) panels. | `Overview`, `Loose Ends`, `Needs You`, `Machine`, and GitHub observation. |
+| Agent Execution | Quota windows, credit balances, Ollama memory, and tool discovery. | Agent launcher and supervised workflows in managed Linux VMs and remote hosts. |
+| Runtime Model | Single Rust app for macOS with live readers and `--demo` mode. | Optional background service for continuous index updates, observation, and workflows. |

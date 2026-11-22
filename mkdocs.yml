@@ -1,9 +1,6 @@
 site_name: Astrolabe
 docs_dir: docs
 site_dir: build/docs-site
-# Internal commercial strategy stays in the repository and out of the built documentation site.
-exclude_docs: |
-  open-core.md
 # Broken anchors fail the strict build too, like broken links.
 validation:
   anchors: warn
