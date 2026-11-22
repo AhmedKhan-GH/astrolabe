@@ -665,7 +665,7 @@ impl ReposPanel {
                 clicks.push(Click::FocusPane(ReposPane::Inspector));
             }
         } else {
-            let shown_count = self.shown().len();
+            let shown_count = self.visible_row_count();
             let list_meta = format!("{} {}", shown_count, if shown_count == 1 { "REPO" } else { "REPOS" });
             let list_title = self.nav_title();
             let left_resp = Pane::new("repos_list", &list_title, self.focused_pane == ReposPane::List)

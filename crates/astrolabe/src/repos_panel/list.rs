@@ -2,8 +2,10 @@
 //! numbered framed sections, Comfortable and Compact row layouts, drag-and-drop,
 //! double-click open, and row context menus.
 
-use astrolabe_engines::repos::{Density, Grouping, Nav, Section, SectionKey, Sort, paths, query, remote};
-use astrolabe_kit::{color, draw, font_size, metric, theme};
+use astrolabe_engines::repos::{
+    Density, GhListedRepo, Grouping, Nav, Section, SectionKey, Sort, paths, query, remote, tags, view,
+};
+use astrolabe_kit::{StatusTone, color, draw, font_size, metric, paint_status_chip, theme};
 use egui::{Align, CursorIcon, Key as K, Rect, ScrollArea, Sense, Ui, UiBuilder, Vec2, pos2, vec2};
 
 use super::{Click, RepoDrag, ReposPanel};
@@ -13,9 +15,49 @@ const MARGIN: f32 = 14.0;
 const STRIP_H: f32 = 36.0;
 const SECTION_H: f32 = 26.0;
 const SECTION_GAP: f32 = 10.0;
+const COL_HEADER_H: f32 = 24.0;
 const PAD: f32 = 12.0;
 const GAP: f32 = 12.0;
 const FIELD_W_MIN: f32 = 160.0;
+
+struct RemoteCols {
+    left: Rect,
+    vis: Rect,
+    branch: Rect,
+    push: Rect,
+}
+
+fn remote_cols(rect: Rect) -> RemoteCols {
+    let narrow = rect.width() < 520.0;
+    let push_w = if narrow { 76.0 } else { 96.0 };
+    let branch_w = if narrow { 78.0 } else { 110.0 };
+    let vis_w = 84.0;
+
+    let push_r = rect.right() - PAD;
+    let push_l = (push_r - push_w).max(rect.left() + PAD);
+    let branch_r = (push_l - GAP).max(rect.left() + PAD);
+    let branch_l = (branch_r - branch_w).max(rect.left() + PAD);
+    let vis_r = (branch_l - GAP).max(rect.left() + PAD);
+    let vis_l = (vis_r - vis_w).max(rect.left() + PAD);
+    let left_l = rect.left() + PAD;
+    let left_r = (vis_l - GAP).max(left_l + 1.0);
+
+    RemoteCols {
+        left: Rect::from_min_max(pos2(left_l, rect.top()), pos2(left_r, rect.bottom())),
+        vis: Rect::from_min_max(pos2(vis_l, rect.top()), pos2(vis_r, rect.bottom())),
+        branch: Rect::from_min_max(pos2(branch_l, rect.top()), pos2(branch_r, rect.bottom())),
+        push: Rect::from_min_max(pos2(push_l, rect.top()), pos2(push_r, rect.bottom())),
+    }
+}
+
+fn visibility_tone(repo: &GhListedRepo) -> StatusTone {
+    match repo.visibility.to_ascii_lowercase().as_str() {
+        "public" => StatusTone::Info,
+        "internal" => StatusTone::Warn,
+        _ if !repo.private => StatusTone::Info,
+        _ => StatusTone::Neutral,
+    }
+}
 
 fn row_h(density: Density) -> f32 {
     match density {
@@ -32,6 +74,22 @@ fn icon_size(density: Density) -> f32 {
 }
 
 impl ReposPanel {
+    pub(super) fn is_remote_only_nav(&self) -> bool {
+        matches!(&self.view.nav, Nav::Tag(t) if t == tags::LOCATION_REMOTE_ONLY)
+    }
+
+    pub(super) fn remote_only_rows(&self) -> Vec<usize> {
+        view::remote_only_shown(&self.state.remote_only, &self.filter_query, self.view.sort, self.view.desc)
+    }
+
+    pub(crate) fn visible_row_count(&self) -> usize {
+        if self.is_remote_only_nav() {
+            self.remote_only_rows().len()
+        } else {
+            self.shown().len()
+        }
+    }
+
     pub(super) fn list(&mut self, ui: &mut Ui, clicks: &mut Vec<Click>) {
         let rect = ui.max_rect();
         let strip = Rect::from_min_size(rect.min, vec2(rect.width(), STRIP_H));
@@ -42,8 +100,13 @@ impl ReposPanel {
         let mut child =
             ui.new_child(UiBuilder::new().id_salt("repos_rows").max_rect(body).layout(egui::Layout::top_down(Align::Min)));
         child.set_clip_rect(body.intersect(ui.clip_rect()));
-        let sections = self.sections();
-        self.rows(&mut child, &sections, clicks);
+        if self.is_remote_only_nav() {
+            let indices = self.remote_only_rows();
+            self.remote_only_list(&mut child, &indices, clicks);
+        } else {
+            let sections = self.sections();
+            self.rows(&mut child, &sections, clicks);
+        }
     }
 
     fn list_controls(&mut self, ui: &mut Ui, rect: Rect, clicks: &mut Vec<Click>) {
@@ -61,6 +124,7 @@ impl ReposPanel {
             }
         }
         right.add_space(10.0);
+        let remote_only = self.is_remote_only_nav();
         for s in Sort::ALL.into_iter().rev() {
             let on = self.view.sort == s;
             let arrow = match (on, self.view.desc) {
@@ -73,10 +137,12 @@ impl ReposPanel {
                 Sort::Location => "Location",
                 Sort::Recent => "Recent",
             };
-            let hover = match s {
-                Sort::Name => "Sort by name",
-                Sort::Location => "Sort by path",
-                Sort::Recent => "Sort by latest commit",
+            let hover = match (s, remote_only) {
+                (Sort::Name, _) => "Sort by name",
+                (Sort::Location, true) => "Sort by owner and name",
+                (Sort::Location, false) => "Sort by path",
+                (Sort::Recent, true) => "Sort by last push",
+                (Sort::Recent, false) => "Sort by latest commit",
             };
             if widgets::toggle_button(&mut right, &format!("{name}{arrow}"), on).on_hover_text(hover).clicked() {
                 clicks.push(Click::Sort(s));
@@ -368,5 +434,204 @@ impl ReposPanel {
         if ui.button("New Folder With Repo").clicked() {
             clicks.push(Click::NewFolderWith(id));
         }
+    }
+
+    fn remote_only_list(&mut self, ui: &mut Ui, indices: &[usize], clicks: &mut Vec<Click>) {
+        let area = ScrollArea::vertical().id_salt("repos_list_scroll").auto_shrink([false, false]);
+        let out = area.show(ui, |ui| {
+            egui::Frame::new().inner_margin(egui::Margin { left: 14, right: 14, top: 0, bottom: 16 }).show(ui, |ui| {
+                ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
+                let width = ui.available_width().max(1.0);
+                let left = ui.cursor().left();
+                if indices.is_empty() {
+                    let text = if !self.view.filter.trim().is_empty() {
+                        "NOTHING MATCHES FILTER"
+                    } else {
+                        "NO REMOTE-ONLY REPOSITORIES"
+                    };
+                    ui.add_space(SECTION_GAP);
+                    let (r, _) = ui.allocate_exact_size(vec2(width, SECTION_H), Sense::hover());
+                    theme::paint_job(ui.painter(), r, theme::label_job(text, color::FAINT), Align::Min, true);
+                    return;
+                }
+                ui.add_space(SECTION_GAP);
+                self.section_header(ui, width, 1, "Remote Only", indices.len(), clicks);
+                let top = ui.cursor().top();
+                self.remote_only_header(ui, width);
+                for (k, &i) in indices.iter().enumerate() {
+                    self.remote_only_row(ui, width, &self.state.remote_only[i], k + 1 == indices.len());
+                }
+                let block = Rect::from_min_max(pos2(left, top), pos2(left + width, ui.cursor().top()));
+                draw::box_outline(ui.painter(), block, color::RULE);
+            });
+        });
+        self.list_offset = out.state.clamped_offset().y;
+        self.reveal = false;
+    }
+
+    fn remote_only_header(&self, ui: &mut Ui, width: f32) {
+        let (rect, _) = ui.allocate_exact_size(vec2(width, COL_HEADER_H), Sense::hover());
+        let p = ui.painter();
+        p.rect_filled(rect, 0.0, color::DEEP);
+        draw::rule_h(p, rect.left(), rect.right(), rect.bottom() - 1.0, color::RULE_FAINT);
+        let cols = remote_cols(rect);
+        match self.view.density {
+            Density::Comfortable => {
+                theme::paint_job(p, cols.left, theme::label_job("Name / Owner", color::FAINT), Align::Min, true);
+            }
+            Density::Compact => {
+                let split = cols.left.left() + (cols.left.width() * 0.56).max(120.0).min(cols.left.width());
+                let name_r = Rect::from_min_max(cols.left.min, pos2((split - GAP).max(cols.left.left() + 1.0), cols.left.bottom()));
+                let owner_r = Rect::from_min_max(pos2(split, cols.left.top()), cols.left.max);
+                theme::paint_job(p, name_r, theme::label_job("Name", color::FAINT), Align::Min, true);
+                theme::paint_job(p, owner_r, theme::label_job("Owner", color::FAINT), Align::Min, true);
+            }
+        }
+        theme::paint_job(p, cols.vis, theme::label_job("Visibility", color::FAINT), Align::Min, true);
+        theme::paint_job(p, cols.branch, theme::label_job("Branch", color::FAINT), Align::Min, true);
+        theme::paint_job(p, cols.push, theme::label_job("Last Push", color::FAINT), Align::Max, false);
+    }
+
+    fn remote_only_row(&self, ui: &mut Ui, width: f32, repo: &GhListedRepo, last: bool) {
+        let density = self.view.density;
+        let (rect, resp) = ui.allocate_exact_size(vec2(width, row_h(density)), Sense::hover());
+        resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Label, true, &repo.name));
+
+        let p = ui.painter().clone();
+        if !last {
+            draw::rule_h(&p, rect.left(), rect.right(), rect.bottom() - 1.0, color::RULE_FAINT);
+        }
+
+        let cols = remote_cols(rect);
+        match density {
+            Density::Comfortable => {
+                let mid = rect.center().y;
+                let l1 = Rect::from_min_max(pos2(cols.left.left(), mid - 17.0), pos2(cols.left.right(), mid));
+                let l2 = Rect::from_min_max(pos2(cols.left.left(), mid + 1.0), pos2(cols.left.right(), mid + 17.0));
+                theme::paint_job(&p, l1, theme::sans_job(&repo.name, 14.0, color::PARCHMENT, true), Align::Min, true);
+                theme::paint_job(&p, l2, theme::mono_job(&repo.owner, font_size::MONO_SMALL, color::SECONDARY), Align::Min, true);
+            }
+            Density::Compact => {
+                let split = cols.left.left() + (cols.left.width() * 0.56).max(120.0).min(cols.left.width());
+                let name_r = Rect::from_min_max(cols.left.min, pos2((split - GAP).max(cols.left.left() + 1.0), cols.left.bottom()));
+                let owner_r = Rect::from_min_max(pos2(split, cols.left.top()), cols.left.max);
+                theme::paint_job(&p, name_r, theme::sans_job(&repo.name, font_size::BODY, color::PARCHMENT, true), Align::Min, true);
+                theme::paint_job(&p, owner_r, theme::mono_job(&repo.owner, font_size::MONO_SMALL, color::SECONDARY), Align::Min, true);
+            }
+        }
+
+        let vis = if repo.visibility.is_empty() {
+            if repo.private { "private" } else { "public" }
+        } else {
+            &repo.visibility
+        };
+        paint_status_chip(&p, cols.vis.left(), rect.center().y, vis, visibility_tone(repo));
+
+        let branch = if repo.default_branch.is_empty() { "–" } else { &repo.default_branch };
+        theme::paint_job(&p, cols.branch, theme::mono_job(branch, font_size::MONO_SMALL, color::SECONDARY), Align::Min, true);
+
+        let pushed = repo.pushed_at.map(|t| self.ago(t)).unwrap_or_else(|| "–".to_owned());
+        theme::paint_job(&p, cols.push, theme::mono_job(&pushed, font_size::MONO_SMALL, color::SECONDARY), Align::Max, false);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use astrolabe_engines::repos::{Nav, Sort, tags};
+    use astrolabe_kit::capture::{CaptureConfig, render_eframe_png};
+    use egui::accesskit::Role;
+    use egui::vec2;
+    use egui_kittest::Harness;
+    use egui_kittest::kittest::Queryable;
+
+    use crate::app::{AstrolabeApp, LaunchOptions, Panel};
+    use crate::repos_panel::Click;
+
+    fn demo_harness() -> Harness<'static, AstrolabeApp> {
+        Harness::builder()
+            .with_size(vec2(1440.0, 900.0))
+            .with_pixels_per_point(2.0)
+            .build_eframe(|cc| AstrolabeApp::new(cc, LaunchOptions::demo(Panel::Repos)))
+    }
+
+    #[test]
+    fn location_filters_and_remote_only_rows_have_no_actions() {
+        let mut h = demo_harness();
+        h.run_steps(3);
+        assert_eq!(h.state().repos.visible_row_count(), 11);
+
+        // Local Only filter: local repos without remotes.
+        h.get_by_label("Local Only").click();
+        h.run_steps(2);
+        assert_eq!(h.state().repos.view.nav, Nav::Tag(tags::LOCATION_LOCAL_ONLY.to_owned()));
+        assert_eq!(h.state().repos.visible_row_count(), 2);
+        h.get_by_label("meridian-sim");
+        h.get_by_label("fresh-scratch");
+
+        // Both filter: local clones of GitHub repositories.
+        h.get_by_label("Both").click();
+        h.run_steps(2);
+        assert_eq!(h.state().repos.view.nav, Nav::Tag(tags::LOCATION_BOTH.to_owned()));
+        assert_eq!(h.state().repos.visible_row_count(), 7);
+        h.get_by_label("compass-ui");
+        h.get_by_label("sextant-core");
+
+        // Remote Only filter: GitHub repositories without a local clone.
+        h.get_by_label("Remote Only").click();
+        h.run_steps(2);
+        assert_eq!(h.state().repos.view.nav, Nav::Tag(tags::LOCATION_REMOTE_ONLY.to_owned()));
+        assert_eq!(h.state().repos.visible_row_count(), 4);
+
+        for name in ["orbit-scheduler", "beacon-telemetry", "kestrel-proto", "astrolabe-spec"] {
+            h.get_by_role_and_label(Role::Label, name);
+        }
+
+        // Clicking a remote-only row triggers no selection or action.
+        h.get_by_role_and_label(Role::Label, "orbit-scheduler").click();
+        h.run_steps(2);
+        assert!(h.state().repos.selected().is_none());
+        assert!(h.state().repos.view.selected.is_none());
+
+        // Filter query narrows remote-only rows by visibility, owner, or name.
+        h.state_mut().repos.apply(vec![Click::Filter("private".into())]);
+        h.run_steps(2);
+        assert_eq!(h.state().repos.visible_row_count(), 2);
+
+        h.state_mut().repos.apply(vec![Click::Filter("cobalt-systems".into())]);
+        h.run_steps(2);
+        assert_eq!(h.state().repos.visible_row_count(), 1);
+
+        h.state_mut().repos.apply(vec![Click::Filter(String::new())]);
+        h.run_steps(2);
+        assert_eq!(h.state().repos.visible_row_count(), 4);
+
+        // Sort controls reorder remote-only rows.
+        h.get_by_label("Recent").click();
+        h.run_steps(2);
+        assert_eq!(h.state().repos.view.sort, Sort::Recent);
+        let ordered = h.state().repos.remote_only_rows();
+        assert_eq!(h.state().repos.state.remote_only[ordered[0]].name, "orbit-scheduler");
+    }
+
+    #[test]
+    fn offscreen_capture_remote_only_location_png() {
+        let Some(home) = std::env::var_os("HOME").map(PathBuf::from) else {
+            return;
+        };
+        let out_path = home.join(".worktrees").join("astrolabe").join("scratch").join("wf").join("location.png");
+        if let Some(parent) = out_path.parent() {
+            std::fs::create_dir_all(parent).expect("create wf capture directory");
+        }
+        let cfg = CaptureConfig { size: vec2(1440.0, 900.0), pixels_per_point: 2.0, steps: 5 };
+        let rendered = render_eframe_png(&out_path, &cfg, |cc| {
+            let mut app = AstrolabeApp::new(cc, LaunchOptions::demo(Panel::Repos));
+            app.repos.apply(vec![Click::Nav(Nav::Tag(tags::LOCATION_REMOTE_ONLY.to_owned()))]);
+            app
+        })
+        .expect("offscreen wgpu render for location.png");
+        assert_eq!((rendered.width, rendered.height), (2880, 1800));
+        assert!(out_path.is_file());
     }
 }

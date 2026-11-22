@@ -1,7 +1,7 @@
 //! Left sidebar rail when Repos is active: Workspace panel switcher (`Repos` /
 //! `Agents`) followed by contextual repository navigation (`All Repos`,
-//! `Folders`, `Tags`, `Status`, `Apps`, `Languages`, `Categories`) with drag-and-drop,
-//! inline rename, and context menus.
+//! `Location`, `Folders`, `Tags`, `Status`, `Apps`, `Languages`, `Categories`)
+//! with drag-and-drop, inline rename, and context menus.
 
 use astrolabe_engines::repos::{Ide, Nav, tags};
 use astrolabe_kit::{IconKind, color, draw, font_size, metric, pane_child, theme};
@@ -89,7 +89,7 @@ impl ReposPanel {
                     icon: Some(IconKind::Grid),
                     text: "All Repos",
                     count: Some(self.index.len()),
-                    active: self.view.nav == Nav::All && !self.manager.open,
+                    active: self.view.nav == Nav::All && !self.manager.open && !self.watched_folders.open,
                     fold: None,
                     quiet: false,
                     drag: false,
@@ -98,6 +98,9 @@ impl ReposPanel {
                 if resp.clicked() {
                     clicks.push(Click::Nav(Nav::All));
                 }
+
+                self.section_divider(ui, inner);
+                self.location_section(ui, width, clicks);
 
                 self.section_divider(ui, inner);
                 self.folders_section(ui, width, clicks);
@@ -128,6 +131,37 @@ impl ReposPanel {
         );
         theme::paint_job(ui.painter(), title_rect, theme::label_job(title, color::FAINT), Align::Min, true);
         resp
+    }
+
+    fn location_section(&self, ui: &mut Ui, width: f32, clicks: &mut Vec<Click>) {
+        self.section_heading(ui, width, "Location");
+        let items = [
+            (
+                tags::LOCATION_LOCAL_ONLY,
+                "Local Only",
+                self.index.auto_counts.get(tags::LOCATION_LOCAL_ONLY).copied().unwrap_or(0),
+            ),
+            (tags::LOCATION_REMOTE_ONLY, "Remote Only", self.state.remote_only.len()),
+            (tags::LOCATION_BOTH, "Both", self.index.auto_counts.get(tags::LOCATION_BOTH).copied().unwrap_or(0)),
+        ];
+        for (tag, label, count) in items {
+            let nav = Nav::Tag(tag.to_owned());
+            let row = RowSpec {
+                depth: 0,
+                icon: None,
+                text: label,
+                count: Some(count),
+                active: !self.manager.open && !self.watched_folders.open && self.view.nav == nav,
+                fold: None,
+                quiet: false,
+                drag: false,
+            };
+            let (resp, _) = self.sidebar_row(ui, width, &format!("loc-{tag}"), &row);
+            let resp = resp.on_hover_text(format!("Location filter: {label}"));
+            if resp.clicked() {
+                clicks.push(Click::Nav(nav));
+            }
+        }
     }
 
     fn folders_section(&mut self, ui: &mut Ui, width: f32, clicks: &mut Vec<Click>) {
@@ -175,7 +209,13 @@ impl ReposPanel {
             return;
         }
 
-        let nav = if self.manager.open { self.manager_folder() } else { self.nav_folder() };
+        let nav = if self.manager.open {
+            self.manager_folder()
+        } else if self.watched_folders.open {
+            None
+        } else {
+            self.nav_folder()
+        };
         let walk: Vec<(Vec<usize>, String, bool, bool)> = self
             .org
             .walk()
@@ -298,6 +338,8 @@ impl ReposPanel {
                 count: Some(count),
                 active: if self.manager.open {
                     self.manager.tag.as_ref() == Some(&tag)
+                } else if self.watched_folders.open {
+                    false
                 } else {
                     self.view.nav == Nav::Tag(tag.clone())
                 },
@@ -367,7 +409,7 @@ impl ReposPanel {
                     icon: None,
                     text: &label,
                     count: Some(count),
-                    active: !self.manager.open && self.view.nav == Nav::Tag(tag.clone()),
+                    active: !self.manager.open && !self.watched_folders.open && self.view.nav == Nav::Tag(tag.clone()),
                     fold: None,
                     quiet: true,
                     drag: false,

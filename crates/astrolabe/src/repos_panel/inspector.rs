@@ -351,6 +351,44 @@ impl ReposPanel {
     // Totals View
 
     fn totals_view(&mut self, ui: &mut Ui, width: f32, clicks: &mut Vec<Click>) {
+        if self.is_remote_only_nav() {
+            let rows = self.remote_only_rows();
+            let title = self.nav_title();
+            let (rect, _) = ui.allocate_exact_size(vec2(width, HEADER_H), Sense::hover());
+            let tile_rect = Rect::from_center_size(pos2(rect.left() + ICON * 0.5, rect.center().y), Vec2::splat(ICON));
+            widgets::badge_tile(ui.painter(), tile_rect, "R", false);
+            let kind = if self.view.filter.trim().is_empty() {
+                "Location".to_owned()
+            } else {
+                format!("Location · Filter: {}", self.view.filter.trim())
+            };
+            header_text(ui, rect, tile_rect.right() + GAP, &title, &kind);
+
+            let total = rows.len() as u32;
+            let mut private = 0u32;
+            let mut internal = 0u32;
+            let mut public = 0u32;
+            for &i in &rows {
+                let r = &self.state.remote_only[i];
+                match r.visibility.to_ascii_lowercase().as_str() {
+                    "internal" => internal += 1,
+                    "public" => public += 1,
+                    "private" => private += 1,
+                    _ if r.private => private += 1,
+                    _ => public += 1,
+                }
+            }
+            let mut f = Fields { ui, width };
+            f.section("Totals");
+            f.text("Repos", &total.to_string(), count_color(total, color::PARCHMENT), true);
+            f.text("Private", &private.to_string(), count_color(private, color::PARCHMENT), true);
+            if internal > 0 {
+                f.text("Internal", &internal.to_string(), color::PARCHMENT, true);
+            }
+            f.text("Public", &public.to_string(), count_color(public, color::PARCHMENT), true);
+            return;
+        }
+
         let shown = self.shown();
         let repos: Vec<&Repo> = shown.iter().map(|&i| &self.state.repos[i]).collect();
         let t = aggregate::totals(repos.iter().copied(), self.now());
@@ -377,6 +415,7 @@ impl ReposPanel {
                 kind
             }
             (Nav::Folder(_), None) => String::new(),
+            (Nav::Tag(t), _) if t.starts_with("location:") => "Location".to_owned(),
             (Nav::Tag(t), _) if tags::is_automatic(t) => format!("Automatic Tag · {t}"),
             (Nav::Tag(t), _) => format!("Manual Tag · {t}"),
         };
