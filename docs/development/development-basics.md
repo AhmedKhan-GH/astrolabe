@@ -86,7 +86,7 @@ The script calls `astrolabe --write-bundle-icon` to extract the canonical 1024 p
 1. Validate the roadmap registry, dependency graph, doc links, and privacy rules.
 
     ```bash
-    uvx --from "git+https://github.com/AhmedKhan-GH/organization@docs-v1.0.0#subdirectory=packages/sternbild-docs" \
+    uvx --from "git+https://github.com/AhmedKhan-GH/organization@docs-v1.0.1#subdirectory=packages/sternbild-docs" \
       sternbild-docs check-roadmap --strict-titles --strict-core-scope
     ```
 
@@ -97,7 +97,7 @@ The script calls `astrolabe --write-bundle-icon` to extract the canonical 1024 p
 1. Check every Markdown heading under `docs/` against the Title Case rule.
 
     ```bash
-    uvx --from "git+https://github.com/AhmedKhan-GH/organization@docs-v1.0.0#subdirectory=packages/sternbild-docs" \
+    uvx --from "git+https://github.com/AhmedKhan-GH/organization@docs-v1.0.1#subdirectory=packages/sternbild-docs" \
       sternbild-docs check-headings
     ```
 
@@ -112,7 +112,7 @@ The script calls `astrolabe --write-bundle-icon` to extract the canonical 1024 p
       --with mkdocs-material==9.8.1 \
       --with mkdocs-awesome-nav==3.3.0 \
       --with pymdown-extensions==13.1 \
-      --with "git+https://github.com/AhmedKhan-GH/organization@docs-v1.0.0#subdirectory=packages/sternbild-docs" \
+      --with "git+https://github.com/AhmedKhan-GH/organization@docs-v1.0.1#subdirectory=packages/sternbild-docs" \
       mkdocs serve
     ```
 
@@ -123,7 +123,7 @@ The script calls `astrolabe --write-bundle-icon` to extract the canonical 1024 p
       --with mkdocs-material==9.8.1 \
       --with mkdocs-awesome-nav==3.3.0 \
       --with pymdown-extensions==13.1 \
-      --with "git+https://github.com/AhmedKhan-GH/organization@docs-v1.0.0#subdirectory=packages/sternbild-docs" \
+      --with "git+https://github.com/AhmedKhan-GH/organization@docs-v1.0.1#subdirectory=packages/sternbild-docs" \
       mkdocs build --strict -d build/docs-site
     ```
 
