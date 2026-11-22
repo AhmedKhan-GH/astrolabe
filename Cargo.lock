@@ -253,7 +253,16 @@ name = "astrolabe"
 version = "0.1.0"
 dependencies = [
  "astrolabe-contract",
+ "astrolabe-engines",
+ "astrolabe-kit",
+ "eframe",
+ "egui",
+ "egui_kittest",
+ "image",
+ "plist",
+ "serde",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]

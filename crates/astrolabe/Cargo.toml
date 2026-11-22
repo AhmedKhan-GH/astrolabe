@@ -1,6 +1,6 @@
 [package]
 name = "astrolabe"
-description = "The Astrolabe host: the command layer, the tools, the agent runtime and the workspace."
+description = "Astrolabe desktop workstation: host command layer, repository monitor, and agent limits monitor."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,4 +8,16 @@ publish.workspace = true
 
 [dependencies]
 astrolabe-contract = { path = "../astrolabe-contract" }
+astrolabe-engines = { path = "../astrolabe-engines" }
+astrolabe-kit = { path = "../astrolabe-kit" }
+eframe.workspace = true
+egui.workspace = true
+image.workspace = true
+plist = "1.10.3"
+serde.workspace = true
 serde_json.workspace = true
+
+[dev-dependencies]
+astrolabe-kit = { path = "../astrolabe-kit", features = ["capture"] }
+egui_kittest.workspace = true
+tempfile = "3.27.0"
