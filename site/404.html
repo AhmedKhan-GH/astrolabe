@@ -14,7 +14,7 @@
   @font-face { font-family: "Plex Condensed"; src: url("/astrolabe/assets/fonts/IBMPlexSansCondensed-Regular.ttf") format("truetype"); font-display: swap; }
   @font-face { font-family: "Source Code Pro"; src: url("/astrolabe/assets/fonts/SourceCodePro-Regular.ttf") format("truetype"); font-display: swap; }
 
-  /* The Sternbild palette, as on the Caliper site. */
+  /* Sternbild dark palette. */
   :root {
     --night: #12110f;
     --deep: #1c1b18;
@@ -41,7 +41,7 @@
   img { display: block; max-width: 100%; height: auto; }
   .wrap { max-width: var(--max); margin: 0 auto; padding: 0 28px; }
 
-  /* Buttons: inscriptional caps on a ruled plate. */
+  /* Buttons */
   .btn { display: inline-flex; align-items: center; gap: 10px; padding: 12px 22px 11px; font: 14px/1 var(--text);
          letter-spacing: .16em; text-transform: uppercase; cursor: pointer; transition: background .15s, color .15s, border-color .15s; }
   .btn-ghost { color: var(--parchment); background: var(--plate); border: 1px solid var(--rule); border-radius: 4px; }
@@ -86,7 +86,7 @@
 <main class="wrap missing">
   <div class="label"><span class="eyebrow">404</span></div>
   <h2>Page Not Found</h2>
-  <p class="lede">The requested page does not exist at this address.</p>
+  <p class="lede">This address does not match a page on the Astrolabe site.</p>
   <div class="actions">
     <a class="btn btn-ghost" href="/astrolabe/">Astrolabe</a>
     <a class="btn btn-ghost" href="/astrolabe/docs/">Docs</a>

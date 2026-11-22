@@ -1,5 +1,5 @@
-// Once a signed Apple-silicon release is published on GitHub, the greyed download becomes a link to its disk image.
-// The checked-in page is the truthful no-release state, so failures and rate limits leave it as it is.
+// When a signed Apple Silicon release appears on GitHub, the disabled download control becomes a link to its disk image.
+// The checked-in page shows the no-release state, so network failures and rate limits keep it unchanged.
 (() => {
   const control = document.querySelector('[data-release-download]')
   if (!control) return

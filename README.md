@@ -1,18 +1,60 @@
 # Astrolabe
 
-One app for specialized work: specialized interfaces brought together, with agents working in them where you choose.
+Astrolabe is an ecosystem that manages knowledge and assets across specialized applications. People observe their work in one place and keep active state clear across projects. Astrolabe integrates agents where they accelerate workflows or create new ones, and it supports principled, organized thought.
 
-- `crates/astrolabe-contract`: the contract every tool implements (commands, inspection, rendering, item references).
-- `crates/astrolabe`: the host. For now, the command layer: routing, history and approval gates.
-- `docs/architecture.md`: the architecture and the open decisions.
-- `docs/direction.md`: the product direction, requirements, layer model, and consolidation order.
-- `docs/open-core.md`: internal commercial strategy. Keep it out of any public copy of the repository.
-- `site/`: the landing page, deployed to GitHub Pages by `.github/workflows/pages.yml`.
+## Workspaces
+
+Astrolabe ships on macOS as a native desktop application in Rust with two workspaces and a demo mode. Both workspaces share one command bar, sidebar rail, and status bar in a single window.
+
+The **Repos** workspace inspects local Git repositories and GitHub remotes in real time. It shows live Git status for uncommitted changes, unpushed commits, and remote updates across configured Watched Folders. People organize and filter repositories with Repository Location filters, tags, nested folders, smart folders, and Boolean queries.
+
+The **Agents** workspace monitors provider limits, local models, and installed tools in one view. It tracks quota windows and credit balances for CLI tools and hosted providers while probes use zero model tokens. The lower pane monitors local Ollama models with GPU memory, context length, and KV cache estimates. The workspace also discovers installed agent tools and stores provider API keys in macOS Keychain.
+
+Deterministic `--demo` mode launches the full interface with synthetic data. It does not access local repositories, user files, macOS Keychain, network endpoints, or installed CLIs.
+
+## Workspace Crates
+
+The Cargo workspace splits the application into four crates with clear boundaries between interface chrome, live engines, and the tool contract.
+
+| Crate | Purpose |
+|---|---|
+| `astrolabe` | Desktop host application, command dispatch, history, approval gates, and the Repos and Agents workspaces |
+| `astrolabe-kit` | Sternbild interface components, layout primitives, theme tokens, and capture helpers for `egui` |
+| `astrolabe-engines` | Headless engines for Git and GitHub inspection, filesystem events, quota probes, Ollama telemetry, and demo fixtures |
+| `astrolabe-contract` | Shared tool contract for typed commands, state inspection, visual output, and stable `ItemRef` identifiers |
+
+## Development and Verification
+
+Local development requires a Rust toolchain with Edition 2024 support, Python 3, and `uv` for pinned documentation builds. Cargo builds and tests the Rust workspace, while shell and Python scripts package the macOS bundle and check documentation rules. Full development procedures appear in [docs/development/development-basics.md](docs/development/development-basics.md).
+
+### Application Launch
+
+Run Astrolabe directly from Cargo in live mode or in deterministic demo mode. Pass `--panel agents` to open the Agents workspace first.
+
+```sh
+cargo run -p astrolabe
+cargo run -p astrolabe -- --demo
+```
+
+### Tests and Application Bundle
+
+Run the Cargo test suite across all four crates. Then run the bundle script to build and sign `Astrolabe.app` under `target/bundle/`.
 
 ```sh
 cargo test
-cargo run -p astrolabe
+./scripts/bundle.sh
 ```
 
-The earlier Electron/TypeScript build lives at `~/WebstormProjects/astrolabe`; its specifications are the requirements
-for the Rust connectors.
+### Documentation and Roadmap Checks
+
+Check the roadmap registry and all documentation headings with Python 3. Then build the MkDocs site in strict mode with pinned package versions.
+
+```sh
+python3 roadmap/check.py
+python3 scripts/check_doc_headings.py
+uvx --from mkdocs==1.6.1 \
+  --with mkdocs-material==9.8.1 \
+  --with mkdocs-awesome-nav==3.3.0 \
+  --with pymdown-extensions==13.1 \
+  mkdocs build --strict -d build/docs-site
+```
