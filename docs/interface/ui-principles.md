@@ -41,7 +41,7 @@ The `astrolabe-kit` crate packages every visual primitive behind clean Rust modu
 | `layout` | `ShellSpec`, `ShellRects`, `split_horizontal`, `split_vertical`, `grid_rects`, `pane_child` | Compute non-overlapping pane rectangles as pure geometry |
 | `chrome` | `CommandBar`, `SidebarRail`, `Pane`, `StatusBar`, `masthead`, `key_button`, `primary_button` | Draw workstation chrome, navigation rail, framed panes, and action controls |
 | `data` | `DataTable`, `MetricTileSpec`, `metric_tile_row`, `status_chip`, `labeled_usage_bar`, `field_row` | Render dense tables, summary tiles, status chips, usage meters, and inspector fields |
-| `draw` | `IconKind`, `rule_h`, `rule_v`, `cut_plate`, `astrolabe_mark`, `icon_glyph` | Paint crisp 1 px rules, cut-corner primary plates, and vector icons |
+| `draw` | `IconKind`, `rule_h`, `rule_v`, `box_outline`, `astrolabe_mark`, `icon_glyph` | Paint crisp 1 px rules, square outlines, and vector icons |
 | `capture` | `CaptureConfig`, `render_ui_png`, `render_eframe_png` | Render views offscreen with headless `wgpu` for automated visual verification |
 
 ## Text

@@ -131,10 +131,8 @@ pub mod metric {
     pub const GAP: f32 = 12.0;
     /// Height of a key button.
     pub const KEY_BUTTON_H: f32 = 22.0;
-    /// Default height of a primary cut-corner plate button.
+    /// Default height of a primary action button.
     pub const PRIMARY_BUTTON_H: f32 = 24.0;
-    /// 45-degree corner cut size for primary plates.
-    pub const CUT: f32 = 6.0;
     /// Width and thickness of every structural rule.
     pub const RULE: f32 = 1.0;
     /// Left accent bar width on selected rows and sidebar items.

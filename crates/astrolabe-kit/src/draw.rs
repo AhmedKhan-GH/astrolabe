@@ -54,30 +54,6 @@ pub fn box_outline(painter: &Painter, rect: Rect, color: Color32) {
     rule_v(painter, x1 - 1.0, y0 + 1.0, y1 - 1.0, color);
 }
 
-/// Draws a Sternbild primary-action plate with 45-degree chamfered corners.
-pub fn cut_plate(painter: &Painter, rect: Rect, outline: Color32, fill: Option<Color32>, cut: f32) {
-    let x0 = rect.left().floor() + 0.5;
-    let y0 = rect.top().floor() + 0.5;
-    let x1 = rect.right().floor() - 0.5;
-    let y1 = rect.bottom().floor() - 0.5;
-    let max_cut = ((x1 - x0).min(y1 - y0) * 0.5).floor().max(0.0);
-    let c = cut.floor().min(max_cut);
-    let pts = vec![
-        pos2(x0 + c, y0),
-        pos2(x1 - c, y0),
-        pos2(x1, y0 + c),
-        pos2(x1, y1 - c),
-        pos2(x1 - c, y1),
-        pos2(x0 + c, y1),
-        pos2(x0, y1 - c),
-        pos2(x0, y0 + c),
-    ];
-    if let Some(fill_color) = fill {
-        painter.add(Shape::convex_polygon(pts.clone(), fill_color, Stroke::NONE));
-    }
-    painter.add(Shape::closed_line(pts, Stroke::new(1.0, outline)));
-}
-
 /// Draws a 45-degree rotated diamond status marker (`filled` when live, outlined when idle).
 pub fn diamond(painter: &Painter, center: Pos2, half: f32, color: Color32, filled: bool) {
     let cx = center.x.floor() + 0.5;

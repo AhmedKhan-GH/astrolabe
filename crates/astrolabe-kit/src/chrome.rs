@@ -198,7 +198,7 @@ pub fn key_button(
     }
 }
 
-/// Sternbild primary action button with 45-degree chamfered corners.
+/// Square 1 px outlined Sternbild primary action button.
 pub fn primary_button(ui: &mut Ui, label: &str, key: Option<&str>, enabled: bool) -> Response {
     let key_str = key.unwrap_or("");
     let key_w = if key_str.is_empty() {
@@ -224,16 +224,26 @@ pub fn primary_button(ui: &mut Ui, label: &str, key: Option<&str>, enabled: bool
     } else if held && hovered {
         (color::PARCHMENT, Some(color::PARCHMENT), color::DEEP, color::DEEP)
     } else if hovered {
-        (color::PARCHMENT, Some(color::PLATE_HOVER), color::BRONZE, color::PARCHMENT)
+        (
+            if focused { color::BRONZE } else { color::PARCHMENT },
+            Some(color::PLATE_HOVER),
+            color::BRONZE,
+            color::PARCHMENT,
+        )
     } else {
-        (color::PARCHMENT, None, color::SECONDARY, color::PARCHMENT)
+        (
+            if focused { color::BRONZE } else { color::PARCHMENT },
+            None,
+            color::SECONDARY,
+            color::PARCHMENT,
+        )
     };
 
     let p = ui.painter();
-    draw::cut_plate(p, rect, outline, fill, metric::CUT);
-    if focused {
-        draw::cut_plate(p, rect.expand(3.0), color::BRONZE, None, metric::CUT + 1.0);
+    if let Some(bg) = fill {
+        p.rect_filled(rect, 0.0, bg);
     }
+    draw::box_outline(p, rect, outline);
 
     let mut x = (rect.center().x - content_w * 0.5).floor();
     if !key_str.is_empty() {
@@ -722,5 +732,65 @@ fn draw_sidebar_item(ui: &mut Ui, width: f32, item: &SidebarItem<'_>) -> Option<
         Some(SidebarAction::Selected(item.id.to_owned()))
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::capture::{CaptureConfig, render_ui_image};
+
+    #[test]
+    fn primary_button_renders_square_corners() {
+        let config = CaptureConfig { size: vec2(200.0, 80.0), pixels_per_point: 1.0, steps: 3 };
+        let mut button_rect = None;
+        let image = render_ui_image(
+            &config,
+            |_| {},
+            |ui| {
+                let full = ui.max_rect();
+                ui.painter().rect_filled(full, 0.0, color::GROUND);
+                let inner = Rect::from_min_size(pos2(16.0, 16.0), vec2(160.0, 48.0));
+                pane_child(ui, "primary_button_test", inner, |ui| {
+                    let resp = primary_button(ui, "Run", Some("⏎"), true);
+                    button_rect = Some(resp.rect);
+                });
+            },
+        )
+        .expect("offscreen primary_button render");
+
+        let rect = button_rect.expect("primary_button rect recorded");
+        let x0 = rect.left().floor() as u32;
+        let y0 = rect.top().floor() as u32;
+        let x1 = (rect.right().floor() - 1.0) as u32;
+        let y1 = (rect.bottom().floor() - 1.0) as u32;
+        let parchment = image::Rgba([color::PARCHMENT.r(), color::PARCHMENT.g(), color::PARCHMENT.b(), 255]);
+        let ground = image::Rgba([color::GROUND.r(), color::GROUND.g(), color::GROUND.b(), 255]);
+
+        for (name, x, y) in [
+            ("top-left", x0, y0),
+            ("top-right", x1, y0),
+            ("bottom-left", x0, y1),
+            ("bottom-right", x1, y1),
+        ] {
+            assert_eq!(
+                *image.get_pixel(x, y),
+                parchment,
+                "{name} outer corner pixel ({x}, {y}) of primary_button rect {rect:?} must be PARCHMENT"
+            );
+        }
+
+        for (name, x, y) in [
+            ("outside-top-left", x0 - 1, y0),
+            ("outside-top-right", x1 + 1, y0),
+            ("outside-bottom-left", x0 - 1, y1),
+            ("outside-bottom-right", x1 + 1, y1),
+        ] {
+            assert_eq!(
+                *image.get_pixel(x, y),
+                ground,
+                "{name} pixel ({x}, {y}) outside primary_button rect {rect:?} must remain GROUND"
+            );
+        }
     }
 }
