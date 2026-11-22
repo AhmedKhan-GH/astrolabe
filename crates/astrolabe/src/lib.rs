@@ -11,5 +11,5 @@ pub mod widgets;
 #[cfg(test)]
 mod tests;
 
-pub use app::{AstrolabeApp, LaunchOptions, Panel};
+pub use app::{AstrolabeApp, LaunchOptions, Panel, write_bundle_icon};
 pub use host::{Entry, Host};

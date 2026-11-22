@@ -15,7 +15,7 @@ use egui_kittest::Harness;
 use egui_kittest::kittest::{NodeT, Queryable};
 
 use crate::agents_panel::AgentsPanel;
-use crate::app::{AstrolabeApp, LaunchOptions, Panel};
+use crate::app::{AstrolabeApp, LaunchOptions, Panel, write_bundle_icon};
 use crate::repos_panel::{self, Files, ReposPanel};
 
 fn demo_harness(panel: Panel) -> Harness<'static, AstrolabeApp> {
@@ -45,16 +45,38 @@ fn scratch_dir() -> Option<PathBuf> {
 #[test]
 fn cli_launch_options_parse_demo_and_panel() {
     let default = LaunchOptions::from_args(Vec::<String>::new());
-    assert_eq!(default, LaunchOptions { demo: false, initial_panel: Panel::Repos });
+    assert_eq!(default, LaunchOptions { demo: false, initial_panel: Panel::Repos, write_bundle_icon: None });
 
     let demo_agents = LaunchOptions::from_args(["--demo".into(), "--panel".into(), "agents".into()]);
-    assert_eq!(demo_agents, LaunchOptions { demo: true, initial_panel: Panel::Agents });
+    assert_eq!(demo_agents, LaunchOptions { demo: true, initial_panel: Panel::Agents, write_bundle_icon: None });
 
     let eq_syntax = LaunchOptions::from_args(["--panel=agents".into(), "--demo".into()]);
-    assert_eq!(eq_syntax, LaunchOptions { demo: true, initial_panel: Panel::Agents });
+    assert_eq!(eq_syntax, LaunchOptions { demo: true, initial_panel: Panel::Agents, write_bundle_icon: None });
 
     let repos_flag = LaunchOptions::from_args(["--panel=repos".into()]);
-    assert_eq!(repos_flag, LaunchOptions { demo: false, initial_panel: Panel::Repos });
+    assert_eq!(repos_flag, LaunchOptions { demo: false, initial_panel: Panel::Repos, write_bundle_icon: None });
+
+    let icon_split = LaunchOptions::from_args(["--write-bundle-icon".into(), "out/icon.png".into()]);
+    assert_eq!(icon_split.write_bundle_icon, Some(PathBuf::from("out/icon.png")));
+
+    let icon_eq = LaunchOptions::from_args(["--write-bundle-icon=out/icon-eq.png".into()]);
+    assert_eq!(icon_eq.write_bundle_icon, Some(PathBuf::from("out/icon-eq.png")));
+}
+
+#[test]
+fn cli_write_bundle_icon_writes_valid_1024_rgba_png() {
+    let dir = tempfile::tempdir().unwrap();
+    let out_path = dir.path().join("nested").join("AppIcon-1024.png");
+    let opts = LaunchOptions::from_args(["--write-bundle-icon".into(), out_path.to_string_lossy().into_owned()]);
+    let target = opts.write_bundle_icon.expect("parsed --write-bundle-icon path");
+    write_bundle_icon(&target).expect("write bundle icon PNG");
+
+    let raw = std::fs::read(&target).expect("read written icon PNG");
+    assert_eq!(raw.as_slice(), astrolabe_kit::sternbild_tokens::icons::ASTROLABE_PNG_1024);
+
+    let decoded = image::open(&target).expect("decode written icon PNG");
+    assert_eq!(decoded.color(), image::ColorType::Rgba8);
+    assert_eq!((decoded.width(), decoded.height()), (1024, 1024));
 }
 
 #[test]

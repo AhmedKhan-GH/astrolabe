@@ -6,12 +6,6 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-icon_svg="site/assets/astrolabe-icon-minerals.svg"
-if [[ ! -f "$icon_svg" ]]; then
-  echo "error: icon source not found: $icon_svg" >&2
-  exit 1
-fi
-
 version=$(awk -F'"' '/^\[workspace\.package\]/{p=1;next} /^\[/{p=0} p && /^[[:space:]]*version[[:space:]]*=/{print $2; exit}' Cargo.toml)
 if [[ -z "$version" ]]; then
   echo "error: could not read [workspace.package] version from Cargo.toml" >&2
@@ -55,21 +49,9 @@ cat > "$app/Contents/Info.plist" <<PLIST
 PLIST
 plutil -lint "$app/Contents/Info.plist"
 
-# Icon: site/assets/astrolabe-icon-minerals.svg -> AppIcon.icns
+# Icon: embedded sternbild-tokens 1024 px Minerals PNG -> AppIcon.icns
 master_png="$work_dir/AppIcon-1024.png"
-if command -v resvg >/dev/null 2>&1; then
-  resvg -w 1024 -h 1024 "$icon_svg" "$master_png"
-elif command -v rsvg-convert >/dev/null 2>&1; then
-  rsvg-convert -w 1024 -h 1024 "$icon_svg" -o "$master_png"
-else
-  # sips preserves RGBA alpha transparency and all gradients cleanly; CoreSVG
-  # logs a non-fatal warning for unsupported <feMerge> drop-shadow filters.
-  # qlmanage renders <feMerge> but flattens onto an opaque white square.
-  sips -s format png -z 1024 1024 "$icon_svg" --out "$master_png" >/dev/null 2>&1 || {
-    sips -s format png -z 1024 1024 "$icon_svg" --out "$master_png"
-    exit 1
-  }
-fi
+"$target_dir/release/astrolabe" --write-bundle-icon "$master_png"
 
 iconset="$work_dir/AppIcon.iconset"
 mkdir -p "$iconset"

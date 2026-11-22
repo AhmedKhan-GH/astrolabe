@@ -4,6 +4,8 @@
 //! and `Agents` plus contextual Repos navigation), workspace panes, and bottom
 //! `StatusBar`.
 
+use std::path::{Path, PathBuf};
+
 use astrolabe_kit::{
     CommandBar, IconKind, ShellSpec, SidebarAction, SidebarItem, SidebarRail, SidebarSection, StatusBar, color,
     masthead, metric,
@@ -23,14 +25,15 @@ pub enum Panel {
 }
 
 /// CLI launch flags parsed in `main` or constructed directly in tests.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct LaunchOptions {
     pub demo: bool,
     pub initial_panel: Panel,
+    pub write_bundle_icon: Option<PathBuf>,
 }
 
 impl LaunchOptions {
-    /// Parses `--demo` and `--panel repos|agents` (or `--panel=repos|agents`).
+    /// Parses `--demo`, `--panel repos|agents`, and `--write-bundle-icon <PATH>`.
     pub fn from_args(args: impl IntoIterator<Item = String>) -> Self {
         let mut opts = Self::default();
         let mut iter = args.into_iter();
@@ -47,14 +50,34 @@ impl LaunchOptions {
                 && let Some(panel) = parse_panel(val)
             {
                 opts.initial_panel = panel;
+            } else if arg == "--write-bundle-icon" {
+                if let Some(val) = iter.next()
+                    && !val.is_empty()
+                {
+                    opts.write_bundle_icon = Some(PathBuf::from(val));
+                }
+            } else if let Some(val) = arg.strip_prefix("--write-bundle-icon=")
+                && !val.is_empty()
+            {
+                opts.write_bundle_icon = Some(PathBuf::from(val));
             }
         }
         opts
     }
 
     pub fn demo(panel: Panel) -> Self {
-        Self { demo: true, initial_panel: panel }
+        Self { demo: true, initial_panel: panel, write_bundle_icon: None }
     }
+}
+
+/// Writes the canonical 1024x1024 RGBA Astrolabe Minerals icon PNG from `sternbild-tokens` to `path`.
+pub fn write_bundle_icon(path: &Path) -> std::io::Result<()> {
+    if let Some(parent) = path.parent()
+        && !parent.as_os_str().is_empty()
+    {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(path, astrolabe_kit::sternbild_tokens::icons::ASTROLABE_PNG_1024)
 }
 
 fn parse_panel(value: &str) -> Option<Panel> {
