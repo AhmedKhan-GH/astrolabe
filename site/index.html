@@ -4,36 +4,39 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Astrolabe</title>
-<meta name="description" content="Astrolabe, the intelligence augmented productivity framework from Sternbild. One app for specialized work.">
+<meta name="description" content="Astrolabe is a desktop application for repository inspection and agent supervision on macOS.">
 <meta name="theme-color" content="#12110f">
 <link rel="canonical" href="https://ahmedkhan-gh.github.io/astrolabe/">
-<link rel="icon" href="assets/astrolabe-icon-32.png" sizes="32x32">
-<link rel="icon" href="assets/astrolabe-icon.svg?v=11" type="image/svg+xml">
-<link rel="apple-touch-icon" href="assets/astrolabe-icon-180.png">
+<link rel="icon" href="assets/astrolabe-icon-minerals-32.png" sizes="32x32">
+<link rel="icon" href="assets/astrolabe-icon-minerals.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/astrolabe-icon-minerals-180.png">
 <meta property="og:title" content="Astrolabe">
-<meta property="og:description" content="Astrolabe, the intelligence augmented productivity framework from Sternbild. One app for specialized work.">
+<meta property="og:description" content="Astrolabe is a desktop application for repository inspection and agent supervision on macOS.">
 <meta property="og:image" content="https://ahmedkhan-gh.github.io/astrolabe/assets/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <style>
   @font-face { font-family: "Sternbild Display"; src: url("assets/fonts/SternbildDisplay-Regular.woff2") format("woff2"); font-display: swap; }
   @font-face { font-family: "Plex Condensed"; src: url("assets/fonts/IBMPlexSansCondensed-Regular.ttf") format("truetype"); font-display: swap; }
+  @font-face { font-family: "Source Code Pro"; src: url("assets/fonts/SourceCodePro-Regular.ttf") format("truetype"); font-display: swap; }
 
-  /* The Sternbild palette, as on the Caliper site. */
+  /* Sternbild dark palette. */
   :root {
-    --deep: #12110f;
+    --night: #12110f;
+    --deep: #1c1b18;
     --ground: #181715;
-    --plate: #201f1c;
-    --plate-hover: #2a2925;
-    --rule: #4b4945;
-    --rule-faint: #2c2b28;
-    --parchment: #e8e0d0;
-    --secondary: #c1baaa;
-    --faint: #8f897c;
+    --plate: #272622;
+    --plate-hover: #312f2b;
+    --rule: #5a5751;
+    --rule-faint: #36342f;
+    --parchment: #f0e9db;
+    --secondary: #d0c9ba;
+    --faint: #a49d8f;
     --bronze: #b38b59;
     --bronze-hover: #c49b68;
     --max: 1160px;
     --display: "Sternbild Display", "Plex Condensed", sans-serif;
     --text: "Plex Condensed", -apple-system, "Helvetica Neue", sans-serif;
+    --mono: "Source Code Pro", ui-monospace, Menlo, monospace;
     color-scheme: dark;
   }
   * { box-sizing: border-box; }
@@ -41,16 +44,16 @@
   body { margin: 0; background: var(--ground); color: var(--parchment); font: 17px/1.65 var(--text); -webkit-font-smoothing: antialiased; }
   a { color: inherit; text-decoration: none; }
   img { display: block; max-width: 100%; height: auto; }
+  code { font: 0.92em var(--mono); color: var(--parchment); }
   .wrap { max-width: var(--max); margin: 0 auto; padding: 0 28px; }
 
-  /* Buttons: inscriptional caps on a ruled plate. */
-  .btn { display: inline-flex; align-items: center; gap: 10px; padding: 12px 22px 11px; font: 14px/1 var(--text);
+  /* Buttons */
+  .btn { --c: 8px; display: inline-flex; align-items: center; gap: 10px; padding: 12px 22px 11px; font: 14px/1 var(--text);
          letter-spacing: .16em; text-transform: uppercase; cursor: pointer; transition: background .15s, color .15s; }
-  /* A download that isn't out yet: greyed and not a link, as on the Caliper and Falcon sites. */
-  .btn .sep { font-family: var(--text); }   /* the display face has no middle dot */
-  .btn-soon { color: var(--faint); background: var(--plate); border: 1px solid var(--rule); border-radius: 4px; opacity: .6; cursor: not-allowed; }
+  .btn-soon { color: var(--deep); background: var(--bronze); border: 1px solid var(--bronze); border-radius: 4px; opacity: .45; filter: saturate(.55); cursor: not-allowed; }
   .btn-ghost { color: var(--parchment); background: var(--plate); border: 1px solid var(--rule); border-radius: 4px; }
   .btn-ghost:hover { background: var(--plate-hover); border-color: var(--faint); }
+  .btn .gh { width: 16px; height: 16px; flex: none; margin-top: -1px; }
 
   /* Navigation */
   nav { position: sticky; top: 0; z-index: 20; background: rgba(18, 17, 15, .86); backdrop-filter: blur(12px); border-bottom: 1px solid var(--rule-faint); }
@@ -60,73 +63,80 @@
   .brand span { font: 17px/1 var(--display); letter-spacing: .22em; padding-top: 2px; }
   nav .links { display: flex; gap: 26px; margin-left: auto; color: var(--secondary); font: 13px/1 var(--text); letter-spacing: .18em; text-transform: uppercase; }
   nav .links a:hover { color: var(--parchment); }
-  nav .btn { padding: 10px 16px 9px; font-size: 12px; }
+  nav .links .soon { opacity: .45; cursor: not-allowed; }
 
-  /* Hero, lit as on the Caliper site: a fall of light from above and five beams along the seal's construction rays
-     (0, 18 and 36 degrees either side of the upright), rising from one point. */
-  header.hero { position: relative; overflow: hidden; padding: 92px 0 96px; text-align: center;
-                background: linear-gradient(180deg, var(--deep) 0%, var(--ground) 78%); }
+  /* Hero */
+  header.hero { position: relative; overflow: hidden; padding: 92px 0 0; text-align: center;
+                background: linear-gradient(180deg, var(--night) 0%, var(--ground) 78%); }
   header.hero::before { content: ""; position: absolute; inset: 0 0 auto; height: 520px; pointer-events: none;
                         background: linear-gradient(180deg, rgba(232, 224, 208, .055), rgba(232, 224, 208, 0) 100%); }
   .aura { position: absolute; left: 50%; top: 0; width: 1600px; height: 980px; transform: translateX(-50%); pointer-events: none; }
+  .beam-layer { will-change: opacity; animation: beam-breathe var(--beam-cycle) ease-in-out var(--beam-phase) infinite; }
+  @keyframes beam-breathe { 0%, 100% { opacity: .58; } 50% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .beam-layer { animation: none; opacity: .8; } }
   .hero .wrap { position: relative; }
-  .hero-mark { width: 136px; height: 136px; margin: 0 auto 26px; filter: drop-shadow(0 18px 30px rgba(0, 0, 0, .45)); }
-  /* The name is the hero's headline; the trailing letter-space is padded on the left so the word sits centred. */
-  .hero h1 { font: clamp(44px, 10.5vw, 116px)/1 var(--display); letter-spacing: .16em; padding-left: .16em; margin: 0 auto;
+  .hero-mark { display: block; width: 136px; height: 136px; margin: 0 auto 26px; overflow: visible; }
+  .hero h1 { font: clamp(44px, 10.5vw, 116px)/1 var(--display); letter-spacing: .16em; padding-left: .16em; margin: 0 auto 26px;
              font-weight: normal; text-transform: uppercase; text-shadow: 0 18px 44px rgba(0, 0, 0, .55); }
-  .tagline { font: clamp(15px, 2vw, 22px)/1.4 var(--text); letter-spacing: .2em; padding-left: .2em; text-transform: uppercase;
-             color: var(--secondary); margin: 22px auto 26px; max-width: 980px; text-wrap: balance; }
-  .lede { color: var(--secondary); font-size: clamp(17px, 1.9vw, 20px); max-width: 720px; margin: 0 auto 36px; text-wrap: pretty; }   /* as on the Caliper site */
+  .lede { color: var(--secondary); font-size: clamp(17px, 1.9vw, 20px); max-width: 720px; margin: 0 auto 36px; }
   .actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
-  button.btn { margin: 0; }
+  .shot { margin: 64px auto 0; max-width: 1100px; }
+  .hero .shot { max-width: none; width: min(1220px, calc(100vw - 56px)); margin-left: 50%; transform: translateX(-50%); }
+  .shot img { width: 100%; border-radius: 9px; box-shadow: 0 0 0 1px rgba(232, 224, 208, .12), 0 40px 90px rgba(0, 0, 0, .7); }
 
-  /* Sections: ruled, one reading column with its figure. */
-  section { padding: 24px 0 0; }
+  /* Contents */
+  .xp-k { font: 11px/1 var(--text); letter-spacing: .24em; text-transform: uppercase; color: var(--faint); margin-bottom: 12px; }
+  .toc { padding: 72px 0 0; }
+  .toc ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 28px; border-top: 1px solid var(--rule-faint); }
+  .toc ol > li { padding-top: 18px; }
+  .toc-n { display: block; font: 12px/1 var(--text); letter-spacing: .24em; color: var(--bronze); }
+  .toc-s { display: block; margin-top: 10px; font: 14px/1.35 var(--text); letter-spacing: .16em; text-transform: uppercase; color: var(--parchment); }
+  .toc a:hover { color: var(--bronze-hover); }
+
+  /* Sections */
+  section { padding: 104px 0 0; scroll-margin-top: 84px; }
   section > .wrap { border-top: 1px solid var(--rule-faint); padding-top: 64px; }
   .label { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
   .label::before { content: ""; width: 28px; height: 1px; background: var(--bronze); }
   .eyebrow { font: 13px/1 var(--text); letter-spacing: .26em; color: var(--bronze); text-transform: uppercase; }
   h2 { font: clamp(24px, 3vw, 36px)/1.2 var(--text); letter-spacing: .06em; text-transform: uppercase; margin: 0 0 18px; font-weight: normal; }
-  .intro { color: var(--secondary); max-width: 720px; margin: 0 0 40px; font-size: 18px; }
+  p { margin: 0 0 16px; }
 
-  /* The flow: the app you learn in, then the app you work in, on two plates joined by a bronze rule. */
-  .flow { display: grid; grid-template-columns: minmax(0, 1fr) 132px minmax(0, 1fr); align-items: stretch; max-width: 860px; }
-  .stage { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 30px 22px 28px; text-align: center;
-           background: var(--deep); border: 1px solid var(--rule-faint); border-radius: 8px; transition: border-color .15s, background .15s; }
-  a.stage:hover { border-color: var(--rule); background: #161513; }
-  .stage.here { border-color: rgba(179, 139, 89, .5); }
-  .stage .step { font: 12px/1 var(--text); letter-spacing: .26em; color: var(--bronze); text-transform: uppercase; }
-  .stage img { width: 104px; height: 104px; margin: 14px 0 10px; }
-  .stage .name { font: 20px/1 var(--display); letter-spacing: .2em; padding-left: .2em; text-transform: uppercase; }
-  .stage .role { color: var(--faint); font-size: 15px; line-height: 1.4; }
-  .stage .visit { margin-top: 8px; font: 12px/1 var(--text); letter-spacing: .18em; text-transform: uppercase; color: var(--secondary); }
-  a.stage:hover .visit { color: var(--bronze-hover); }
-  .flow-arrow { display: block; align-self: center; width: 100%; height: 24px; overflow: visible; }
-  .flow-arrow line { stroke: var(--bronze); stroke-width: 1.5; }
-  .flow-arrow path { fill: var(--bronze); }
+  /* Section screenshots */
+  .dev-shot { position: relative; margin: 28px 0 0; max-width: 1100px; }
+  .dev-shot .shot { position: relative; margin: 0; max-width: none; }
+  .dev-shot img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; background: var(--deep); border-radius: 9px; }
+  .dev-shot figcaption { margin: 24px 0 0; max-width: 720px; color: var(--secondary); font-size: 18px; line-height: 1.65; }
 
-  footer { margin-top: 120px; border-top: 1px solid var(--rule-faint); background: var(--deep); padding: 44px 0 56px; color: var(--faint); font-size: 14px; }
+  /* Closing */
+  .closing { text-align: center; padding: 120px 0 110px; }
+  .closing .wrap { border-top: 0; padding-top: 0; }
+
+  /* Footer */
+  footer { border-top: 1px solid var(--rule-faint); background: var(--night); padding: 44px 0 56px; color: var(--faint); font-size: 14px; }
   footer .wrap { display: flex; flex-wrap: wrap; gap: 28px; align-items: center; justify-content: space-between; }
   .house { display: flex; align-items: center; gap: 20px; color: var(--secondary); }
   .house img { width: 72px; height: 72px; }
   .house-text { display: flex; flex-direction: column; gap: 10px; }
-  .house-name { font: 24px/1 var(--display); letter-spacing: .3em; color: var(--parchment); }
+  .house-name { font: 24px/1 var(--text); letter-spacing: .3em; color: var(--parchment); }
   .house-url { font: 15px/1 var(--text); letter-spacing: .04em; color: var(--faint); }
   .house:hover .house-url { color: var(--bronze-hover); }
   footer .links { display: flex; gap: 22px; flex-wrap: wrap; font: 12px/1 var(--text); letter-spacing: .18em; text-transform: uppercase; }
   footer a:hover { color: var(--parchment); }
 
-  @media (max-width: 900px) {
-    nav .links { display: none; }
-    nav .btn { margin-left: auto; }
-  }
-  @media (max-width: 680px) {
-    .flow { grid-template-columns: minmax(0, 1fr); max-width: 420px; }
-    .flow-arrow { width: 96px; margin: 36px auto; transform: rotate(90deg); }   /* the rule turns to point down */
+  @media (max-width: 960px) {
+    .toc ol { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 28px; }
   }
   @media (max-width: 520px) {
+    nav .wrap { gap: 16px; }
+    nav .links { gap: 16px; }
+    .brand span { display: none; }
     header.hero { padding-top: 64px; }
+    .hero .shot { width: min(1220px, calc(100vw - 36px)); }
+    section { padding-top: 72px; }
+    .closing { padding: 84px 0 80px; }
     .wrap { padding: 0 18px; }
+    .toc ol { grid-template-columns: minmax(0, 1fr); }
   }
 </style>
 </head>
@@ -134,62 +144,182 @@
 
 <nav>
   <div class="wrap">
-    <a class="brand" href="#top"><img src="assets/astrolabe-icon.svg?v=11" alt=""><span>ASTROLABE</span></a>
+    <a class="brand" href="#top"><img src="assets/astrolabe-icon-minerals.svg" alt=""><span>ASTROLABE</span></a>
     <div class="links">
       <a href="docs/">Docs</a>
-      <a href="https://github.com/AhmedKhan-GH/astrolabe">GitHub ↗</a>
-      <a href="https://sternbild.org">Sternbild ↗</a>
+      <a href="https://github.com/AhmedKhan-GH/astrolabe">GitHub</a>
+      <span class="soon" title="Download in preparation">Download</span>
     </div>
-    <span class="btn btn-soon" role="button" aria-disabled="true" title="Download in preparation">Download</span>
   </div>
 </nav>
 
 <header class="hero" id="top">
-  <svg class="aura" viewBox="0 0 1600 980" aria-hidden="true">
+  <svg class="aura aura-defs" viewBox="0 0 1600 980" aria-hidden="true">
     <defs>
       <linearGradient id="beam" x1="0" y1="1" x2="0" y2="0">
-        <stop offset="0" stop-color="#e8e0d0" stop-opacity=".16"/>
-        <stop offset=".55" stop-color="#e8e0d0" stop-opacity=".045"/>
-        <stop offset="1" stop-color="#e8e0d0" stop-opacity="0"/>
+        <stop offset="0" stop-color="#e8e0d0" stop-opacity=".12"/>
+        <stop offset=".5" stop-color="#e8e0d0" stop-opacity=".092"/>
+        <stop offset="1" stop-color="#e8e0d0" stop-opacity=".055"/>
       </linearGradient>
+      <linearGradient id="horizon" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1600" y2="0">
+        <stop offset="0" stop-color="#6a655a" stop-opacity=".55"/><stop offset=".5" stop-color="#6a655a"/><stop offset="1" stop-color="#6a655a" stop-opacity=".55"/>
+      </linearGradient>
+      <filter id="beam-light" filterUnits="userSpaceOnUse" x="-60" y="-40" width="1720" height="1000" color-interpolation-filters="sRGB">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="soft"/>
+        <feGaussianBlur in="SourceGraphic" stdDeviation="20" result="wide"/>
+        <feComponentTransfer in="wide" result="glow"><feFuncA type="linear" slope=".85"/></feComponentTransfer>
+        <feMerge><feMergeNode in="glow"/><feMergeNode in="soft"/></feMerge>
+      </filter>
     </defs>
-    <!-- Five beams from one point at the horizon, along 0, 18 and 36 degrees either side of the upright. -->
-    <g fill="url(#beam)">
-      <polygon points="800,840 788,0 812,0"/>
-      <polygon points="800,840 527,0 563,0" opacity=".8"/>
-      <polygon points="800,840 1037,0 1073,0" opacity=".8"/>
-      <polygon points="800,840 168,0 212,0" opacity=".55"/>
-      <polygon points="800,840 1388,0 1432,0" opacity=".55"/>
-    </g>
-    <!-- Construction: the horizon and two arcs about the point, drawn at hairline. -->
-    <g fill="none" stroke="#2c2b28" stroke-width="1">
-      <line x1="0" y1="840.5" x2="1600" y2="840.5"/>
-      <path d="M 300 840 A 500 500 0 0 1 1300 840"/>
-      <path d="M 40 840 A 760 760 0 0 1 1560 840" stroke-dasharray="2 6"/>
+  </svg>
+  <svg class="aura beam-layer" viewBox="0 0 1600 980" aria-hidden="true" style="--beam-cycle:13.2s;--beam-phase:-7.1s"><polygon points="798.8,840.9 99.9,-26.5 192.3,-93.5 801.2,839.1" fill="url(#beam)" filter="url(#beam-light)"/></svg>
+  <svg class="aura beam-layer" viewBox="0 0 1600 980" aria-hidden="true" style="--beam-cycle:9.6s;--beam-phase:-3.3s"><polygon points="798.6,840.5 461.2,-44.9 554.0,-75.1 801.4,839.5" fill="url(#beam)" filter="url(#beam-light)"/></svg>
+  <svg class="aura beam-layer" viewBox="0 0 1600 980" aria-hidden="true" style="--beam-cycle:11.7s;--beam-phase:-9.2s"><polygon points="798.5,840.0 753.5,-60.0 846.5,-60.0 801.5,840.0" fill="url(#beam)" filter="url(#beam-light)"/></svg>
+  <svg class="aura beam-layer" viewBox="0 0 1600 980" aria-hidden="true" style="--beam-cycle:14s;--beam-phase:-1.4s"><polygon points="798.6,839.5 1046.0,-75.1 1138.8,-44.9 801.4,840.5" fill="url(#beam)" filter="url(#beam-light)"/></svg>
+  <svg class="aura beam-layer" viewBox="0 0 1600 980" aria-hidden="true" style="--beam-cycle:8.8s;--beam-phase:-4.8s"><polygon points="798.8,839.1 1407.7,-93.5 1500.1,-26.5 801.2,840.9" fill="url(#beam)" filter="url(#beam-light)"/></svg>
+  <svg class="aura" viewBox="0 0 1600 980" aria-hidden="true">
+    <g fill="none" stroke="#6a655a" stroke-width="1.5" vector-effect="non-scaling-stroke">
+      <line x1="0" y1="840.5" x2="1600" y2="840.5" stroke="url(#horizon)"/>
+      <path d="M 530 840 A 270 270 0 0 1 1070 840"/>
+      <path d="M 250 840 A 550 550 0 0 1 1350 840" stroke-opacity=".86"/>
+      <path d="M -30 840 A 830 830 0 0 1 1630 840" stroke-opacity=".72"/>
     </g>
   </svg>
   <div class="wrap">
-    <img class="hero-mark" src="assets/astrolabe-icon.svg?v=11" alt="Astrolabe" width="136" height="136">
+    <svg class="hero-mark" viewBox="0 0 1024 1024" role="img" aria-label="Astrolabe" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="hm-drop" filterUnits="userSpaceOnUse" x="-400" y="-400" width="1824" height="1900" color-interpolation-filters="sRGB"><feDropShadow dx="0" dy="135" stdDeviation="113" flood-color="#000" flood-opacity=".45"/></filter>
+        <filter id="hm-filter-1" filterUnits="userSpaceOnUse" x="60" y="60" width="904" height="904" data-vc-blend="multiply" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="8"/><feOffset dx="0" dy="14" result="shadow"/><feFlood flood-color="#000000" flood-opacity="0.3"/><feComposite in2="shadow" operator="in" result="paint"/><feMerge><feMergeNode in="paint"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <linearGradient id="hm-linear-gradient-1" x1="512" y1="100" x2="512" y2="924" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#36332d"/>
+          <stop offset="0.5" stop-color="#211f1b"/>
+          <stop offset="1" stop-color="#141311"/>
+        </linearGradient>
+        <filter id="hm-filter-2" filterUnits="userSpaceOnUse" x="249" y="199.712" width="526" height="563.751" data-vc-blend="multiply" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="5"/><feOffset dx="0" dy="8" result="shadow"/><feFlood flood-color="#050403" flood-opacity="0.35"/><feComposite in2="shadow" operator="in" result="paint"/><feMerge><feMergeNode in="paint"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <linearGradient id="hm-linear-gradient-2" x1="512" y1="230" x2="512" y2="815" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#f6f0e4"/>
+          <stop offset="0.5" stop-color="#e8e0d0"/>
+          <stop offset="1" stop-color="#cfc3aa"/>
+        </linearGradient>
+        <linearGradient id="hm-linear-gradient-3" x1="512" y1="336" x2="512" y2="584" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#d8b27a"/>
+          <stop offset="0.55" stop-color="#b38b59"/>
+          <stop offset="1" stop-color="#8d6a3e"/>
+        </linearGradient>
+        <linearGradient id="hm-rim" x1="512" y1="100" x2="512" y2="924" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#6b7fd6"/>
+          <stop offset="0.5" stop-color="#4a5bac"/>
+          <stop offset="1" stop-color="#2f3c82"/>
+        </linearGradient>
+      </defs>
+      <title>Astrolabe</title>
+      <g filter="url(#hm-drop)">
+        <g id="hm-Astrolabe_app_icon" data-name="Astrolabe app icon">
+          <g filter="url(#hm-filter-1)">
+            <path id="hm-Tile" d="M264.8 100 L759.2 100 L924 264.8 L924 759.2 L759.2 924 L264.8 924 L100 759.2 L100 264.8 Z" fill="url(#hm-linear-gradient-1)"/>
+          </g>
+          <path id="hm-Border" d="M269.465 111.261 L754.535 111.261 L912.739 269.465 L912.739 754.535 L754.535 912.739 L269.465 912.739 L111.261 754.535 L111.261 269.465 Z" fill="none" stroke="url(#hm-rim)" stroke-width="22.523"/>
+          <circle id="hm-Interior" cx="512" cy="512" r="237.5" fill="#12110f"/>
+          <g filter="url(#hm-filter-2)">
+            <g id="hm-Astrolabe">
+              <g>
+                <path id="hm-Mater" d="M482 247 C482 238.154 485.828 230.203 491.919 224.712 C489.411 228.509 487.95 233.059 487.95 237.95 C487.95 251.233 498.718 262 512 262 C525.282 262 536.05 251.233 536.05 237.95 C536.05 233.059 534.589 228.509 532.081 224.712 C538.172 230.203 542 238.154 542 247 C542 259.14 534.789 269.596 524.416 274.318 C650.089 280.777 750 384.721 750 512 C750 617.827 680.93 707.521 585.411 738.463 C667.274 708.52 725.703 629.935 725.703 537.703 C725.703 419.678 630.025 324 512 324 C393.975 324 298.297 419.678 298.297 537.703 C298.297 629.935 356.726 708.52 438.589 738.463 C343.07 707.521 274 617.827 274 512 C274 384.721 373.911 280.777 499.584 274.318 C489.211 269.596 482 259.14 482 247 Z" fill="url(#hm-linear-gradient-2)"/>
+                <path id="hm-Ecliptic_ring" data-name="Ecliptic ring" d="M388 460 C388 391.517 443.517 336 512 336 C517.149 336 522.224 336.314 527.208 336.923 C468.624 337.45 421.295 385.104 421.295 443.812 C421.295 502.848 469.152 550.705 528.188 550.705 C586.896 550.705 634.55 503.376 635.077 444.792 C635.686 449.776 636 454.851 636 460 C636 528.483 580.483 584 512 584 C443.517 584 388 528.483 388 460 Z" fill="url(#hm-linear-gradient-3)"/>
+              </g>
+            </g>
+          </g>
+          <circle id="hm-Shackle_gap" cx="512" cy="250" r="44" fill="url(#hm-linear-gradient-1)"/>
+          <g filter="url(#hm-filter-2)">
+            <circle id="hm-Shackle" cx="512" cy="250" r="34" fill="url(#hm-linear-gradient-2)"/>
+          </g>
+        </g>
+      </g>
+    </svg>
     <h1>Astrolabe</h1>
-    <p class="tagline">Intelligence augmented productivity framework</p>
-    <p class="lede">One app for specialized work. Move between your tools, with agents where you choose.</p>
+    <p class="lede">Astrolabe is a desktop application for repository inspection and agent supervision on macOS. The application combines local Git views, GitHub repository status, provider quotas, and local Ollama telemetry in one window.</p>
     <div class="actions">
-      <button class="btn btn-soon" type="button" data-release-download disabled title="A packaged download is in preparation">Download <span class="sep">&middot;</span> in preparation</button>
+      <span class="btn btn-soon" role="button" aria-disabled="true" title="Download in preparation">Download</span>
+      <a class="btn btn-ghost gh-btn" href="https://github.com/AhmedKhan-GH/astrolabe"><svg class="gh" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg>GitHub</a>
       <a class="btn btn-ghost" href="docs/">Docs</a>
+    </div>
+    <div class="shot">
+      <img src="assets/repos-panel.png" width="2880" height="1800" alt="Astrolabe Repos panel in demo mode with the command bar, contextual sidebar, repository list, inspector pane, and status bar.">
     </div>
   </div>
 </header>
 
 <main>
-  <section id="flow">
+  <div class="toc" role="navigation" aria-label="Contents">
     <div class="wrap">
-      <div class="label"><span class="eyebrow">Sternbild</span></div>
-      <h2>Alidade, then Astrolabe</h2>
-      <p class="intro">Learn the niche of your field in Alidade, and then do the work at speed in Astrolabe.</p>
-      <div class="flow">
-        <a class="stage" href="https://ahmedkhan-gh.github.io/alidade/"><span class="step">Learn</span><img src="assets/alidade-icon.svg?v=3" alt="" width="104" height="104"><span class="name">Alidade</span><span class="role">Learning harness</span><span class="visit">Visit &rarr;</span></a>
-        <svg class="flow-arrow" viewBox="0 0 132 24" preserveAspectRatio="none" aria-hidden="true"><line x1="14" y1="12" x2="110" y2="12"/><path d="M118 12 L106 6.5 L106 17.5 Z"/></svg>
-        <div class="stage here" aria-current="page"><span class="step">Work</span><img src="assets/astrolabe-icon.svg?v=11" alt="" width="104" height="104"><span class="name">Astrolabe</span><span class="role">Intelligence augmented productivity framework</span></div>
+      <div class="xp-k">Contents</div>
+      <ol>
+        <li><span class="toc-n">01</span><a class="toc-s" href="#repos">Repos</a></li>
+        <li><span class="toc-n">02</span><a class="toc-s" href="#agents">Agents</a></li>
+        <li><span class="toc-n">03</span><a class="toc-s" href="#watched-folders">Watched Folders</a></li>
+        <li><span class="toc-n">04</span><a class="toc-s" href="#repository-location">Repository Location</a></li>
+      </ol>
+    </div>
+  </div>
+
+  <section id="repos">
+    <div class="wrap">
+      <div class="label eyebrow">01 · Repos</div>
+      <h2>Repos</h2>
+      <figure class="dev-shot">
+        <div class="shot">
+          <img src="assets/repos-panel.png" width="2880" height="1800" loading="lazy" alt="Repos panel with demo repositories, status flags, inspector details, and the status bar.">
+        </div>
+        <figcaption>The Repos panel inspects Git repositories across watched folders and displays status flags for uncommitted changes, unpushed commits, and remote updates. A command bar groups rows by folder, tag, or IDE and filters repositories with boolean queries. The inspector pane shows branch state, commit counts, stashes, worktrees, and launch buttons for the assigned IDE, Finder, Terminal, and GitHub.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="agents">
+    <div class="wrap">
+      <div class="label eyebrow">02 · Agents</div>
+      <h2>Agents</h2>
+      <figure class="dev-shot">
+        <div class="shot">
+          <img src="assets/agents-panel.png" width="2880" height="1800" loading="lazy" alt="Agents panel with the Account Limits table for 13 providers above the Ollama memory pane.">
+        </div>
+        <figcaption>The Agents panel monitors quota windows and credit balances across 13 providers and shows local Ollama models in a lower pane. The Account Limits pane displays usage bars, currency balances, and reset countdowns while background probes spend zero model tokens. The Ollama pane reports resident memory, GPU footprint, context length, and KV cache estimates beside a 10-minute memory sparkline.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="watched-folders">
+    <div class="wrap">
+      <div class="label eyebrow">03 · Watched Folders</div>
+      <h2>Watched Folders</h2>
+      <figure class="dev-shot">
+        <div class="shot">
+          <img src="assets/watched-folders.png" width="2880" height="1800" loading="lazy" alt="Watched Folders view with root directories and columns for path, category, app, and repository count.">
+        </div>
+        <figcaption>The Watched Folders view manages the root directories that the Repos panel scans for Git repositories. Each row displays the path, category, app, and repository count, with inline controls for category, app, and removal. The Add button opens a native folder picker, and Astrolabe validates each path, saves the configuration file, and rescans.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="repository-location">
+    <div class="wrap">
+      <div class="label eyebrow">04 · Repository Location</div>
+      <h2>Repository Location</h2>
+      <figure class="dev-shot">
+        <div class="shot">
+          <img src="assets/location.png" width="2880" height="1800" loading="lazy" alt="Repos panel with the Location sidebar group set to Remote Only on GitHub.">
+        </div>
+        <figcaption>The Location sidebar group classifies repositories into Local Only, Remote Only, and Both with live counts for each group. Astrolabe matches local clones against the GitHub account by remote URL to identify repositories in each location. Remote Only rows display name, owner, visibility, default branch, and last push time for observation without local columns or write actions.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="closing">
+    <div class="wrap">
+      <h2>Source and Documentation</h2>
+      <div class="actions">
+        <span class="btn btn-soon" role="button" aria-disabled="true" title="Download in preparation">Download</span>
+        <a class="btn btn-ghost gh-btn" href="https://github.com/AhmedKhan-GH/astrolabe"><svg class="gh" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg>GitHub</a>
+        <a class="btn btn-ghost" href="docs/">Docs</a>
       </div>
     </div>
   </section>
@@ -201,12 +331,9 @@
     <div class="links">
       <a href="docs/">Docs</a>
       <a href="https://github.com/AhmedKhan-GH/astrolabe">GitHub ↗</a>
-      <a href="mailto:emailahmedebadkhan@gmail.com">Contact</a>
-      <span>© 2026 Ahmed Khan</span>
     </div>
   </div>
 </footer>
 
-<script src="assets/releases.js" defer></script>
 </body>
 </html>
