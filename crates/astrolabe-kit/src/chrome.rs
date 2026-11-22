@@ -52,9 +52,27 @@ impl CommandBar {
     }
 }
 
-/// Draws the Astrolabe mark and uppercase tracked wordmark inside a command bar.
+/// The Astrolabe app icon (the Minerals icon with its lapis border), from
+/// `docs-theme/assets/astrolabe-icon-minerals.svg`, rendered at 96 px.
+const ICON_PNG: &[u8] = include_bytes!("../assets/astrolabe-icon.png");
+
+/// The icon's texture, decoded once per context and kept in its temporary data.
+fn icon_texture(ctx: &egui::Context) -> Option<egui::TextureHandle> {
+    let id = Id::unique("astrolabe_kit_icon");
+    if let Some(texture) = ctx.data(|d| d.get_temp::<egui::TextureHandle>(id)) {
+        return Some(texture);
+    }
+    let rgba = image::load_from_memory_with_format(ICON_PNG, image::ImageFormat::Png).ok()?.into_rgba8();
+    let size = [rgba.width() as usize, rgba.height() as usize];
+    let pixels = egui::ColorImage::from_rgba_unmultiplied(size, rgba.as_raw());
+    let texture = ctx.load_texture("astrolabe-icon", pixels, egui::TextureOptions::LINEAR);
+    ctx.data_mut(|d| d.insert_temp(id, texture.clone()));
+    Some(texture)
+}
+
+/// Draws the Astrolabe icon and uppercase tracked wordmark inside a command bar.
 pub fn masthead(ui: &mut Ui, wordmark: &str) -> Response {
-    let mark_size = 18.0;
+    let mark_size = 22.0;
     let mark_gap = 8.0;
     let job = theme::wordmark_job(wordmark, color::PARCHMENT);
     let word_w = theme::job_width(ui, job.clone());
@@ -62,9 +80,17 @@ pub fn masthead(ui: &mut Ui, wordmark: &str) -> Response {
     let (rect, resp) = ui.allocate_exact_size(vec2(total_w, metric::COMMAND_BAR - 2.0), Sense::hover());
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Label, true, wordmark));
 
+    let texture = icon_texture(ui.ctx());
     let p = ui.painter();
     let mark_min = pos2(rect.left(), (rect.center().y - mark_size * 0.5).floor());
-    draw::astrolabe_mark(p, mark_min, mark_size, color::PARCHMENT);
+    match texture {
+        Some(texture) => {
+            let mark_rect = Rect::from_min_size(mark_min, vec2(mark_size, mark_size));
+            let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0));
+            p.image(texture.id(), mark_rect, uv, Color32::WHITE);
+        }
+        None => draw::astrolabe_mark(p, mark_min, mark_size, color::PARCHMENT),
+    }
 
     let text_rect = Rect::from_min_max(pos2(mark_min.x + mark_size + mark_gap, rect.top()), rect.max);
     theme::paint_job(p, text_rect, job, Align::Min, false);

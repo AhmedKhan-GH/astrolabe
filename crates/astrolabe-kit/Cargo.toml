@@ -8,13 +8,13 @@ publish.workspace = true
 
 [features]
 default = []
-capture = ["dep:eframe", "dep:egui_kittest", "dep:image"]
+capture = ["dep:eframe", "dep:egui_kittest"]
 
 [dependencies]
 egui.workspace = true
 eframe = { workspace = true, optional = true }
 egui_kittest = { workspace = true, optional = true }
-image = { workspace = true, optional = true }
+image.workspace = true
 
 [dev-dependencies]
 eframe.workspace = true
