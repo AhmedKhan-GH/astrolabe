@@ -2,196 +2,40 @@
 prefix: RUN
 title: Runs
 order: 3
-summary: This pillar covers the tool contract, command routing, approval gates, isolated execution environments, workflow orchestration, and agent launch control.
+summary: This pillar executes background tasks, interactive agents, isolated Linux VMs, supervised workflows, and remote host sessions.
 features:
   - id: RUN-01
-    title: Tool Contract Crate
-    status: shipped
-    scope: core
-    source: astrolabe
-    source_ref: crates/astrolabe-contract
-    summary: The contract crate defines the Tool trait, typed command catalogs with effect levels, structured inspection, rendering, and stable astrolabe item references.
+    title: Background Service
+    status: planned
+    priority: core
+    docs: docs/architecture/architecture.md
+    summary: A persistent local daemon runs watchers, index syncs, quota probes, and supervised workflows while the main window stays closed.
     depends_on: []
 
   - id: RUN-02
-    title: Host Command Layer
-    status: shipped
-    scope: core
-    source: astrolabe
-    source_ref: crates/astrolabe
-    summary: The Astrolabe host routes command invocations to registered tools, logs actor-attributed history with undo data, and gates destructive or external actions.
-    depends_on: [RUN-01]
-
-  - id: RUN-03
-    title: Tart VM Guest Transport
-    status: existing
-    scope: core
-    source: artisan-apps
-    source_ref: src/target.rs
-    verdict: port
-    summary: Host-to-guest transport runs commands inside the Artisan macOS VM through tart exec, stages updater binaries in shared folders, and opens Screen Sharing.
-    depends_on: []
-
-  - id: RUN-04
-    title: Verified App Bundle Updater
-    status: existing
-    scope: supporting
-    source: artisan-apps
-    source_ref: src/install.rs
-    verdict: port
-    summary: Sequential single and batch updates run Homebrew upgrades, SHA-256 verified GitHub bundle swaps, and ArtCraft Launcher updates and leave active apps untouched.
-    depends_on: [OBS-08]
-
-  - id: RUN-05
-    title: Loggia Approval Gates and Send Lock
-    status: existing
-    scope: core
-    source: loggia
-    source_ref: approval.py
-    verdict: port
-    summary: Timed approval records hold form snapshots and trigger a recheck before a root-owned browser lock unlocks for one irreversible submission.
-    depends_on: []
-
-  - id: RUN-06
-    title: Loggia Push Notifications
-    status: existing
-    scope: core
-    source: loggia
-    source_ref: notify.py
-    verdict: port
-    summary: Self-hosted ntfy notifications deliver form screenshots, deep links, and one-tap approve or reject actions to mobile devices over Tailscale.
-    depends_on: []
-
-  - id: RUN-07
-    title: Loggia Container Desktops and Split Routing
-    status: existing
-    scope: core
-    source: loggia
-    source_ref: net/entrypoint.sh
-    verdict: port
-    summary: Paired Linux XFCE desktop and mihomo router containers separate AI provider traffic from proxied web traffic with kill switches and live allowlists.
-    depends_on: []
-
-  - id: RUN-08
-    title: Loggia Browser and Desktop Control
-    status: existing
-    scope: core
-    source: loggia
-    source_ref: desktop/page
-    verdict: port
-    summary: Programmatic browser commands and desktop pointer tools share screen coordinates and pause cleanly for human takeover and handback.
-    depends_on: [RUN-07]
-
-  - id: RUN-09
-    title: Loggia Model Ladder and Pack Runner
-    status: existing
-    scope: core
-    source: loggia
-    source_ref: packrun.py
-    verdict: port
-    summary: A generic pack runner builds scoped task packets, queues per-agent jobs with attached files, runs independent checks, and escalates across model tiers.
-    depends_on: [ITM-02, RUN-08, RUN-10]
-
-  - id: RUN-10
-    title: Loggia Keychain Secret Handover
-    status: existing
-    scope: core
-    source: loggia
-    source_ref: secretstore.py
-    verdict: port
-    summary: Keychain-backed credential storage writes only task-required keys into a temporary agent secrets file for one run and removes them immediately afterward.
-    depends_on: []
-
-  - id: RUN-11
-    title: Loggia Jobs Pack
-    status: existing
-    scope: peripheral
-    source: loggia
-    source_ref: packs/jobs/
-    verdict: retire
-    summary: The legacy Greenhouse dry-run job application pack, policy rules, verifier, and resume script retire in favor of the native Job Application Agent.
-    depends_on: [RUN-09]
-
-  - id: RUN-12
-    title: Falcon AI Crate
-    status: existing
-    scope: supporting
-    source: falcon
-    source_ref: crates/falcon-ai
-    verdict: reuse
-    summary: The reusable Rust crate manages AI provider settings and keys and exposes one interface for text, structured JSON output, and image input.
-    depends_on: []
-
-  - id: RUN-13
-    title: Falcon Server and MCP Crate
-    status: existing
-    scope: supporting
-    source: falcon
-    source_ref: crates/falcon-server
-    verdict: reuse
-    summary: The reusable Rust crate provides an Eagle-compatible local HTTP API and an MCP JSON-RPC tool surface over Falcon libraries.
-    depends_on: [ITM-03]
-
-  - id: RUN-14
     title: Agent Launcher
     status: planned
-    scope: core
-    source: astrolabe
-    summary: The launcher starts local and containerized agent runs, selects providers by live quota capacity, applies workspace boundaries, and enforces resource budgets.
-    depends_on: [OBS-01, OBS-09, OBS-11, RUN-02, RUN-07, RUN-10]
+    priority: core
+    summary: The workspace launcher starts interactive or background agents in selected repositories with scoped context and environment presets.
+    depends_on: [OBS-02, OBS-06, RUN-01]
 
-  - id: RUN-15
-    title: Job Application Agent
+  - id: RUN-03
+    title: Managed Linux VMs
     status: planned
-    scope: core
-    source: astrolabe
-    summary: A native Astrolabe workflow replaces the retired Loggia jobs pack with verified form checks, scoped facts, live observation, and approval-gated submission.
-    depends_on: [INT-11, RUN-09, RUN-14]
+    priority: core
+    summary: Astrolabe manages isolated Linux VMs with reproducible images, controlled filesystem mounts, and explicit CPU and memory budgets.
+    depends_on: [RUN-01]
 
-  - id: RUN-16
-    title: Declared Workflow Format
-    status: decision
-    scope: core
-    source: astrolabe
-    summary: This decision establishes the declared format that carries workflow specs, rules, checks, evidence, and history across local and hosted environments.
-    depends_on: []
-
-  - id: RUN-17
-    title: Workflow Spec and Evidence Runner
+  - id: RUN-04
+    title: Agent Workflows in Managed Linux VMs
     status: planned
-    scope: core
-    source: astrolabe
-    summary: The workflow runner requires an approved spec before execution, enforces durable rules and checks, and attaches diffs, tests, and captures as evidence.
-    depends_on: [ITM-18, RUN-14, RUN-16]
+    priority: core
+    summary: Multi-step agent workflows execute inside isolated Linux VMs with automated verification checks and human approval gates before external actions.
+    depends_on: [RUN-02, RUN-03]
 
-  - id: RUN-18
-    title: MCP Command Surface
+  - id: RUN-05
+    title: Remote Hosts
     status: planned
-    scope: core
-    source: astrolabe
-    summary: The host exposes every registered tool command catalog, inspection query, and render endpoint through one local MCP server for external agents.
-    depends_on: [RUN-02, RUN-13]
-
-  - id: RUN-19
-    title: Workspace Boundary Enforcement
-    status: planned
-    scope: core
-    source: astrolabe
-    summary: Workspace permission policies compile into native configuration and sandbox settings for each coding agent so repository and network rules persist automatically.
-    depends_on: [RUN-14]
-
-  - id: RUN-20
-    title: Out-of-Process Tool Transport
-    status: decision
-    scope: supporting
-    source: astrolabe
-    summary: This decision confirms the local socket protocol and message format used to connect non-Rust tools such as VectorCraft and Caliper adapters.
-    depends_on: []
-
-  - id: RUN-21
-    title: Out-of-Process Tool Adapter
-    status: planned
-    scope: supporting
-    source: astrolabe
-    summary: A host adapter wraps external control-port processes as standard Astrolabe tools so agents drive them through the unified command catalog.
-    depends_on: [RUN-02, RUN-20]
+    priority: core
+    summary: Encrypted host connections manage remote execution and live sessions across remote Linux and macOS machines.
+    depends_on: [RUN-01]

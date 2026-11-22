@@ -2,119 +2,73 @@
 prefix: OBS
 title: Observe
 order: 1
-summary: This pillar tracks live state across local repositories, AI provider accounts, local models, token usage, Artisan VM applications, and machine resources.
+summary: This pillar tracks live state across local repositories, GitHub accounts, AI provider quotas, local models, and host resources.
 features:
   - id: OBS-01
-    title: Astrolabe Engines
-    status: built
-    scope: core
-    source: astrolabe
-    source_ref: crates/astrolabe-engines
-    summary: Shared Rust observation engines unify repository discovery, git and GitHub checks, AI provider quota probes, and local Ollama memory monitors.
-    depends_on: [OBS-03, OBS-04, OBS-05, OBS-06, OBS-07]
-
-  - id: OBS-02
-    title: Repository Discovery and Watch
-    status: existing
-    scope: core
-    source: repo-monitor
-    source_ref: src/discover.rs
-    verdict: port
-    summary: Recursive read-only discovery finds git repositories under configured roots, tracks filesystem changes live, applies skip rules, and persists manual removals.
+    title: Repository Discovery and Live Watch
+    status: shipped
+    priority: core
+    docs: docs/apps/repos.md
+    summary: Read-only discovery finds Git repositories under watched folders, tracks file changes live, applies skip rules, and imports saved folder settings on first launch.
     depends_on: []
 
+  - id: OBS-02
+    title: Local Git and Remote Status Engine
+    status: shipped
+    priority: core
+    docs: docs/apps/repos.md
+    summary: Background workers inspect branches, uncommitted files, stashes, worktrees, submodules, remote divergence, GitHub visibility, account repository lists, and Repository Location state.
+    depends_on: [OBS-01]
+
   - id: OBS-03
-    title: Git and GitHub Status Engine
-    status: existing
-    scope: core
-    source: repo-monitor
-    source_ref: src/git.rs
-    verdict: port
-    summary: Background workers inspect branches, uncommitted files, stashes, worktrees, submodules, remote divergence, GitHub visibility, and duplicate clones of one remote.
-    depends_on: [OBS-02]
+    title: CLI Quota and Probe Runner
+    status: shipped
+    priority: core
+    docs: docs/apps/agents.md
+    summary: An isolated PTY runner reads usage screens for Claude, Kimi, and Antigravity and parses Codex rollout limits from local session files.
+    depends_on: []
 
   - id: OBS-04
-    title: CLI Quota and Probe Runner
-    status: existing
-    scope: core
-    source: agent-monitor
-    source_ref: src/pty.rs
-    verdict: port
-    summary: An isolated pseudo-terminal runner reads zero-quota usage screens for Claude, Kimi, and Antigravity, Codex rollout limits, and Kimi plan profiles.
+    title: Provider Quota API Adapters
+    status: shipped
+    priority: core
+    docs: docs/apps/agents.md
+    summary: Read-only HTTP adapters fetch account quotas and credit balances for GLM, ZCode, Mistral, MiniMax, DeepSeek, and Xiaomi with macOS Keychain keys.
     depends_on: []
 
   - id: OBS-05
-    title: Provider Quota API Adapters
-    status: existing
-    scope: core
-    source: agent-monitor
-    source_ref: src/limits/hosted.rs
-    verdict: port
-    summary: Read-only HTTP adapters read account quotas and credit balances for GLM, ZCode, Mistral, MiniMax, DeepSeek, and regional Xiaomi accounts via Keychain keys.
+    title: Local Ollama Memory Monitor
+    status: shipped
+    priority: core
+    docs: docs/apps/agents.md
+    summary: A five-second poller reads loaded Ollama models, GPU residency, memory pressure, and KV cache estimates with a ten-minute timeline.
     depends_on: []
 
   - id: OBS-06
-    title: Local Ollama Memory Monitor
-    status: existing
-    scope: core
-    source: agent-monitor
-    source_ref: src/limits/ollama.rs
-    verdict: port
-    summary: A five-second poller reads Ollama models, GPU residency, memory pressure, and estimated KV cache size with context warnings and a ten-minute timeline.
+    title: Installed Agent Tool Discovery
+    status: shipped
+    priority: supporting
+    docs: docs/apps/agents.md
+    summary: Background discovery detects local agent CLIs and desktop apps, checks tool versions and sign-in state, and loads native or bundled icons.
     depends_on: []
 
   - id: OBS-07
-    title: Installed Agent Tool Discovery
-    status: existing
-    scope: supporting
-    source: agent-monitor
-    source_ref: src/agents.rs
-    verdict: port
-    summary: Background discovery detects installed coding CLIs and desktop apps, checks saved sign-in state and tool versions, and loads native or embedded icons.
-    depends_on: []
+    title: GitHub Observation
+    status: planned
+    priority: core
+    summary: A GitHub observer tracks pull requests, review state, open issues, workflow runs, and release checks across tracked repositories.
+    depends_on: [OBS-02]
 
   - id: OBS-08
-    title: Artisan App Inventory
-    status: existing
-    scope: supporting
-    source: artisan-apps
-    source_ref: src/check.rs
-    verdict: port
-    summary: Live inventory reads installed Craft and creative apps inside the Artisan VM or locally and checks versions against cached GitHub releases.
-    depends_on: [RUN-03]
-
-  - id: OBS-09
-    title: Loggia Token Usage Metering
-    status: existing
-    scope: core
-    source: loggia
-    source_ref: usage.py
-    verdict: port
-    summary: A persistent SQLite ledger records token counts from Kimi, GLM, Claude, Codex, and Antigravity logs plus per-agent Ollama metering proxies.
-    depends_on: []
-
-  - id: OBS-10
-    title: Loggia Account Limit Poller
-    status: existing
-    scope: supporting
-    source: loggia
-    source_ref: limits.py
-    verdict: retire
-    summary: Loggia polls container-side CLI usage screens and Z.ai quotas in Python, and Astrolabe retires it in favor of Agent Monitor engines.
-    depends_on: []
-
-  - id: OBS-11
     title: Machine Resource Telemetry
     status: planned
-    scope: core
-    source: astrolabe
-    summary: Native host telemetry tracks physical memory, CPU load, active containers, and Artisan VM health to feed resource budgets and capacity views.
-    depends_on: [OBS-06, OBS-08]
+    priority: core
+    summary: Host telemetry measures physical memory, CPU load, GPU pressure, active Linux VMs, and remote host health for capacity views.
+    depends_on: [OBS-05, RUN-03, RUN-05]
 
-  - id: OBS-12
-    title: Cross-Tool Run and Commit Linking
+  - id: OBS-09
+    title: Remote Host Observation
     status: planned
-    scope: core
-    source: astrolabe
-    summary: Unified observation queries link each agent run with its metered token spend, target repository, branch state, and final git commits.
-    depends_on: [OBS-01, OBS-09, RUN-02]
+    priority: core
+    summary: Remote observers stream live repository, local model, and process state from connected Linux and macOS hosts into Astrolabe.
+    depends_on: [OBS-02, OBS-05, RUN-05]

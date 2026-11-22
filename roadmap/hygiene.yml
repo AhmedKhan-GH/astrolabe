@@ -2,84 +2,36 @@
 prefix: HYG
 title: Hygiene
 order: 5
-summary: This pillar covers documentation infrastructure, roadmap checks, local bundle signing, offscreen UI tests, continuous integration, and repository cleanup.
+summary: This pillar maintains deterministic demo fixtures, headless UI tests, macOS application bundles, and automated documentation verification.
 features:
   - id: HYG-01
-    title: Docs Server
-    status: built
-    scope: supporting
-    source: astrolabe
-    source_ref: docs/
-    summary: A local documentation build and server renders Astrolabe architecture, product direction, and roadmap pages with strict link and anchor checks.
-    depends_on: []
+    title: Deterministic Demo Mode
+    status: shipped
+    priority: supporting
+    docs: docs/development/development-basics.md
+    summary: The --demo flag loads isolated synthetic snapshots for Repos and Agents without local disk, Keychain, or network access.
+    depends_on: [INT-03, INT-04]
 
   - id: HYG-02
-    title: Roadmap Registry
+    title: Offscreen UI Snapshot and Interaction Harness
     status: shipped
-    scope: supporting
-    source: astrolabe
-    source_ref: roadmap/
-    summary: YAML pillar files, JSON Schema validation, dependency checks, and a Markdown generator maintain the capability catalog and Mermaid pillar graphs.
-    depends_on: []
+    priority: supporting
+    docs: docs/development/development-basics.md
+    summary: Headless egui_kittest suites verify keyboard, filter, and panel interactions and render offscreen PNG captures without desktop windows.
+    depends_on: [HYG-01]
 
   - id: HYG-03
-    title: Monitor Offscreen UI Tests
-    status: existing
-    scope: supporting
-    source: repo-monitor
-    source_ref: src/ui/snapshots.rs
-    verdict: port
-    summary: Headless egui_kittest harnesses render deterministic screenshots and verify drag-and-drop, filter, and manager interactions without desktop windows.
-    depends_on: []
+    title: macOS Application Bundle Builder
+    status: shipped
+    priority: supporting
+    docs: docs/development/development-basics.md
+    summary: The bundle script compiles the release binary, generates the application icon, writes Info.plist, and signs Astrolabe.app for macOS.
+    depends_on: [INT-03, INT-04]
 
   - id: HYG-04
-    title: Persistent Local Bundle Signing
-    status: existing
-    scope: supporting
-    source: agent-monitor
-    source_ref: scripts/signing.py
-    verdict: port
-    summary: A pinned local macOS signing certificate, atomic bundle installer with rollback, and Launch Services helper preserve Keychain approvals across app rebuilds.
+    title: Documentation and Roadmap Verification
+    status: shipped
+    priority: supporting
+    docs: docs/development/development-basics.md
+    summary: Automated scripts check documentation headings, validate roadmap schema and dependencies, and run strict MkDocs builds.
     depends_on: []
-
-  - id: HYG-05
-    title: Electron Packaging and Site Pipeline
-    status: existing
-    scope: supporting
-    source: astrolabe-electron
-    source_ref: scripts/release/
-    verdict: retire
-    summary: Legacy Node, pnpm, Electron Builder, and old-repository GitHub Pages scripts retire once the Rust workspace owns site and release automation.
-    depends_on: []
-
-  - id: HYG-06
-    title: Rust Style and CI Checks
-    status: planned
-    scope: supporting
-    source: astrolabe
-    summary: Continuous integration runs rustfmt, clippy, cargo test, headless UI snapshots, and roadmap checks on every pull request.
-    depends_on: [HYG-02, HYG-03]
-
-  - id: HYG-07
-    title: Docs Heading and Writing Check
-    status: planned
-    scope: supporting
-    source: astrolabe
-    summary: An automated script checks every documentation and roadmap heading against declarative Title Case rules and blocks personal paths before merge.
-    depends_on: [HYG-01, HYG-02]
-
-  - id: HYG-08
-    title: Public Site Migration and Electron Archive
-    status: decision
-    scope: supporting
-    source: astrolabe
-    summary: This decision settles when public website builds move to the Rust repository and when the legacy Electron repository moves to archive status.
-    depends_on: []
-
-  - id: HYG-09
-    title: Public Site Publishing Pipeline
-    status: planned
-    scope: supporting
-    source: astrolabe
-    summary: Automated workflows build and deploy the public landing page and documentation site directly from the Rust Astrolabe repository.
-    depends_on: [HYG-01, HYG-08]

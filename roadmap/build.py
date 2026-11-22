@@ -3,7 +3,7 @@
 Runs in three modes:
 - Script (single page, default):
     python3 roadmap/build.py [--output docs/roadmap/index.md] [--root REPO_ROOT]
-- Script (multi-page directory, Caliper style):
+- Script (multi-page directory):
     python3 roadmap/build.py --out DIR [--root REPO_ROOT]
 - MkDocs hook (`hooks:` in mkdocs.yml):
     adds roadmap/index.md, pillar pages, feature pages, roadmap/graph.json, and roadmap.json.
@@ -36,95 +36,35 @@ REGISTRY = Path(__file__).resolve().parent
 ROOT = REGISTRY.parent
 DEFAULT_OUTPUT = Path("docs") / "roadmap" / "index.md"
 
-STATUS_ORDER = ["shipped", "built", "existing", "planned", "idea", "decision"]
+STATUS_ORDER = ["shipped", "planned"]
 STATUS_RANK = {
     "shipped": 0,
-    "built": 1,
-    "existing": 1,
-    "planned": 2,
-    "idea": 2,
-    "decision": 2,
+    "planned": 1,
 }
-SHOWN_ORDER = ["shipped", "built", "progress", "existing", "planned", "idea", "decision"]
 SECTION_TITLES = {
     "shipped": "Shipped",
-    "built": "Built",
-    "progress": "In Progress",
-    "existing": "Existing",
     "planned": "Planned",
-    "idea": "Ideas",
-    "decision": "Decisions",
 }
 BADGE_LABELS = {
     "shipped": "Shipped",
-    "built": "Built",
-    "progress": "In Progress",
-    "existing": "Existing",
     "planned": "Planned",
-    "idea": "Idea",
-    "decision": "Decision",
 }
 STATUS_MEANINGS = {
-    "shipped": "Code runs on the Astrolabe main branch.",
-    "built": "Code lands in the current Astrolabe foundation wave.",
-    "existing": "Code runs today in a separate source repository.",
-    "planned": "Work sits on the Astrolabe implementation schedule.",
-    "idea": "Proposal waits for future evaluation.",
-    "decision": "Open choice blocks dependent capabilities.",
+    "shipped": "Astrolabe includes this feature in the current application.",
+    "planned": "Astrolabe schedules this feature for a future release.",
 }
-SCOPE_LABELS = {
+PRIORITY_LABELS = {
     "core": "Core",
     "supporting": "Supporting",
-    "peripheral": "Peripheral",
-}
-VERDICT_ORDER = ["port", "reuse", "retire"]
-VERDICT_LABELS = {
-    "port": "Port",
-    "reuse": "Reuse",
-    "retire": "Retire",
-    None: "Native",
-}
-VERDICT_MEANINGS = {
-    "port": "Rewrite or adapt into Astrolabe crates and panels.",
-    "reuse": "Depend on the existing Rust crate directly.",
-    "retire": "Replace or drop rather than carry into Astrolabe.",
-    None: "New or native Astrolabe capability.",
-}
-SOURCE_ORDER = [
-    "astrolabe",
-    "repo-monitor",
-    "agent-monitor",
-    "artisan-apps",
-    "loggia",
-    "falcon",
-    "astrolabe-electron",
-]
-SOURCE_LABELS = {
-    "astrolabe": "Astrolabe",
-    "repo-monitor": "Repo Monitor",
-    "agent-monitor": "Agent Monitor",
-    "artisan-apps": "Artisan Apps",
-    "loggia": "Loggia",
-    "falcon": "Falcon",
-    "astrolabe-electron": "Electron Astrolabe",
 }
 FEATURE_KEYS = [
     "id",
     "title",
     "status",
-    "scope",
+    "priority",
     "summary",
     "depends_on",
-    "source",
-    "source_ref",
-    "verdict",
-    "sprint",
     "docs",
-    "branches",
-    "in_progress",
-    "design",
-    "issue",
-    "draft",
 ]
 
 
@@ -409,7 +349,7 @@ def md(text):
     return _MD_SPECIAL.sub(r"\\\1", html.escape(str(text).strip(), quote=False))
 
 
-# Markdown heading parsing (aligned with Caliper)
+# Markdown heading parsing
 
 _FENCE = re.compile(r"^\s{0,3}(`{3,}|~{3,})")
 _ATX = re.compile(r"^\s{0,3}(#{1,6})[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$")
@@ -461,19 +401,6 @@ def read_headings(path):
         return None
 
 
-def first_heading(headings):
-    for level, text, _ in headings:
-        if level == 1:
-            return text
-    return None
-
-
-def shown_status(feature):
-    if feature["status"] == "built" and feature.get("in_progress"):
-        return "progress"
-    return feature["status"]
-
-
 def split_ref(ref):
     path, _, anchor = ref.partition("#")
     return path, (anchor or None)
@@ -516,9 +443,6 @@ def load_registry(root):
                 raise RegistryError("%s: %s: duplicate id" % (name, fid))
             feature = {key: raw.get(key) for key in FEATURE_KEYS}
             feature["depends_on"] = sorted(raw.get("depends_on") or [], key=id_key)
-            feature["branches"] = list(raw.get("branches") or [])
-            feature["in_progress"] = bool(raw.get("in_progress"))
-            feature["draft"] = bool(raw.get("draft"))
             feature["pillar"] = pillar["prefix"]
             feature["pillar_title"] = pillar["title"]
             feature["pillar_slug"] = pillar["slug"]
@@ -548,18 +472,13 @@ def _node_id(fid):
     return fid.replace("-", "_")
 
 
-def _mermaid_label(fid, title, verdict=None):
+def _mermaid_label(fid, title):
     clean = str(title).replace('"', "'")
-    if verdict:
-        return "%s %s [%s]" % (fid, clean, VERDICT_LABELS[verdict])
     return "%s %s" % (fid, clean)
 
 
 def _node_class(feature):
-    status = shown_status(feature)
-    if status == "existing":
-        return "existing_%s" % (feature.get("verdict") or "port")
-    return status
+    return feature["status"]
 
 
 def _pillar_mermaid(pillar, features):
@@ -575,11 +494,11 @@ def _pillar_mermaid(pillar, features):
     )
     lines = ["```mermaid", "flowchart LR"]
     for f in pillar["features"]:
-        label = _mermaid_label(f["id"], f["title"], f.get("verdict"))
+        label = _mermaid_label(f["id"], f["title"])
         lines.append('  %s["%s"]:::%s' % (_node_id(f["id"]), label, _node_class(f)))
     for dep in external_deps:
         target = features[dep]
-        label = _mermaid_label(target["id"], target["title"], target.get("verdict"))
+        label = _mermaid_label(target["id"], target["title"])
         lines.append('  %s["%s"]:::external' % (_node_id(dep), label))
     for f in pillar["features"]:
         for dep in f["depends_on"]:
@@ -587,32 +506,11 @@ def _pillar_mermaid(pillar, features):
             lines.append("  %s %s %s" % (_node_id(dep), arrow, _node_id(f["id"])))
     lines += [
         "  classDef shipped fill:#1b4332,stroke:#52b788,color:#f8f9fa",
-        "  classDef built fill:#1d3557,stroke:#74c0fc,color:#f8f9fa",
-        "  classDef progress fill:#1d3557,stroke:#ffd43b,color:#f8f9fa,stroke-dasharray:4 2",
-        "  classDef existing_port fill:#3d2c00,stroke:#f59f00,color:#fff9db",
-        "  classDef existing_reuse fill:#103c42,stroke:#22b8cf,color:#e3fafc",
-        "  classDef existing_retire fill:#4a151b,stroke:#ff6b6b,color:#ffe3e3,stroke-dasharray:4 2",
         "  classDef planned fill:#2b2d42,stroke:#9ca3af,color:#f8f9fa",
-        "  classDef idea fill:#2e1f47,stroke:#b197fc,color:#f3f0ff,stroke-dasharray:3 3",
-        "  classDef decision fill:#5c2b00,stroke:#ff922b,color:#fff4e6",
         "  classDef external fill:#1f242d,stroke:#868e96,color:#dee2e6,stroke-dasharray:5 3",
         "```",
     ]
     return lines
-
-
-def _format_source(feature):
-    src = feature.get("source")
-    label = SOURCE_LABELS.get(src, "Astrolabe") if src else "Astrolabe"
-    ref = feature.get("source_ref")
-    if ref:
-        return "%s (`%s`)" % (md(label), ref)
-    return md(label)
-
-
-def _format_verdict(feature):
-    verdict = feature.get("verdict")
-    return VERDICT_LABELS[verdict] if verdict in VERDICT_LABELS else "Native"
 
 
 def _format_deps(ids):
@@ -621,12 +519,21 @@ def _format_deps(ids):
     return ", ".join("`%s`" % fid for fid in ids)
 
 
+def _format_docs(base_dir, ref):
+    if not ref:
+        return "None"
+    path, _ = split_ref(ref)
+    if path.startswith("docs/"):
+        target = os.path.relpath(path[len("docs/"):], base_dir).replace(os.sep, "/")
+        return "[`%s`](%s)" % (Path(path).name, target)
+    return "`%s`" % ref
+
+
 def render_page(root):
     """Generates the single-page Markdown roadmap registry with per-pillar Mermaid graphs."""
     pillars, features = load_registry(root)
     all_features = [features[fid] for fid in sorted(features, key=id_key)]
     status_counts = Counter(f["status"] for f in all_features)
-    verdict_counts = Counter(f.get("verdict") for f in all_features)
     edge_count = sum(len(f["depends_on"]) for f in all_features)
 
     lines = [
@@ -634,14 +541,13 @@ def render_page(root):
         "",
         "# Roadmap",
         "",
-        "This page shows every capability in the Astrolabe registry across five pillars.",
-        "The registry tracks capabilities from prior repositories, current Astrolabe",
-        "foundation crates, planned panels, and open architectural decisions. Each external",
-        "capability carries a migration verdict of Port, Reuse, or Retire.",
+        "This page lists every product feature of Astrolabe across five pillars.",
+        "Each feature has a status of Shipped or Planned and lists its direct dependencies.",
+        "The dependency graphs show how planned features build on shipped foundations across pillars.",
         "",
         "## Registry Overview",
         "",
-        "The registry holds %d capabilities and %d direct dependency edges across %d pillars."
+        "The registry tracks %d features and %d dependency edges across %d pillars."
         % (len(all_features), edge_count, len(pillars)),
         "",
         "### Status Counts",
@@ -656,62 +562,24 @@ def render_page(root):
         )
     lines += [
         "",
-        "### Verdict Counts",
-        "",
-        "| Verdict | Count | Meaning |",
-        "| --- | ---: | --- |",
-    ]
-    for verdict in VERDICT_ORDER + [None]:
-        lines.append(
-            "| %s | %d | %s |"
-            % (VERDICT_LABELS[verdict], verdict_counts[verdict], VERDICT_MEANINGS[verdict])
-        )
-    lines += [
-        "",
-        "### Source Breakdown",
-        "",
-        "| Source | Total | Port | Reuse | Retire | Native |",
-        "| --- | ---: | ---: | ---: | ---: | ---: |",
-    ]
-    for src in SOURCE_ORDER:
-        group = [f for f in all_features if (f.get("source") or "astrolabe") == src]
-        if not group:
-            continue
-        lines.append(
-            "| %s | %d | %d | %d | %d | %d |"
-            % (
-                SOURCE_LABELS[src],
-                len(group),
-                sum(1 for f in group if f.get("verdict") == "port"),
-                sum(1 for f in group if f.get("verdict") == "reuse"),
-                sum(1 for f in group if f.get("verdict") == "retire"),
-                sum(1 for f in group if f.get("verdict") is None),
-            )
-        )
-    lines += [
-        "",
         "### Pillar Breakdown",
         "",
-        "| Pillar | Prefix | Total | Shipped | Built | Existing | Planned | Idea | Decision |",
-        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "| Pillar | Prefix | Total | Shipped | Planned |",
+        "| --- | --- | ---: | ---: | ---: |",
     ]
     for p in pillars:
         pf = p["features"]
         pcounts = Counter(f["status"] for f in pf)
         anchor = slugify(p["title"], "-")
         lines.append(
-            "| [%s](#%s) | `%s` | %d | %d | %d | %d | %d | %d | %d |"
+            "| [%s](#%s) | `%s` | %d | %d | %d |"
             % (
                 md(p["title"]),
                 anchor,
                 p["prefix"],
                 len(pf),
                 pcounts["shipped"],
-                pcounts["built"],
-                pcounts["existing"],
                 pcounts["planned"],
-                pcounts["idea"],
-                pcounts["decision"],
             )
         )
     lines.append("")
@@ -726,73 +594,28 @@ def render_page(root):
         lines += _pillar_mermaid(p, features)
         lines += [
             "",
-            "| ID | Capability | Status | Scope | Source | Verdict | Depends On | Summary |",
-            "| --- | --- | --- | --- | --- | --- | --- | --- |",
+            "| ID | Feature | Status | Priority | Depends On | Docs | Summary |",
+            "| --- | --- | --- | --- | --- | --- | --- |",
         ]
         for f in p["features"]:
-            shown = shown_status(f)
             lines.append(
-                "| `%s` | %s | %s | %s | %s | %s | %s | %s |"
+                "| `%s` | %s | %s | %s | %s | %s | %s |"
                 % (
                     f["id"],
                     md(f["title"]),
-                    BADGE_LABELS[shown],
-                    SCOPE_LABELS[f["scope"]],
-                    _format_source(f),
-                    _format_verdict(f),
+                    BADGE_LABELS[f["status"]],
+                    PRIORITY_LABELS[f["priority"]],
                     _format_deps(f["depends_on"]),
+                    _format_docs("roadmap", f.get("docs")),
                     md(f["summary"]),
                 )
             )
         lines.append("")
 
-    external = [f for f in all_features if f.get("verdict") is not None]
-    lines += [
-        "## Migration Matrix",
-        "",
-        "This table lists every existing capability from external repositories with its assigned verdict.",
-        "",
-        "| Source | ID | Capability | Pillar | Verdict | Location | Summary |",
-        "| --- | --- | --- | --- | --- | --- | --- |",
-    ]
-    src_rank = {s: i for i, s in enumerate(SOURCE_ORDER)}
-    for f in sorted(external, key=lambda x: (src_rank.get(x["source"], 99), id_key(x["id"]))):
-        loc = "`%s`" % f["source_ref"] if f.get("source_ref") else "None"
-        lines.append(
-            "| %s | `%s` | %s | %s | %s | %s | %s |"
-            % (
-                SOURCE_LABELS[f["source"]],
-                f["id"],
-                md(f["title"]),
-                md(f["pillar_title"]),
-                _format_verdict(f),
-                loc,
-                md(f["summary"]),
-            )
-        )
-    lines.append("")
     return "\n".join(lines)
 
 
-# Caliper-compatible multi-page and JSON generators
-
-def _heading_link(root, base_dir, ref, kind):
-    path, anchor = split_ref(ref)
-    headings = read_headings(Path(root) / path) or []
-    title = first_heading(headings) or path
-    text = title
-    if anchor:
-        for _, htext, slug in headings:
-            if slug == anchor:
-                text = "%s, %s" % (title, htext)
-                break
-    if kind == "docs" and path.startswith("docs/"):
-        target = os.path.relpath(path[len("docs/"):], base_dir).replace(os.sep, "/")
-        if anchor:
-            target += "#" + anchor
-        return "[%s](%s)" % (md(text), target)
-    return "`%s`" % ref
-
+# Multi-page and JSON generators
 
 def _feature_links(ids, features):
     if not ids:
@@ -808,59 +631,35 @@ def pillar_page(pillar, features):
         "",
         md(pillar["summary"]),
         "",
-        "Return to the [Roadmap](index.md) for cross-pillar counts and the migration matrix.",
+        "Return to [Roadmap](index.md) for cross-pillar counts and the full feature list.",
         "",
     ]
     lines += _pillar_mermaid(pillar, features)
     lines.append("")
-    for status in SHOWN_ORDER:
-        items = [f for f in pillar["features"] if shown_status(f) == status]
+    for status in STATUS_ORDER:
+        items = [f for f in pillar["features"] if f["status"] == status]
         if not items:
             continue
         lines += ["## " + SECTION_TITLES[status], ""]
         for f in items:
-            extra = []
-            if f.get("source"):
-                extra.append("Source: %s" % SOURCE_LABELS.get(f["source"], f["source"]))
-            if f.get("verdict"):
-                extra.append("Verdict: %s" % VERDICT_LABELS[f["verdict"]])
-            suffix = (" (%s)" % ", ".join(extra)) if extra else ""
             lines.append(
-                "- `%s` [%s](%s.md)%s. %s"
-                % (f["id"], md(f["title"]), f["id"].lower(), suffix, md(f["summary"]))
+                "- `%s` [%s](%s.md). %s"
+                % (f["id"], md(f["title"]), f["id"].lower(), md(f["summary"]))
             )
         lines.append("")
     return "\n".join(lines)
 
 
-def feature_page(feature, pillars_by_prefix, features, root):
+def feature_page(feature, pillars_by_prefix, features):
     pillar = pillars_by_prefix[feature["pillar"]]
-    shown = shown_status(feature)
-    docs = (
-        _heading_link(root, "roadmap", feature["docs"], "docs")
-        if feature["docs"]
-        else "None"
-    )
-    design = "`%s`" % feature["design"] if feature["design"] else "None"
-    branches = (
-        "<br>".join("`%s`" % b for b in feature["branches"])
-        if feature["branches"]
-        else "None"
-    )
     rows = [
         ("ID", "`%s`" % feature["id"]),
-        ("Status", BADGE_LABELS[shown]),
-        ("Scope", SCOPE_LABELS[feature["scope"]]),
+        ("Status", BADGE_LABELS[feature["status"]]),
+        ("Priority", PRIORITY_LABELS[feature["priority"]]),
         ("Pillar", "[%s](%s.md)" % (md(pillar["title"]), pillar["slug"])),
-        ("Source", _format_source(feature)),
-        ("Verdict", _format_verdict(feature)),
-        ("Sprint", str(feature["sprint"]) if feature["sprint"] else "None"),
         ("Depends On", _feature_links(feature["depends_on"], features)),
         ("Unblocks", _feature_links(feature["unblocks"], features)),
-        ("Docs", docs),
-        ("Branches", branches),
-        ("Design", design),
-        ("Issue", "#%d" % feature["issue"] if feature["issue"] else "None"),
+        ("Docs", _format_docs("roadmap", feature.get("docs"))),
     ]
     lines = ["# " + md(feature["title"]), "", md(feature["summary"]), ""]
     lines += ["| Field | Value |", "| --- | --- |"]
@@ -882,16 +681,10 @@ def graph_json(pillars, features):
                 "id": f["id"],
                 "title": f["title"],
                 "status": f["status"],
-                "scope": f["scope"],
-                "in_progress": f["in_progress"],
+                "priority": f["priority"],
                 "pillar": f["pillar"],
-                "source": f["source"],
-                "source_ref": f["source_ref"],
-                "verdict": f["verdict"],
                 "summary": f["summary"],
-                "sprint": f["sprint"],
-                "branches": f["branches"],
-                "draft": f["draft"],
+                "docs": f["docs"],
                 "url": f["id"].lower() + "/",
             }
         )
@@ -901,12 +694,11 @@ def graph_json(pillars, features):
             edges.append(
                 {
                     "id": "%s>%s" % (dep, f["id"]),
-                    "source": dep,
-                    "target": f["id"],
-                    "draft": f["draft"],
+                    "from": dep,
+                    "to": f["id"],
                 }
             )
-    edges.sort(key=lambda e: (id_key(e["target"]), id_key(e["source"])))
+    edges.sort(key=lambda e: (id_key(e["to"]), id_key(e["from"])))
     return _dump(
         {
             "pillars": [
@@ -946,21 +738,12 @@ def registry_json(pillars, features, site):
                     "id": f["id"],
                     "title": f["title"],
                     "status": f["status"],
-                    "scope": f["scope"],
+                    "priority": f["priority"],
                     "pillar": f["pillar"],
-                    "source": f["source"],
-                    "source_ref": f["source_ref"],
-                    "verdict": f["verdict"],
                     "summary": f["summary"],
                     "depends_on": f["depends_on"],
                     "unblocks": f["unblocks"],
-                    "sprint": f["sprint"],
                     "docs": f["docs"],
-                    "branches": f["branches"],
-                    "in_progress": f["in_progress"],
-                    "design": f["design"],
-                    "issue": f["issue"],
-                    "draft": f["draft"],
                     "url": "%sroadmap/%s/" % (site, f["id"].lower()),
                 }
                 for f in sorted(features.values(), key=lambda f: id_key(f["id"]))
@@ -982,7 +765,7 @@ def generate(root, site=DEFAULT_SITE):
         out.append(
             (
                 "roadmap/%s.md" % fid.lower(),
-                feature_page(features[fid], by_prefix, features, root),
+                feature_page(features[fid], by_prefix, features),
                 False,
             )
         )

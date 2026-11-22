@@ -23,18 +23,16 @@ try:
 except ImportError:
     _jsonschema = None
 
+sys.dont_write_bytecode = True
 import build
-
-STATUSES = build.STATUS_ORDER
-VERDICTS = build.VERDICT_ORDER
 
 MINOR_WORDS = frozenset(
     "a an the and but or nor for so yet as at by in of on per to up via vs "
     "with from into onto over than".split()
 )
 IDENTIFIER_WORDS = frozenset(
-    "macos ios npm pip uv git ctest cmake caliper astrolabe egui rustfmt clippy "
-    "ntfy mihomo tart zcode arm64 x86".split()
+    "macos ios npm pip uv git cargo rustc rustup egui sqlite astrolabe rustfmt clippy "
+    "zcode arm64 x86".split()
 )
 ARTICLE_WORDS = {"the", "a", "an"}
 IDENTIFIER_CHARS = re.compile(r"[._/\\=()<>]")
@@ -66,7 +64,7 @@ PRIVACY_PATTERNS = [
 ]
 
 
-# Title rule checks (adapted from Caliper's check_doc_headings.py)
+# Title rule checks
 
 def _strip_inline(text):
     spans = []
@@ -414,8 +412,6 @@ def run_checks(root, output_path=None, check_output=True):
             reason = judge_title(f["title"])
             if reason:
                 errors.append('%s: %s: title "%s" %s' % (name, fid, f["title"], reason))
-            if f.get("source") == "astrolabe" and f.get("verdict") is not None:
-                errors.append("%s: %s: native astrolabe feature must not carry a verdict" % (name, fid))
 
     graph = {}
     for fid, (name, f) in sorted(features.items(), key=lambda item: build.id_key(item[0])):
@@ -436,9 +432,8 @@ def run_checks(root, output_path=None, check_output=True):
 
     rank = build.STATUS_RANK
     for fid, (name, f) in sorted(features.items(), key=lambda item: build.id_key(item[0])):
-        for field in ("docs", "design"):
-            if f.get(field):
-                _check_ref(root, name, fid, field, f[field], errors)
+        if f.get("docs"):
+            _check_ref(root, name, fid, "docs", f["docs"], errors)
         for dep in f.get("depends_on") or []:
             if dep in features and dep != fid:
                 dep_feature = features[dep][1]
@@ -448,20 +443,6 @@ def run_checks(root, output_path=None, check_output=True):
                         "%s: %s: %s depends on %s, which is %s and has a higher status rank"
                         % (name, fid, f["status"], dep, dstatus)
                     )
-                if f.get("verdict") != "retire" and dep_feature.get("verdict") == "retire":
-                    errors.append(
-                        "%s: %s: active feature depends on retired capability %s"
-                        % (name, fid, dep)
-                    )
-
-    try:
-        _, loaded = build.load_registry(root)
-    except build.RegistryError:
-        loaded = None
-    if loaded is not None:
-        for fid, f in sorted(loaded.items(), key=lambda item: build.id_key(item[0])):
-            if f["status"] == "decision" and not f["unblocks"]:
-                errors.append("%s: %s: decision that no feature depends on" % (f["file"], fid))
 
     def reach(start, seen):
         for nxt in graph.get(start, []):
@@ -474,8 +455,6 @@ def run_checks(root, output_path=None, check_output=True):
         for fid, (name, f) in sorted(features.items(), key=lambda item: build.id_key(item[0])):
             deps = [d for d in graph[fid] if d in features and d != fid]
             for dep in sorted(deps, key=build.id_key):
-                if features[dep][1]["status"] == "decision":
-                    continue
                 for other in sorted(deps, key=build.id_key):
                     if other != dep and dep in reach(other, set()):
                         warnings.append(
@@ -512,16 +491,12 @@ def run_checks(root, output_path=None, check_output=True):
                         errors.append('%s: -: heading "%s" %s' % (target, text, reason))
 
     status_counts = Counter(f["status"] for _, f in features.values())
-    verdict_counts = Counter(f.get("verdict") for _, f in features.values())
     edges = sum(len(v) for v in graph.values())
-    status_part = ", ".join("%d %s" % (status_counts[s], s) for s in STATUSES)
-    verdict_part = ", ".join("%d %s" % (verdict_counts[v], v) for v in VERDICTS)
-    verdict_part += ", %d native" % verdict_counts[None]
-    summary = "%d features, %d edges (%s; verdicts: %s)" % (
+    summary = "%d features, %d edges (%d shipped, %d planned)" % (
         len(features),
         edges,
-        status_part,
-        verdict_part,
+        status_counts["shipped"],
+        status_counts["planned"],
     )
     return errors, warnings, summary
 

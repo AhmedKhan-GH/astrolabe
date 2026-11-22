@@ -2,147 +2,64 @@
 prefix: INT
 title: Interface
 order: 4
-summary: This pillar covers the shared Rust UI kit, desktop host panels, migrated monitor interfaces, planned workspace views, and retired legacy shells.
+summary: This pillar provides the shared UI kit, native window shell, current Repos and Agents workspaces, and planned triage views.
 features:
   - id: INT-01
     title: Astrolabe Kit
-    status: built
-    scope: core
-    source: astrolabe
-    source_ref: crates/astrolabe-kit
-    summary: The shared Rust UI kit extracts the Artisan theme, shell chrome, settings store, Keychain helpers, SQLite helpers, and probe primitives into one crate.
-    depends_on: [INT-06]
+    status: shipped
+    priority: core
+    docs: docs/interface/ui-principles.md
+    summary: The shared UI kit provides the mineral palette, typography tokens, shell chrome, data tables, summary tiles, and status chips.
+    depends_on: []
 
   - id: INT-02
-    title: Repos Panel
-    status: built
-    scope: core
-    source: astrolabe
-    source_ref: crates/astrolabe
-    summary: The native Repos panel renders repository lists, folders, smart queries, tags, and inspector totals inside Astrolabe on top of shared engines.
-    depends_on: [INT-01, INT-04, OBS-01]
+    title: Application Shell and Navigation
+    status: shipped
+    priority: core
+    docs: docs/architecture/architecture.md
+    summary: The native desktop shell hosts the command bar, sidebar rail, panel switcher, status bar, and keyboard shortcuts.
+    depends_on: [INT-01]
 
   - id: INT-03
-    title: Agents Panel
-    status: built
-    scope: core
-    source: astrolabe
-    source_ref: crates/astrolabe
-    summary: The native Agents panel shows live AI subscription quota bars, provider credit balances, Ollama model memory, and Keychain settings inside Astrolabe.
-    depends_on: [INT-01, INT-05, OBS-01]
+    title: Repos Workspace, Watched Folders, and Repository Location
+    status: shipped
+    priority: core
+    docs: docs/apps/repos.md
+    summary: The Repos workspace provides a three-pane view, location filters, inline watched-folder controls, a repository inspector, and quick IDE, Finder, and Terminal actions.
+    depends_on: [INT-02, ITM-01]
 
   - id: INT-04
-    title: Repo Monitor Three-Pane Shell
-    status: existing
-    scope: core
-    source: repo-monitor
-    source_ref: src/ui.rs
-    verdict: port
-    summary: The three-pane sidebar, repository list, inspector, and folder manager provide keyboard shortcuts, drag-and-drop folders, group modes, sort orders, and quick IDE actions.
-    depends_on: [ITM-01]
+    title: Agents Workspace and Keychain Settings
+    status: shipped
+    priority: core
+    docs: docs/apps/agents.md
+    summary: The Agents workspace displays quota bars, reset timers, an Ollama memory table, installed tools, and a modal for macOS Keychain keys.
+    depends_on: [INT-02, OBS-03, OBS-04, OBS-05, OBS-06]
 
   - id: INT-05
-    title: Agent Monitor Limits Interface
-    status: existing
-    scope: core
-    source: agent-monitor
-    source_ref: src/ui/limits.rs
-    verdict: port
-    summary: The Limits and Settings UI displays threshold usage bars, reset countdowns, Ollama GPU and KV cache tables, and provider Keychain forms.
-    depends_on: [OBS-04, OBS-05, OBS-06, OBS-07]
-
-  - id: INT-06
-    title: Artisan Apps Catalog Shell
-    status: existing
-    scope: supporting
-    source: artisan-apps
-    source_ref: src/ui.rs
-    verdict: port
-    summary: The native egui launcher displays Craft and creative apps with cached icons, active indicators, update status rows, and Artisan UI components.
-    depends_on: [RUN-04]
-
-  - id: INT-07
-    title: Loggia Web Dashboard
-    status: existing
-    scope: supporting
-    source: loggia
-    source_ref: dashboard/template.html
-    verdict: retire
-    summary: The mixed HTML and React browser dashboard for desktops, limits, usage, jobs, and knowledge retires as native Astrolabe panels replace it.
-    depends_on: [OBS-09, OBS-10, RUN-09]
-
-  - id: INT-08
-    title: Electron Three-Pane Shell
-    status: existing
-    scope: supporting
-    source: astrolabe-electron
-    source_ref: src/renderer/src/frame/
-    verdict: retire
-    summary: The legacy Electron and React Rail, River, Detail Panel, and Command-K shell retires as Astrolabe consolidates onto its native Rust host.
-    depends_on: [ITM-09]
-
-  - id: INT-09
     title: Overview
     status: planned
-    scope: core
-    source: astrolabe
-    summary: The Overview panel summarizes active agent runs, open approvals, quota pressure, loose ends, machine health, and recent commits in one home view.
-    depends_on: [INT-02, INT-03, INT-10, INT-11, INT-12, OBS-12]
+    priority: core
+    summary: The Overview panel summarizes active repositories, agent runs, quota alerts, and recent knowledge activity in one home view.
+    depends_on: [INT-06, INT-07, INT-08]
 
-  - id: INT-10
+  - id: INT-06
     title: Loose Ends
     status: planned
-    scope: core
-    source: astrolabe
-    summary: The Loose Ends panel collects uncommitted changes, stale branches, unpushed commits, and abandoned work items across repositories and agent sessions.
-    depends_on: [INT-01, ITM-01, ITM-18, OBS-01]
+    priority: core
+    summary: The Loose Ends view surfaces uncommitted work, unpushed branches, stale worktrees, and unfinished drafts across tracked projects.
+    depends_on: [INT-03, ITM-04, OBS-07]
 
-  - id: INT-11
+  - id: INT-07
     title: Needs You
     status: planned
-    scope: core
-    source: astrolabe
-    summary: The Needs You panel unites destructive command approvals, open knowledge questions, blocked agent runs, and mobile notification triage in one queue.
-    depends_on: [INT-01, ITM-02, RUN-02, RUN-05, RUN-06]
+    priority: core
+    summary: The Needs You queue collects blocked agent workflows, review checkpoints, and open human decisions in one action list.
+    depends_on: [INT-02, OBS-07, RUN-04]
 
-  - id: INT-12
+  - id: INT-08
     title: Machine
     status: planned
-    scope: core
-    source: astrolabe
-    summary: The Machine panel presents physical memory, Ollama GPU and KV cache load, active containers, Artisan VM state, and per-run resource budgets.
-    depends_on: [INT-01, OBS-11]
-
-  - id: INT-13
-    title: Falcon Desktop App Patterns
-    status: existing
-    scope: supporting
-    source: falcon
-    source_ref: crates/falcon-app
-    verdict: port
-    summary: Selected asset grid, waterfall layout, media viewer, capture, and inspector patterns port into Astrolabe while Falcon remains a standalone open-source app.
-    depends_on: [ITM-04, ITM-05, ITM-06, ITM-08, RUN-12, RUN-13]
-
-  - id: INT-14
-    title: Library and Reader Panel
-    status: planned
-    scope: core
-    source: astrolabe
-    summary: The Library and Reader panel browses indexed documents, PDFs, notes, and media inside Astrolabe on top of Falcon crates and Rust connectors.
-    depends_on: [INT-01, INT-13, INT-16, ITM-17, ITM-19]
-
-  - id: INT-15
-    title: Caliper Embedded Panel
-    status: idea
-    scope: peripheral
-    source: astrolabe
-    summary: An embedded panel hosts live Caliper machine-learning views through libcaliper while Caliper commands join the Astrolabe tool catalog.
-    depends_on: [INT-01, RUN-21]
-
-  - id: INT-16
-    title: Rich Text and Reading Toolkit
-    status: decision
-    scope: core
-    source: astrolabe
-    summary: This decision selects how egui panes combine with falcon-pdf, native views, or a contained web view for long-form documents and text editors.
-    depends_on: []
+    priority: core
+    summary: The Machine panel displays host memory, Ollama GPU and KV cache usage, active Linux VMs, and remote host capacity.
+    depends_on: [INT-04, OBS-08, OBS-09]
