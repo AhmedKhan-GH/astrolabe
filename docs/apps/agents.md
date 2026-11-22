@@ -83,7 +83,7 @@ Installed models appear in a sorted table with loaded models first and alphabeti
 
 ## Keychain Settings
 
-The API Key Settings modal manages optional credentials for five hosted providers. Astrolabe stores keys only in the macOS login Keychain. Each provider worker caches its first Keychain read in private memory. As a result, periodic polls do not trigger repeated macOS access prompts.
+The API Key Settings modal manages optional credentials for five hosted providers. Astrolabe stores keys only under the `Astrolabe` service in the macOS login Keychain. When a key is absent under `Astrolabe`, Astrolabe imports a standalone agent key once into `Astrolabe` if one is present. Astrolabe leaves the earlier Keychain item unchanged. Each provider worker caches its first Keychain read in private memory. As a result, periodic polls do not cause repeated macOS access prompts.
 
 The modal displays a `Key Stored` or `No Key` chip and masks characters in a password field. Any provider change or modal close clears unsaved input. `Save` commits a non-empty key, `Remove` deletes the stored entry, and `Close` exits without changes. Every explicit save or removal increments a cache revision and discards stale poll results.
 

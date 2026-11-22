@@ -60,9 +60,9 @@ In demo mode, Repos starts an idle engine with 11 synthetic repositories under `
 
 Astrolabe stores plain TOML configuration and view state under `~/Library/Application Support/Astrolabe/`. Three files keep responsibilities clear: `config.toml` holds watched folders and skip rules, `organize.toml` holds manual folders and tags, and `window.toml` holds active panel preferences. Local caches live under `~/Library/Caches/astrolabe/`.
 
-Agent CLI probes execute inside a dedicated empty probe folder under `~/Library/Application Support/` and never touch project repositories. If a probe leaves unexpected files in that directory, the status bar raises a warning.
+Agent support files live under `~/Library/Application Support/Astrolabe/agents`, and agent caches live under `~/Library/Caches/astrolabe/agents`. CLI probes run inside an empty probe folder at `~/Library/Application Support/Astrolabe/agents/probe` that stays isolated from project repositories. If a probe leaves unexpected files in that folder, the status bar shows a warning.
 
-Optional API keys for hosted providers live only in the macOS login Keychain and never enter TOML files. Each provider worker caches its first Keychain lookup in private memory. Thus periodic polls do not trigger repeated macOS access dialogs.
+Provider API keys use the `Astrolabe` service in the macOS login Keychain and never enter TOML files. Each provider worker caches its first Keychain lookup in private memory. Thus periodic polls do not cause repeated macOS access dialogs.
 
 ## Planned Architecture
 

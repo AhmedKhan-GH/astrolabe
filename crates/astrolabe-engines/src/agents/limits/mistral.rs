@@ -104,7 +104,7 @@ pub fn check(key: Option<&str>) -> Limit {
         .timeout_global(Some(Duration::from_secs(8)))
         .http_status_as_error(false)
         .max_redirects(0)
-        .user_agent("agent-monitor")
+        .user_agent("astrolabe")
         .build()
         .new_agent();
     let body = match request(&agent, BUDGET_URL, key) {

@@ -124,7 +124,7 @@ pub fn forget_probe_history(history: &Path, probe: &Path) {
         return;
     }
     let kept: String = text.lines().filter(|l| !ours(l)).map(|l| format!("{l}\n")).collect();
-    let tmp = history.with_extension("jsonl.agent-monitor");
+    let tmp = history.with_extension("jsonl.astrolabe");
     if std::fs::write(&tmp, kept).is_ok() {
         #[cfg(unix)]
         {
@@ -239,9 +239,10 @@ mod tests {
     fn removes_only_the_probe_folders_lines() {
         let dir = tempfile::tempdir().unwrap();
         let history = dir.path().join("history.jsonl");
-        let probe = std::path::Path::new("/x/Agent Monitor/probe");
+        let probe = std::path::Path::new("/x/Astrolabe/agents/probe");
         let mine = r#"{"display":"/model","timestamp":1,"workspace":"/opt/workspaces/sample","type":"slash_command"}"#;
-        let ours = r#"{"display":"/usage","timestamp":2,"workspace":"/x/Agent Monitor/probe","type":"slash_command"}"#;
+        let ours =
+            r#"{"display":"/usage","timestamp":2,"workspace":"/x/Astrolabe/agents/probe","type":"slash_command"}"#;
         std::fs::write(&history, format!("{mine}\n{ours}\n{mine}\n")).unwrap();
         forget_probe_history(&history, probe);
         assert_eq!(std::fs::read_to_string(&history).unwrap(), format!("{mine}\n{mine}\n"));

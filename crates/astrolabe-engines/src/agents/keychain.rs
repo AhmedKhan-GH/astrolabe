@@ -4,8 +4,10 @@
 
 use super::model::Provider;
 
-pub const SERVICE: &str = "Agent Monitor";
-// Preserve the existing GLM item so upgrades retain the user's key and approval.
+pub const SERVICE: &str = "Astrolabe";
+/// Read-only Keychain service name for one-time import of standalone agent keys.
+pub const AGENT_MONITOR_SERVICE: &str = "Agent Monitor";
+// Preserve the existing GLM account name so imported keys keep their slot.
 pub const ACCOUNT: &str = "glm-coding-plan";
 pub const KEY_PROVIDERS: &[Provider] =
     &[Provider::Glm, Provider::Mistral, Provider::MiniMax, Provider::DeepSeek, Provider::Xiaomi];
@@ -80,10 +82,28 @@ impl CachedKey {
     }
 }
 
-#[cfg(target_os = "macos")]
-fn key(provider: Provider) -> KeyRead {
+#[cfg(any(target_os = "macos", test))]
+fn read_or_import(
+    provider: Provider,
+    mut get: impl FnMut(&str, &str) -> KeyRead,
+    mut set: impl FnMut(&str, &str, &str) -> Result<(), String>,
+) -> KeyRead {
     let account = account(provider)?;
-    match security_framework::passwords::get_generic_password(SERVICE, account) {
+    match get(SERVICE, account)? {
+        Some(value) => Ok(Some(value)),
+        None => match get(AGENT_MONITOR_SERVICE, account) {
+            Ok(Some(value)) => {
+                let _ = set(SERVICE, account, &value);
+                Ok(Some(value))
+            }
+            Ok(None) | Err(_) => Ok(None),
+        },
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn get_generic(service: &str, account: &str) -> KeyRead {
+    match security_framework::passwords::get_generic_password(service, account) {
         Ok(bytes) => String::from_utf8(bytes)
             .map(|value| if value.trim().is_empty() { None } else { Some(value) })
             .map_err(|_| "The stored API key is invalid".into()),
@@ -93,9 +113,19 @@ fn key(provider: Provider) -> KeyRead {
 }
 
 #[cfg(target_os = "macos")]
-fn set_key(provider: Provider, value: &str) -> Result<(), String> {
-    security_framework::passwords::set_generic_password(SERVICE, account(provider)?, value.as_bytes())
+fn set_generic(service: &str, account: &str, value: &str) -> Result<(), String> {
+    security_framework::passwords::set_generic_password(service, account, value.as_bytes())
         .map_err(|_| "Couldn't store the API key in the Keychain".into())
+}
+
+#[cfg(target_os = "macos")]
+fn key(provider: Provider) -> KeyRead {
+    read_or_import(provider, get_generic, set_generic)
+}
+
+#[cfg(target_os = "macos")]
+fn set_key(provider: Provider, value: &str) -> Result<(), String> {
+    set_generic(SERVICE, account(provider)?, value)
 }
 
 #[cfg(target_os = "macos")]
@@ -132,12 +162,160 @@ mod tests {
 
     #[test]
     fn provider_accounts_are_fixed_and_distinct() {
-        assert_eq!(SERVICE, "Agent Monitor");
+        assert_eq!(SERVICE, "Astrolabe");
+        assert_eq!(AGENT_MONITOR_SERVICE, "Agent Monitor");
         assert_eq!(account(Provider::Glm).unwrap(), "glm-coding-plan");
+        assert_eq!(account(Provider::Mistral).unwrap(), "mistral-api");
+        assert_eq!(account(Provider::MiniMax).unwrap(), "minimax-api");
+        assert_eq!(account(Provider::DeepSeek).unwrap(), "deepseek-api");
+        assert_eq!(account(Provider::Xiaomi).unwrap(), "xiaomi-token-plan");
         let accounts: Vec<_> = KEY_PROVIDERS.iter().map(|&p| account(p).unwrap()).collect();
         let unique: std::collections::HashSet<_> = accounts.iter().collect();
         assert_eq!(unique.len(), accounts.len());
         assert!(account(Provider::Claude).is_err());
+    }
+
+    #[test]
+    fn read_or_import_returns_astrolabe_key_without_checking_import_service() {
+        let mut queries = Vec::new();
+        let result = read_or_import(
+            Provider::Glm,
+            |service, acct| {
+                queries.push((service.to_owned(), acct.to_owned()));
+                assert_eq!(service, SERVICE);
+                Ok(Some("astrolabe-fixture".into()))
+            },
+            |_, _, _| panic!("must not write when Astrolabe already has the key"),
+        );
+        assert_eq!(result, Ok(Some("astrolabe-fixture".into())));
+        assert_eq!(queries, vec![(SERVICE.into(), "glm-coding-plan".into())]);
+    }
+
+    #[test]
+    fn read_or_import_imports_once_leaves_source_untouched_and_caches() {
+        use std::cell::RefCell;
+        use std::collections::BTreeMap;
+
+        let store: RefCell<BTreeMap<(String, String), String>> = RefCell::new(BTreeMap::new());
+        store.borrow_mut().insert((AGENT_MONITOR_SERVICE.into(), "mistral-api".into()), "legacy-fixture".into());
+        let mut reads = Vec::new();
+        let mut writes = Vec::new();
+
+        let mut cached = CachedKey::new(Provider::Mistral);
+        for _ in 0..3 {
+            let result = cached.read_using(|provider| {
+                read_or_import(
+                    provider,
+                    |service, acct| {
+                        reads.push((service.to_owned(), acct.to_owned()));
+                        Ok(store.borrow().get(&(service.to_owned(), acct.to_owned())).cloned())
+                    },
+                    |service, acct, value| {
+                        writes.push((service.to_owned(), acct.to_owned()));
+                        store.borrow_mut().insert((service.to_owned(), acct.to_owned()), value.to_owned());
+                        Ok(())
+                    },
+                )
+            });
+            assert_eq!(result, Ok(Some("legacy-fixture".into())));
+        }
+        assert_eq!(
+            reads,
+            vec![(SERVICE.into(), "mistral-api".into()), (AGENT_MONITOR_SERVICE.into(), "mistral-api".into())]
+        );
+        assert_eq!(writes, vec![(SERVICE.into(), "mistral-api".into())]);
+        assert_eq!(
+            store.borrow().get(&(SERVICE.into(), "mistral-api".into())).map(String::as_str),
+            Some("legacy-fixture")
+        );
+        assert_eq!(
+            store.borrow().get(&(AGENT_MONITOR_SERVICE.into(), "mistral-api".into())).map(String::as_str),
+            Some("legacy-fixture")
+        );
+
+        let mut next_reads = Vec::new();
+        let mut fresh = CachedKey::new(Provider::Mistral);
+        let result = fresh.read_using(|provider| {
+            read_or_import(
+                provider,
+                |service, acct| {
+                    next_reads.push((service.to_owned(), acct.to_owned()));
+                    Ok(store.borrow().get(&(service.to_owned(), acct.to_owned())).cloned())
+                },
+                |_, _, _| panic!("must not rewrite an already imported key"),
+            )
+        });
+        assert_eq!(result, Ok(Some("legacy-fixture".into())));
+        assert_eq!(next_reads, vec![(SERVICE.into(), "mistral-api".into())]);
+    }
+
+    #[test]
+    fn read_or_import_caches_absence_when_missing_or_unreadable_in_import_service() {
+        for import_result in [Ok(None), Err("Access denied".into())] {
+            let mut cached = CachedKey::new(Provider::MiniMax);
+            let mut queries = Vec::new();
+            for _ in 0..3 {
+                let result = cached.read_using(|provider| {
+                    read_or_import(
+                        provider,
+                        |service, acct| {
+                            queries.push((service.to_owned(), acct.to_owned()));
+                            if service == SERVICE { Ok(None) } else { import_result.clone() }
+                        },
+                        |_, _, _| panic!("must not write when no key is imported"),
+                    )
+                });
+                assert_eq!(result, Ok(None));
+            }
+            assert_eq!(
+                queries,
+                vec![(SERVICE.into(), "minimax-api".into()), (AGENT_MONITOR_SERVICE.into(), "minimax-api".into())]
+            );
+        }
+    }
+
+    #[test]
+    fn read_or_import_returns_imported_key_when_store_fails_without_modifying_source() {
+        let source = Some("legacy-fixture".to_owned());
+        let mut writes = Vec::new();
+        let mut cached = CachedKey::new(Provider::DeepSeek);
+        for _ in 0..3 {
+            let result = cached.read_using(|provider| {
+                read_or_import(
+                    provider,
+                    |service, _| if service == SERVICE { Ok(None) } else { Ok(source.clone()) },
+                    |service, acct, _| {
+                        assert_eq!(service, SERVICE);
+                        writes.push((service.to_owned(), acct.to_owned()));
+                        Err("Couldn't store the API key in the Keychain".into())
+                    },
+                )
+            });
+            assert_eq!(result, Ok(Some("legacy-fixture".into())));
+        }
+        assert_eq!(writes, vec![(SERVICE.into(), "deepseek-api".into())]);
+        assert_eq!(source.as_deref(), Some("legacy-fixture"));
+    }
+
+    #[test]
+    fn read_or_import_propagates_astrolabe_error_without_querying_import_service() {
+        let mut queries = Vec::new();
+        let mut cached = CachedKey::new(Provider::Xiaomi);
+        for _ in 0..3 {
+            let result = cached.read_using(|provider| {
+                read_or_import(
+                    provider,
+                    |service, acct| {
+                        queries.push((service.to_owned(), acct.to_owned()));
+                        assert_eq!(service, SERVICE);
+                        Err("Couldn't read the API key from the Keychain".into())
+                    },
+                    |_, _, _| panic!("must not write on read error"),
+                )
+            });
+            assert_eq!(result, Err("Couldn't read the API key from the Keychain".into()));
+        }
+        assert_eq!(queries, vec![(SERVICE.into(), "xiaomi-token-plan".into())]);
     }
 
     #[test]

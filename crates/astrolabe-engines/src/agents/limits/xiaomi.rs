@@ -179,7 +179,7 @@ fn request(credential: &Credential) -> Result<Value, Limit> {
         .timeout_global(Some(Duration::from_secs(15)))
         .http_status_as_error(false)
         .max_redirects(0)
-        .user_agent("agent-monitor")
+        .user_agent("astrolabe")
         .build()
         .new_agent();
     let mut response = agent

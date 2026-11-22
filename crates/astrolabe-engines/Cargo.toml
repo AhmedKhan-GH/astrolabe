@@ -1,6 +1,6 @@
 [package]
 name = "astrolabe-engines"
-description = "Live repository and agent monitoring engines for Astrolabe"
+description = "Live repository and agent engines for Astrolabe"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

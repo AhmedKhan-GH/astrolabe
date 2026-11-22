@@ -6,20 +6,23 @@ pub fn home() -> PathBuf {
     std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/"))
 }
 
-/// Shared on-disk support directory for agent support files and the probe folder.
+/// `~/Library/Application Support/Astrolabe/agents`: agent support files and
+/// the probe folder.
 pub fn support_dir() -> PathBuf {
-    home().join("Library/Application Support/Agent Monitor")
+    home().join("Library/Application Support/Astrolabe/agents")
 }
 
-/// Empty probe directory inside [`support_dir`] that every `/usage` and status
-/// command runs in.
+/// `~/Library/Application Support/Astrolabe/agents/probe`: empty probe
+/// directory inside [`support_dir`] that every `/usage` and status command runs
+/// in.
 pub fn probe_dir() -> PathBuf {
     support_dir().join("probe")
 }
 
-/// Shared on-disk cache directory for agent assets and icons.
+/// `~/Library/Caches/astrolabe/agents`: on-disk cache directory for agent
+/// assets and icons.
 pub fn cache_dir() -> PathBuf {
-    home().join("Library/Caches/agent-monitor")
+    home().join("Library/Caches/astrolabe/agents")
 }
 
 /// The path with the home folder written as `~`, for display.
@@ -82,6 +85,14 @@ fn mimo_auth_paths_with(home: &Path, custom: Option<&Path>, data: Option<&Path>)
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn astrolabe_agent_paths() {
+        let h = home();
+        assert_eq!(support_dir(), h.join("Library/Application Support/Astrolabe/agents"));
+        assert_eq!(probe_dir(), h.join("Library/Application Support/Astrolabe/agents/probe"));
+        assert_eq!(cache_dir(), h.join("Library/Caches/astrolabe/agents"));
+    }
 
     #[test]
     fn tildes() {

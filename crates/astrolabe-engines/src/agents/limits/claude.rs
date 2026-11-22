@@ -102,7 +102,7 @@ mod tests {
 
     /// The panel as Claude Code 2.1.325 draws it, after plain text conversion.
     const PANEL: &str = "Claude Code v2.1.325 Opus 5.5 with xhigh effort · Claude Ultra ~/Library/Application \
-        Support/Agent Monitor/probe Settings Status Config Usage Stats Session Total cost: $0.0000 \
+        Support/Astrolabe/agents/probe Settings Status Config Usage Stats Session Total cost: $0.0000 \
         Usage: 0 input, 0 output, 0 cache read, 0 cache write \
         Current week (all models)██████▌ 83%usedResets Nov 21 at 12am (America/Los_Angeles)What's \
         contributing Refreshing… Current week (Fable)██▌ 33%usedResets Nov 21 at 12am (America/Los_Angeles) \
