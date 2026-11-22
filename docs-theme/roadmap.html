@@ -1,0 +1,15 @@
+{% extends "main.html" %}
+
+{% block styles %}
+  {{ super() }}
+  <link rel="stylesheet" href="{{ 'assets/roadmap/roadmap.css' | url }}">
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  {% if page.meta and page.meta.roadmap_graph %}
+    <script src="{{ 'assets/roadmap/window.js' | url }}"></script>
+    <script src="{{ 'assets/roadmap/vendor/elkjs-0.12.1/elk.bundled.js' | url }}"></script>
+    <script src="{{ 'assets/roadmap/roadmap.js' | url }}"></script>
+  {% endif %}
+{% endblock %}
