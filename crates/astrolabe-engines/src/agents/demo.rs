@@ -20,12 +20,12 @@ const MIN: f64 = 60.0;
 const HOUR: f64 = 3600.0;
 const DAY: f64 = 86_400.0;
 
-/// Deterministic synthetic agent monitor snapshot anchored at [`DEMO_NOW_SECS`].
+/// Deterministic synthetic agents engine snapshot anchored at [`DEMO_NOW_SECS`].
 pub fn demo_data() -> Shared {
     demo_data_at(DEMO_NOW_SECS)
 }
 
-/// Deterministic synthetic agent monitor snapshot anchored at `now`.
+/// Deterministic synthetic agents engine snapshot anchored at `now`.
 pub fn demo_data_at(now: f64) -> Shared {
     let mut limits = BTreeMap::new();
 

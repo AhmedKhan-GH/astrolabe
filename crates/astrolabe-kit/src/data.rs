@@ -1,5 +1,5 @@
 //! Data presentation components: dense booktabs tables with tabular figures,
-//! Artisan-style metric summary tiles, compact uppercase status chips,
+//! metric summary tiles, compact uppercase status chips,
 //! progress and usage bars, and inspector field lists.
 
 use egui::{Align, Color32, CursorIcon, Painter, Rect, Response, ScrollArea, Sense, Ui, Vec2, pos2, vec2};
@@ -22,7 +22,7 @@ pub fn status_chip_size(painter: &Painter, text: &str) -> Vec2 {
     painter.layout_job(chip_job(text, StatusTone::Neutral)).size() + vec2(12.0, 6.0)
 }
 
-/// Paints an Artisan-style square outlined status chip with left edge `left` centered on `center_y`.
+/// Paints a square outlined status chip with left edge `left` centered on `center_y`.
 pub fn paint_status_chip(painter: &Painter, left: f32, center_y: f32, text: &str, tone: StatusTone) -> Rect {
     let galley = painter.layout_job(chip_job(text, tone));
     let size = vec2((galley.size().x + 12.0).ceil(), (galley.size().y + 6.0).ceil());
@@ -118,7 +118,7 @@ pub fn labeled_usage_bar(
 // ---------------------------------------------------------------------------
 // Icon / Metric Summary Tiles
 
-/// Specification for an Artisan-style metric summary tile in Sternbild geometry.
+/// Specification for a Sternbild metric summary tile.
 #[derive(Clone, Debug)]
 pub struct MetricTileSpec<'a> {
     pub label: &'a str,
@@ -245,7 +245,7 @@ pub fn section_heading(ui: &mut Ui, width: f32, title: &str, right_meta: Option<
     draw::rule_h(p, rect.left(), rect.right(), rect.bottom() - 1.0, color::RULE_FAINT);
 }
 
-/// Draws an Artisan-style square badge/letter tile beside an item title and short metadata.
+/// Draws a square badge tile beside an item title and short metadata.
 pub fn item_header_tile(ui: &mut Ui, width: f32, badge: &str, title: &str, meta: Option<&str>) {
     let height = 42.0;
     let (rect, _) = ui.allocate_exact_size(vec2(width, height), Sense::hover());

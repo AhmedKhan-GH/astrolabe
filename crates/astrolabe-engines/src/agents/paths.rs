@@ -6,19 +6,18 @@ pub fn home() -> PathBuf {
     std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/"))
 }
 
-/// `~/Library/Application Support/Agent Monitor`: app support files and the
-/// probe folder.
+/// Shared on-disk support directory for agent support files and the probe folder.
 pub fn support_dir() -> PathBuf {
     home().join("Library/Application Support/Agent Monitor")
 }
 
-/// `~/Library/Application Support/Agent Monitor/probe`: the empty folder that
-/// every `/usage` and status command runs in.
+/// Empty probe directory inside [`support_dir`] that every `/usage` and status
+/// command runs in.
 pub fn probe_dir() -> PathBuf {
     support_dir().join("probe")
 }
 
-/// `~/Library/Caches/agent-monitor`
+/// Shared on-disk cache directory for agent assets and icons.
 pub fn cache_dir() -> PathBuf {
     home().join("Library/Caches/agent-monitor")
 }

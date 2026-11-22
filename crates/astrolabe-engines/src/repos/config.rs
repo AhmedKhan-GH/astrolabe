@@ -163,18 +163,18 @@ pub fn parse(text: &str) -> Result<Config, String> {
 }
 
 /// Read the settings file. When `path` is Astrolabe's default settings path and
-/// does not yet exist, attempts a one-time read-only import from Repo Monitor's
-/// settings before falling back to [`DEFAULT_TOML`].
+/// does not yet exist, attempts a one-time read-only import from an existing
+/// standalone repository settings file before falling back to [`DEFAULT_TOML`].
 pub fn load(path: &Path) -> (Config, Option<String>) {
     let repo_monitor = (path == paths::config_file()).then(paths::repo_monitor_config_file);
     load_or_import(path, repo_monitor.as_deref())
 }
 
 /// Read the settings file at `path`. When `path` does not exist and
-/// `repo_monitor_path` points to a readable, valid Repo Monitor settings file,
-/// imports its watched roots, `skip_names`, and `skip_paths` into a file seeded
-/// from [`DEFAULT_TOML`] without modifying `repo_monitor_path`. Otherwise writes
-/// [`DEFAULT_TOML`].
+/// `repo_monitor_path` points to a readable, valid standalone repository
+/// settings file, imports its watched roots, `skip_names`, and `skip_paths`
+/// into a file seeded from [`DEFAULT_TOML`] without modifying
+/// `repo_monitor_path`. Otherwise writes [`DEFAULT_TOML`].
 pub fn load_or_import(path: &Path, repo_monitor_path: Option<&Path>) -> (Config, Option<String>) {
     match std::fs::read_to_string(path) {
         Ok(text) => match parse(&text) {

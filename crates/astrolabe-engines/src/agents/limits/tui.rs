@@ -87,8 +87,8 @@ pub fn gemini(program: Option<&Path>, home: &Path, probe: &Path) -> Limit {
     };
     let ready = regex::bytes::Regex::new("for shortcuts").expect("ready");
     let done = regex::bytes::Regex::new(r"Five Hour Limit[\s\S]*Five Hour Limit[^%]*%").expect("done");
-    // agy asks once whether to trust a new folder; the probe folder is Agent
-    // Monitor's own and stays empty, so the first choice, "Yes", is pressed.
+    // agy asks once whether to trust a new folder; the probe folder is
+    // Astrolabe's own and stays empty, so the first choice, "Yes", is pressed.
     let trust = regex::bytes::Regex::new("Do you trust the contents of this project").expect("trust");
     let script = pty::Script {
         ready: &ready,

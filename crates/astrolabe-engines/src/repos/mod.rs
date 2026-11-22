@@ -1,5 +1,4 @@
-//! Repository monitoring engine, ported from Repo Monitor without GUI
-//! dependencies.
+//! Headless repository monitoring engine for Astrolabe.
 
 pub mod actions;
 pub mod aggregate;

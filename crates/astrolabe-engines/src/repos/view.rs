@@ -1,6 +1,5 @@
-//! Pure filtering, sorting, grouping, status classification, age/time
-//! formatting, and window-preference helpers extracted from Repo Monitor's
-//! view layer. Zero GUI dependencies.
+//! Repository view preferences, filtering, sorting, grouping, status
+//! classification, and age/time formatting helpers with zero GUI dependencies.
 
 use std::collections::BTreeSet;
 use std::path::Path;

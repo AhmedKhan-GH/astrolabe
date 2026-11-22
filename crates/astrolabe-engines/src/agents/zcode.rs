@@ -119,7 +119,7 @@ fn system_key(path: &Path) -> Result<Vec<u8>, &'static str> {
     // ZCode keys the item by SHA-256 of the absolute credentials file path.
     let account = hex(digest::digest(&digest::SHA256, path.to_string_lossy().as_bytes()).as_ref());
     let encoded = security_framework::passwords::get_generic_password("ZCode Credential Encryption", &account)
-        .map_err(|_| "ZCode sign-in is locked; restart Agent Monitor to retry Keychain access, or add a Coding Plan key in Settings")?;
+        .map_err(|_| "ZCode sign-in is locked; restart Astrolabe to retry Keychain access, or add a Coding Plan key in Settings")?;
     let key = URL_SAFE_NO_PAD.decode(encoded).map_err(|_| "ZCode encryption key format was not recognized")?;
     if key.len() != 32 {
         return Err("ZCode encryption key format was not recognized");

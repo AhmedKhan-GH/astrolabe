@@ -21,7 +21,7 @@ pub const AGENTS_EVERY: Duration = Duration::from_secs(600);
 /// The shortest gap between two checks of one source, even on CHECK NOW.
 pub const MIN_GAP: Duration = Duration::from_secs(30);
 
-/// Everything the agent monitor exposes.
+/// Everything the agents engine exposes.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Shared {
     pub limits: BTreeMap<Provider, Limit>,

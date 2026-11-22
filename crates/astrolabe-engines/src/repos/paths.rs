@@ -32,12 +32,12 @@ pub fn cache_dir() -> PathBuf {
     home().join("Library/Caches/astrolabe")
 }
 
-/// `~/Library/Application Support/Repo Monitor`: read-only source for first-run import.
+/// Read-only support directory for first-run import of standalone repository settings.
 pub fn repo_monitor_support_dir() -> PathBuf {
     home().join("Library/Application Support/Repo Monitor")
 }
 
-/// `~/Library/Application Support/Repo Monitor/config.toml`
+/// Read-only `config.toml` path for first-run import of standalone repository settings.
 pub fn repo_monitor_config_file() -> PathBuf {
     repo_monitor_support_dir().join("config.toml")
 }

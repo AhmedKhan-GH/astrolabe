@@ -1,6 +1,6 @@
-//! Agent tool discovery, live provider limit and balance readers, and local
-//! Ollama model memory tracking, ported from Agent Monitor without GUI
-//! dependencies.
+//! Headless agent and local model monitoring module for Astrolabe: installed
+//! tool discovery, live provider limit and balance readers, and local Ollama
+//! model memory tracking.
 
 pub mod demo;
 pub mod engine;

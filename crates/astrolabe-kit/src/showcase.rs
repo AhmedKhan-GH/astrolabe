@@ -566,7 +566,7 @@ impl ShowcaseState {
     fn catalog_body(&mut self, ui: &mut Ui) {
         let width = ui.available_width();
 
-        // Row of 4 Artisan-style metric summary tiles.
+        // Row of 4 metric summary tiles.
         let total_str = self.entries.len().to_string();
         let tiles = [
             MetricTileSpec::new("Total Items", &total_str).meta("4 GROUPS", StatusTone::Neutral).icon(IconKind::Grid),

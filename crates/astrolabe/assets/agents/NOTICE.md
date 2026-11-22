@@ -1,6 +1,6 @@
 # Agent logo sources
 
-These logos identify the corresponding third-party tools in Agent Monitor.
+These logos identify the corresponding third-party tools in Astrolabe.
 Product names and artwork remain the property of their respective owners.
 
 Bundled PNGs are 128 × 128 pixels. Vector sources are retained alongside them.
@@ -58,7 +58,7 @@ SOFTWARE.
 - Qwen: `@qwen-code/qwen-code/web-shell/assets/icon.svg`, from the installed
   official [Qwen Code](https://github.com/QwenLM/qwen-code) 0.28.0 package.
   Its Apache 2.0 license is included in `LICENSE-Qwen.txt`. The original SVG
-  is unchanged; the PNG is a padded rasterization for the Monitor tile.
+  is unchanged; the PNG is a padded rasterization for the Astrolabe tile.
 - Claude: `Claude.app/Contents/Resources/electron.icns`.
 - ZCode: `ZCode.app/Contents/Resources/icon.icns`.
 - Ollama: `Ollama.app/Contents/Resources/icon.icns`.
