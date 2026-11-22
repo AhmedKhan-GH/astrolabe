@@ -18,13 +18,13 @@
       <stop offset="0.55" stop-color="#b38b59"/>
       <stop offset="1" stop-color="#8d6a3e"/>
     </linearGradient>
-  </defs>
+  <linearGradient id="rim" x1="512" y1="100" x2="512" y2="924" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6b7fd6"/><stop offset="0.5" stop-color="#4a5bac"/><stop offset="1" stop-color="#2f3c82"/></linearGradient></defs>
   <title>Astrolabe</title>
   <g id="Astrolabe_app_icon" data-name="Astrolabe app icon">
     <g filter="url(#filter-1)">
       <path id="Tile" d="M264.8 100 L759.2 100 L924 264.8 L924 759.2 L759.2 924 L264.8 924 L100 759.2 L100 264.8 Z" fill="url(#linear-gradient-1)"/>
     </g>
-    <path id="Border" d="M269.465 111.261 L754.535 111.261 L912.739 269.465 L912.739 754.535 L754.535 912.739 L269.465 912.739 L111.261 754.535 L111.261 269.465 Z" fill="none" stroke="#e8e0d0" stroke-width="22.523"/>
+    <path id="Border" d="M269.465 111.261 L754.535 111.261 L912.739 269.465 L912.739 754.535 L754.535 912.739 L269.465 912.739 L111.261 754.535 L111.261 269.465 Z" fill="none" stroke="url(#rim)" stroke-width="22.523"/>
     <circle id="Interior" cx="512" cy="512" r="237.5" fill="#12110f"/>
     <g filter="url(#filter-2)">
       <g id="Astrolabe">
