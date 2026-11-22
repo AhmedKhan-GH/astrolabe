@@ -79,7 +79,7 @@ The suite verifies Git and query logic, provider parsers, Keychain caching, layo
 
 The script builds the release `astrolabe` binary and forwards extra CLI arguments directly to `cargo build`. It writes `${CARGO_TARGET_DIR:-target}/bundle/Astrolabe.app` (`target/bundle/Astrolabe.app` by default) with a validated `Info.plist` for macOS 13.0 or newer.
 
-The script also generates `AppIcon.icns` from `site/assets/astrolabe-icon-minerals.svg` through `resvg`, `rsvg-convert`, or `sips` with `iconutil`. Then `codesign` applies and verifies an ad-hoc signature on the bundle.
+The script calls `astrolabe --write-bundle-icon` to extract the canonical 1024 px Minerals PNG from `sternbild-tokens`, then builds `AppIcon.icns` with `sips` and `iconutil`. Then `codesign` applies and verifies an ad-hoc signature on the bundle.
 
 ### Roadmap Check
 
@@ -137,7 +137,7 @@ All workspace builds and tests pass, and `./scripts/bundle.sh` writes a verified
 
 | Symptom | Cause | Remedy |
 |---|---|---|
-| Bundle script fails on icon | Icon SVG absent from `site/assets/` | Restore `site/assets/astrolabe-icon-minerals.svg` and rerun `./scripts/bundle.sh` |
+| Bundle script fails on icon | Binary failed to emit the embedded PNG or `iconutil` failed | Verify `cargo build --release -p astrolabe` succeeds and rerun `./scripts/bundle.sh` |
 | Roadmap check exits 1 | Invalid YAML, broken link, or absent pillar entry | Fix the reported `roadmap/*.yml` or `docs/roadmap/.nav.yml` entry and repeat `sternbild-docs check-roadmap` |
 | Heading check exits 1 | Heading breaks Title Case or article rules | Rewrite the heading as a Title Case noun phrase without articles |
 | Strict build warns on anchor | Internal link targets an absent heading | Fix the target anchor or page path in Markdown |

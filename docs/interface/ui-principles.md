@@ -18,18 +18,18 @@ Layout hierarchy inside one Astrolabe desktop window.
 
 ## Tokens
 
-Astrolabe uses a warm mineral dark palette with square corners, 1 px structural rules, and zero drop shadows. `SternbildDisplay` is reserved only for the name `Astrolabe`. Headings, controls, and body copy use `IBM Plex Sans Condensed`, and paths, metrics, and code use `Source Code Pro`.
+Astrolabe uses a warm mineral dark palette with square corners, 1 px structural rules, and zero drop shadows. `Sternbild Display` is reserved only for the name `Astrolabe`. Headings, controls, and body copy use `IBM Plex Sans Condensed`, and paths, metrics, and code use `Source Code Pro`.
 
 | Token Group | Role | Specification |
 |---|---|---|
-| Wordmark `Astrolabe` | Brand name only | `SternbildDisplay`, never used for headings or controls |
+| Wordmark `Astrolabe` | Brand name only | `Sternbild Display`, never used for headings or controls |
 | UI Typography | Headings, controls, body copy | `IBM Plex Sans Condensed` |
 | Monospace Typography | Paths, metrics, identifiers, code | `Source Code Pro` with tabular figures |
 | Mineral Surfaces | Recessed, ground, plate, hover | `#12110f`, `#181715`, `#201f1c`, `#2a2925` |
 | Structural Rules | Dividers and control borders | 1 px `#4b4945` (`RULE`) and `#2c2b28` (`RULE_FAINT`) |
 | Neutral Ink | Primary, secondary, faint text | `#e8e0d0`, `#c1baaa`, `#8f897c` |
 | Focus Accent | Keyboard focus and active selection | Bronze `#b38b59`, never used for data status |
-| Status Pigments | `OK`, `INFO`, `WARN`, `ERROR`, `Neutral` | `#4ca986`, `#6195cc`, `#d9b84e`, `#d8645e`, `#c1baaa` |
+| Status Pigments | `OK`, `INFO`, `WARN`, `ERROR`, `Neutral` | `#3ca99c`, `#4677ad`, `#867424`, `#a35a74`, `#c1baaa` |
 
 ## Components
 
@@ -60,7 +60,7 @@ Explanation lives in one on-demand location such as a guided tour or an info con
 
 The primary subject occupies the largest area of the window, while controls and secondary inspectors sit beside it. Panes claim proportional shares of the available space rather than fixed pixel widths. Each pane declares a minimum size that scales with the text scale setting and carries no upper limit. Thus a larger monitor gives every pane more room.
 
-Different questions belong in separate panels or views rather than extra panes crowded into one screen. Dedicated edge strips hold the top `CommandBar` (`34 px`) and bottom `StatusBar` (`24 px`), and panes fill the open workspace. No status banner obscures a pane unless the user opens a transient modal overlay.
+Different questions belong in separate panels or views rather than extra panes crowded into one screen. Dedicated edge strips hold the top `CommandBar` (`28 px`) and bottom `StatusBar` (`22 px`), and panes fill the open workspace. No status banner obscures a pane unless the user opens a transient modal overlay.
 
 ## Behavior
 

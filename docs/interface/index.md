@@ -19,7 +19,7 @@ Design tokens and layout rules flow through `astrolabe-kit` into every Astrolabe
 
 The interface uses a warm mineral dark palette with square corners, 1 px structural rules, and zero drop shadows. Bronze (`#b38b59`) marks only keyboard focus and active selection, distinct from every data status color.
 
-Typography follows three strict roles across the application and documentation. `SternbildDisplay` is reserved only for the name `Astrolabe`. Headings, controls, and body copy use `IBM Plex Sans Condensed`, and paths, metrics, and code use `Source Code Pro`.
+Typography follows three strict roles across the application and documentation. `Sternbild Display` is reserved only for the name `Astrolabe`. Headings, controls, and body copy use `IBM Plex Sans Condensed`, and paths, metrics, and code use `Source Code Pro`.
 
 ## Interface Kit
 
