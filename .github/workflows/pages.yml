@@ -6,6 +6,7 @@ on:
     paths: ['site/**', 'docs/**', 'docs-theme/**', 'roadmap/**', 'mkdocs.yml', '.github/workflows/pages.yml']
   workflow_dispatch:
 permissions:
+  actions: read
   contents: read
   pages: write
   id-token: write
