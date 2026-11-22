@@ -123,6 +123,7 @@ impl eframe::App for AstrolabeApp {
         // Top CommandBar.
         let panel = self.active_panel;
         let manage_open = self.repos.manager.open;
+        let watched_open = self.repos.watched_folders.open;
         let mut cmd_right_repo_clicks = Vec::new();
         CommandBar::show(
             ui,
@@ -135,7 +136,12 @@ impl eframe::App for AstrolabeApp {
                 }
             },
             |ui| match panel {
-                Panel::Repos => ReposPanel::command_bar_right_controls(ui, manage_open, &mut cmd_right_repo_clicks),
+                Panel::Repos => ReposPanel::command_bar_right_controls(
+                    ui,
+                    manage_open,
+                    watched_open,
+                    &mut cmd_right_repo_clicks,
+                ),
                 Panel::Agents => self.agents.command_bar_right(ui, &mut agent_clicks),
             },
         );

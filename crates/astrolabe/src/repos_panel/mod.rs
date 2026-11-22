@@ -6,6 +6,7 @@ mod inspector;
 mod list;
 mod manage;
 mod sidebar;
+mod watched_folders;
 
 use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
@@ -220,6 +221,12 @@ pub enum Click {
     PinTicked(Vec<usize>),
     TagRepos { tag: String, ids: Vec<PathBuf>, on: bool },
     FocusPane(ReposPane),
+    WatchedFolders(bool),
+    PickWatchedFolder,
+    AddWatchedFolder(PathBuf),
+    RemoveWatchedFolder(usize),
+    SetWatchedCategory(usize, String),
+    SetWatchedApp(usize, Option<Ide>),
 }
 
 pub struct ReposPanel {
@@ -261,6 +268,7 @@ pub struct ReposPanel {
     pub(crate) confirm: Option<Confirm>,
     pub(crate) new_folder: Option<FolderDraft>,
     pub(crate) manager: Manager,
+    pub(crate) watched_folders: watched_folders::WatchedFolders,
 }
 
 impl ReposPanel {
@@ -335,6 +343,7 @@ impl ReposPanel {
             confirm: None,
             new_folder: None,
             manager: Manager::new(),
+            watched_folders: watched_folders::WatchedFolders::new(),
         }
     }
 
@@ -536,7 +545,7 @@ impl ReposPanel {
     // Command bar, workspace panes, status bar
 
     pub fn command_bar_left(&mut self, ui: &mut Ui, clicks: &mut Vec<Click>) {
-        if self.manager.open {
+        if self.manager.open || self.watched_folders.open {
             return;
         }
         for (g, label, hint) in [
@@ -555,7 +564,7 @@ impl ReposPanel {
 
         let mut text = self.view.filter.clone();
         let has_save = self.filter_error.is_none() && !self.view.filter.trim().is_empty();
-        let reserve_right = if has_save { 470.0 } else { 330.0 };
+        let reserve_right = if has_save { 630.0 } else { 490.0 };
         let field_w = (ui.available_width() - reserve_right).clamp(170.0, 310.0);
         let resp = command_input(ui, "repos_filter", &mut text, "Filter by name, tag, or query", field_w)
             .on_hover_text("Boolean filter: AND, OR, NOT, -, parentheses, tag:, name:, path: · ⌘F");
@@ -583,7 +592,12 @@ impl ReposPanel {
         }
     }
 
-    pub fn command_bar_right_controls(ui: &mut Ui, manage_open: bool, clicks: &mut Vec<Click>) {
+    pub fn command_bar_right_controls(
+        ui: &mut Ui,
+        manage_open: bool,
+        watched_open: bool,
+        clicks: &mut Vec<Click>,
+    ) {
         // Right-to-left layout: first added is rightmost.
         if key_button(ui, "⇧⌘R", "Remotes", true, None).on_hover_text("Check remotes · ⇧⌘R").clicked() {
             clicks.push(Click::Remotes);
@@ -599,9 +613,21 @@ impl ReposPanel {
         if manage_resp.on_hover_text("Manage folders and tags · ⇧⌘M").clicked() {
             clicks.push(Click::Manage(!manage_open));
         }
+        let watched_resp = if watched_open {
+            watched_folders::active_key_button(ui, "⌘,", "Watched Folders")
+        } else {
+            key_button(ui, "⌘,", "Watched Folders", true, None)
+        };
+        if watched_resp.clicked() {
+            clicks.push(Click::WatchedFolders(!watched_open));
+        }
     }
 
     pub fn show_workspace(&mut self, ui: &mut Ui, workspace: Rect, clicks: &mut Vec<Click>) {
+        if self.watched_folders.open {
+            self.show_watched_folders_pane(ui, workspace, clicks);
+            return;
+        }
         let (list_rect, insp_rect) = split_horizontal(workspace, 0.63, 460.0, 360.0);
 
         if self.manager.open {
@@ -811,6 +837,11 @@ impl ReposPanel {
                 if !self.demo {
                     let _ = actions::open_in_finder(&paths::support_dir());
                 }
+            }
+            Click::Nav(nav) if self.watched_folders.open => {
+                self.watched_folders.open = false;
+                self.watched_folders.error = None;
+                self.apply_one(Click::Nav(nav));
             }
             Click::Nav(nav) if self.manager.open => match nav {
                 Nav::Folder(names) => {
@@ -1114,6 +1145,10 @@ impl ReposPanel {
                 self.manager.open = open;
                 self.manager.reset_editing();
                 self.renaming = None;
+                if open {
+                    self.watched_folders.open = false;
+                    self.watched_folders.error = None;
+                }
                 if open && self.manager.folder.is_none()
                     && let Nav::Folder(names) = &self.view.nav
                 {
@@ -1227,6 +1262,28 @@ impl ReposPanel {
             Click::FocusPane(pane) => {
                 self.focused_pane = pane;
             }
+            Click::WatchedFolders(open) => {
+                self.watched_folders.open = open;
+                self.watched_folders.editing = false;
+                self.watched_folders.error = None;
+                self.watched_folders.drafts.clear();
+                if open {
+                    self.manager.open = false;
+                    self.manager.reset_editing();
+                    self.renaming = None;
+                }
+            }
+            Click::PickWatchedFolder => {
+                if !self.demo
+                    && let Some(path) = watched_folders::pick_folder()
+                {
+                    self.apply_one(Click::AddWatchedFolder(path));
+                }
+            }
+            Click::AddWatchedFolder(path) => self.add_watched_folder(path),
+            Click::RemoveWatchedFolder(index) => self.remove_watched_folder(index),
+            Click::SetWatchedCategory(index, category) => self.set_watched_category(index, category),
+            Click::SetWatchedApp(index, ide) => self.set_watched_app(index, ide),
         }
         if let Some(due) = self.save_at
             && due <= Instant::now()
@@ -1282,11 +1339,28 @@ impl ReposPanel {
         if shortcut(Modifiers::COMMAND, K::R) {
             clicks.push(Click::Rescan);
         }
-        if shortcut(Modifiers::COMMAND, K::F) {
-            self.focus_filter = true;
-        }
         if shortcut(Modifiers::COMMAND | Modifiers::SHIFT, K::M) {
             clicks.push(Click::Manage(!self.manager.open));
+        }
+        if shortcut(Modifiers::COMMAND, K::Comma) {
+            clicks.push(Click::WatchedFolders(!self.watched_folders.open));
+        }
+        if self.watched_folders.open {
+            if ctx.memory(|m| m.focused().is_some())
+                || self.watched_folders.editing
+                || self.confirm.is_some()
+                || self.renaming.is_some()
+                || self.manager.renaming.is_some()
+            {
+                return;
+            }
+            if shortcut(Modifiers::NONE, K::Escape) {
+                clicks.push(Click::WatchedFolders(false));
+            }
+            return;
+        }
+        if shortcut(Modifiers::COMMAND, K::F) {
+            self.focus_filter = true;
         }
         if shortcut(Modifiers::COMMAND | Modifiers::SHIFT, K::N) {
             clicks.push(Click::NewFolder { parent: Vec::new(), smart: true });
