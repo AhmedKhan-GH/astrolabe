@@ -3,7 +3,7 @@ name: Deploy Pages
 on:
   push:
     branches: [main]
-    paths: ['site/**', '.github/workflows/pages.yml']
+    paths: ['site/**', 'docs/**', 'docs-theme/**', 'roadmap/**', 'mkdocs.yml', '.github/workflows/pages.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -20,9 +20,21 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      # The docs (MkDocs Material) are served under /docs/ on the same Pages site,
+      # pinned as in Development Basics. --strict keeps the links honest.
+      - run: pip install mkdocs==1.6.1 mkdocs-material==9.8.1 mkdocs-awesome-nav==3.3.0 pymdown-extensions==13.1
+      - run: mkdocs build --strict
+      # Assemble the Pages artifact: landing page at /, docs at /docs/.
+      - run: |
+          mkdir -p _pages
+          cp -r site/. _pages/
+          cp -r build/docs-site _pages/docs
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: site
+          path: _pages
       - id: deployment
         uses: actions/deploy-pages@v5
