@@ -21,4 +21,8 @@ The interface uses the Sternbild dark palette with bronze as the single accent, 
 
 ## Shared Widgets
 
-Shared layout primitives, tables, indicators, and controls live in `astrolabe-kit` so Repos, Agents, and future apps behave consistently. [UI Principles](ui-principles.md) defines the text, layout, behavior, color, and check rules for every screen.
+Shared layout primitives, tables, indicators, and controls live in `astrolabe-kit`. Thus Repos, Agents, and future apps keep consistent behavior. [UI Principles](ui-principles.md) defines the text, layout, behavior, color, and check rules for every screen.
+
+![Astrolabe Interface Kit](../assets/kit-sample.png)
+
+The `astrolabe-kit` showcase window shows the command bar, sidebar rail, metric tiles, data table, inspector pane, and status bar.
