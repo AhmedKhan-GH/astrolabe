@@ -6,10 +6,6 @@ validation:
   anchors: warn
 theme:
   name: material
-  # Icons, fonts and the stylesheet live outside docs/, which holds documents only.
-  custom_dir: docs-theme
-  logo: assets/astrolabe-icon-minerals.svg
-  favicon: assets/astrolabe-icon-minerals.svg
   font: false
   palette:
     scheme: slate
@@ -25,20 +21,20 @@ theme:
     - content.code.copy
     - search.suggest
 extra:
-  # The header logo opens the full docs tree (docs/contents.md, filled by docs-theme/hooks/contents.py).
+  # The header logo opens the full docs tree (docs/contents.md, filled by the sternbild plugin).
   homepage: contents/
-# The navigation follows the folders under docs/; a .nav.yml in a folder sets its order.
-# Generates the roadmap pages and data files from the registry in roadmap/.
-hooks:
-  - roadmap/build.py
-  - docs-theme/hooks/contents.py
-# A local `mkdocs serve` rebuilds when the registry or theme files change.
+# A local `mkdocs serve` rebuilds when the registry changes.
 watch:
   - roadmap
-  - docs-theme
+# The navigation follows the folders under docs/; a .nav.yml in a folder sets its order.
+# The sternbild plugin supplies the theme, brand icon, contents tree, and roadmap pages.
 plugins:
   - search
   - awesome-nav
+  - sternbild:
+      roadmap: roadmap/
+      icon: assets/brand/astrolabe-icon-minerals.svg
+      accent: "#4a5bac"
 markdown_extensions:
   - admonition
   - attr_list
