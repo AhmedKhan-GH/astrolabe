@@ -1,0 +1,22 @@
+[package]
+name = "astrolabe-kit"
+description = "Reusable Sternbild-styled egui interface components for Astrolabe."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+default = []
+capture = ["dep:eframe", "dep:egui_kittest", "dep:image"]
+
+[dependencies]
+egui.workspace = true
+eframe = { workspace = true, optional = true }
+egui_kittest = { workspace = true, optional = true }
+image = { workspace = true, optional = true }
+
+[dev-dependencies]
+eframe.workspace = true
+egui_kittest.workspace = true
+image.workspace = true
