@@ -564,8 +564,20 @@ impl ReposPanel {
 
         let mut text = self.view.filter.clone();
         let has_save = self.filter_error.is_none() && !self.view.filter.trim().is_empty();
-        let reserve_right = if has_save { 630.0 } else { 490.0 };
-        let field_w = (ui.available_width() - reserve_right).clamp(170.0, 310.0);
+        let right_controls_w = widgets::key_button_width(ui, "⇧⌘R", "Remotes")
+            + widgets::key_button_width(ui, "⌘R", "Rescan")
+            + widgets::key_button_width(ui, "⇧⌘M", "Manage")
+            + widgets::key_button_width(ui, "⌘,", "Watched Folders")
+            + astrolabe_kit::sternbild_tokens::space::S2 * 4.0
+            + astrolabe_kit::sternbild_tokens::space::S2;
+        let save_w = if has_save {
+            theme::job_width(ui, theme::sans_job("Save As Smart Folder", font_size::BODY, color::PARCHMENT, false)).ceil()
+                + 20.0
+        } else {
+            0.0
+        };
+        let reserve_right = right_controls_w + save_w;
+        let field_w = (ui.available_width() - reserve_right).clamp(120.0, 310.0);
         let resp = command_input(ui, "repos_filter", &mut text, "Filter by name, tag, or query", field_w)
             .on_hover_text("Boolean filter: AND, OR, NOT, -, parentheses, tag:, name:, path: · ⌘F");
         if self.focus_filter {
@@ -734,7 +746,7 @@ impl ReposPanel {
     }
 
     fn hover_status(&self, ui: &mut Ui, text: &str, c: Color32, hover: &str) {
-        let sep_w = 16.0;
+        let sep_w = metric::GAP;
         let (sr, _) = ui.allocate_exact_size(vec2(sep_w, metric::STATUS_BAR - 2.0), Sense::hover());
         theme::paint_job(ui.painter(), sr, theme::mono_job("·", font_size::MONO_SMALL, color::FAINT), Align::Center, false);
         let job = theme::mono_job(text, font_size::MONO_SMALL, c);
@@ -1461,7 +1473,7 @@ impl ReposPanel {
         let (Some(text), Some(pos)) = (text, ctx.pointer_latest_pos()) else { return };
         ctx.set_cursor_icon(CursorIcon::Grabbing);
         let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Tooltip, egui::Id::unique("drag-preview")));
-        let galley = painter.layout_job(theme::sans_job(&text, 12.5, color::PARCHMENT, true));
+        let galley = painter.layout_job(theme::sans_job(&text, font_size::BODY, color::PARCHMENT, true));
         let rect = Rect::from_min_size(pos + vec2(14.0, 8.0), galley.size() + vec2(20.0, 10.0));
         painter.rect_filled(rect, 0.0, color::PLATE);
         draw::box_outline(&painter, rect, color::BRONZE);
@@ -1474,7 +1486,7 @@ impl ReposPanel {
             ui.set_width(340.0);
             ui.label(
                 egui::RichText::new(if draft.smart { "NEW SMART FOLDER" } else { "NEW FOLDER" })
-                    .font(egui::FontId::new(font_size::LABEL, theme::mono_family()))
+                    .font(egui::FontId::new(font_size::LABEL, theme::ui_family()))
                     .extra_letter_spacing(metric::TRACKING)
                     .color(color::PARCHMENT),
             );

@@ -124,7 +124,7 @@ impl ReposPanel {
     }
 
     fn section_heading(&self, ui: &mut Ui, width: f32, title: &str) -> Response {
-        let (rect, resp) = ui.allocate_exact_size(vec2(width, 22.0), Sense::hover());
+        let (rect, resp) = ui.allocate_exact_size(vec2(width, metric::SIDEBAR_HEADING), Sense::hover());
         let title_rect = Rect::from_min_max(
             pos2(rect.left() + metric::PAD, rect.top()),
             pos2(rect.right() - metric::PAD, rect.bottom()),
@@ -176,8 +176,8 @@ impl ReposPanel {
         }
 
         let new_rect = Rect::from_min_max(
-            pos2(head.rect.right() - 56.0, head.rect.top()),
-            pos2(head.rect.right() - 8.0, head.rect.bottom()),
+            pos2(head.rect.right() - 64.0, head.rect.top()),
+            pos2(head.rect.right() - metric::PAD, head.rect.bottom()),
         );
         let mut child = ui.new_child(UiBuilder::new().max_rect(new_rect).layout(egui::Layout::right_to_left(Align::Center)));
         let (resp, _) = egui::containers::menu::MenuButton::from_button(widgets::link_menu_widget("New")).ui(&mut child, |ui| {
@@ -196,7 +196,7 @@ impl ReposPanel {
             theme::paint_job(
                 ui.painter(),
                 inner,
-                theme::sans_job("Drop repo or select New", 11.5, color::FAINT, false),
+                theme::sans_job("Drop repo or select New", font_size::MONO_SMALL, color::FAINT, false),
                 Align::Min,
                 true,
             );
@@ -325,7 +325,13 @@ impl ReposPanel {
         if self.index.manual_counts.is_empty() {
             let (rect, _) = ui.allocate_exact_size(vec2(width, 24.0), Sense::hover());
             let inner = Rect::from_min_max(pos2(rect.left() + metric::PAD, rect.top()), pos2(rect.right() - metric::PAD, rect.bottom()));
-            theme::paint_job(ui.painter(), inner, theme::sans_job("No manual tags", 11.5, color::FAINT, false), Align::Min, true);
+            theme::paint_job(
+                ui.painter(),
+                inner,
+                theme::sans_job("No manual tags", font_size::MONO_SMALL, color::FAINT, false),
+                Align::Min,
+                true,
+            );
             return;
         }
         let tags = self.index.manual_counts.clone();

@@ -53,7 +53,7 @@ impl AgentsPanel {
             theme::paint_job(
                 &p,
                 col_rect(rect, &COLS, 0, y),
-                theme::sans_job(&w.name, 12.0, color::SECONDARY, false),
+                theme::sans_job(&w.name, font_size::MONO_SMALL, color::SECONDARY, false),
                 Align::Min,
                 true,
             );
@@ -76,7 +76,7 @@ impl AgentsPanel {
                         theme::paint_job(
                             &p,
                             rest,
-                            theme::sans_job(&agents::local_time(at, t), 11.5, color::FAINT, false),
+                            theme::sans_job(&agents::local_time(at, t), font_size::CHIP, color::FAINT, false),
                             Align::Min,
                             true,
                         );
@@ -86,7 +86,7 @@ impl AgentsPanel {
                     theme::paint_job(
                         &p,
                         resets,
-                        theme::sans_job("Reset Since Reading", 11.5, color::FAINT, false),
+                        theme::sans_job("Reset Since Reading", font_size::MONO_SMALL, color::FAINT, false),
                         Align::Min,
                         true,
                     );
@@ -102,7 +102,7 @@ impl AgentsPanel {
             theme::paint_job(
                 &p,
                 col_rect(rect, &COLS, 0, y),
-                theme::sans_job("Available Credit", 12.0, color::SECONDARY, false),
+                theme::sans_job("Available Credit", font_size::MONO_SMALL, color::SECONDARY, false),
                 Align::Min,
                 true,
             );

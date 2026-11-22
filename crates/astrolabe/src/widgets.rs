@@ -35,6 +35,28 @@ pub fn ide_monogram(ide: Ide) -> &'static str {
     }
 }
 
+/// Measures the exact width of a [`astrolabe_kit::key_button`] with `(key, action)`.
+pub fn key_button_width(ui: &Ui, key: &str, action: &str) -> f32 {
+    let key_w = if key.is_empty() {
+        0.0
+    } else {
+        theme::job_width(ui, theme::mono_job(key, font_size::MONO_SMALL, color::SECONDARY))
+    };
+    let action_w = if action.is_empty() {
+        0.0
+    } else {
+        theme::job_width(ui, theme::sans_job(action, font_size::BODY, color::PARCHMENT, false))
+    };
+    let inner_gap = if key_w > 0.0 && action_w > 0.0 { 6.0 } else { 0.0 };
+    (key_w + inner_gap + action_w + 16.0).ceil()
+}
+
+/// Measures the exact width of [`toggle_button`] or [`action_button`] with `label`.
+pub fn label_button_width(ui: &Ui, label: &str, min_width: f32) -> f32 {
+    let text_w = theme::job_width(ui, theme::label_job(label, color::PARCHMENT));
+    (text_w + 16.0).ceil().max(min_width)
+}
+
 /// Compact toggle button in the Sternbild style: active state uses `PLATE` fill
 /// with `BRONZE` outline and ink; inactive uses `RULE` outline and `SECONDARY`/`PARCHMENT` ink.
 pub fn toggle_button(ui: &mut Ui, label: &str, active: bool) -> Response {
@@ -123,10 +145,11 @@ pub fn text_field(
     } else {
         FontId::new(font_size::BODY, theme::ui_family())
     };
+    let pad_y: i8 = if rect.height() <= metric::ROW { 1 } else { 2 };
     let edit = TextEdit::singleline(text)
         .id(id)
         .password(password)
-        .frame(egui::Frame::new().fill(color::DEEP).inner_margin(Margin::symmetric(8, 4)))
+        .frame(egui::Frame::new().fill(color::DEEP).inner_margin(Margin::symmetric(8, pad_y)))
         .font(font.clone())
         .text_color(color::PARCHMENT)
         .hint_text(RichText::new(hint).font(font).color(color::FAINT))
@@ -142,11 +165,11 @@ pub fn badge_tile(painter: &Painter, rect: Rect, glyph: &str, selected: bool) {
     draw::box_outline(painter, rect, if selected { color::BRONZE } else { color::RULE });
     let ink = if selected { color::BRONZE } else { color::PARCHMENT };
     let size = if rect.height() >= 30.0 {
-        if glyph.len() > 1 { 12.0 } else { 15.0 }
+        if glyph.len() > 1 { font_size::MONO_SMALL } else { font_size::TITLE }
     } else if glyph.len() > 1 {
-        9.5
+        font_size::CHIP
     } else {
-        11.0
+        font_size::MONO_SMALL
     };
     theme::paint_job(painter, rect, theme::mono_job(glyph, size, ink), Align::Center, false);
 }
@@ -182,7 +205,10 @@ pub fn checkbox(painter: &Painter, center: Pos2, on: bool, hovered: bool, enable
 
 /// Standard modal dialog frame in Sternbild tones.
 pub fn modal_frame() -> egui::Frame {
-    egui::Frame::new().fill(color::GROUND).stroke(egui::Stroke::new(1.0, color::RULE)).inner_margin(18)
+    egui::Frame::new()
+        .fill(color::GROUND)
+        .stroke(egui::Stroke::new(metric::RULE, color::RULE))
+        .inner_margin(astrolabe_kit::sternbild_tokens::space::S4 as i8)
 }
 
 /// Simple pluralization helper (`1 repo` / `3 repos`).
@@ -194,19 +220,19 @@ pub fn plural(n: usize, one: &str, many: &str) -> String {
 pub fn menu_button_widget(label: &str) -> egui::Button<'static> {
     egui::Button::new(
         RichText::new(label.to_ascii_uppercase())
-            .font(FontId::new(font_size::LABEL, theme::mono_family()))
+            .font(FontId::new(font_size::LABEL, theme::ui_family()))
             .extra_letter_spacing(metric::TRACKING)
             .color(color::PARCHMENT),
     )
     .fill(Color32::TRANSPARENT)
-    .stroke(egui::Stroke::new(1.0, color::RULE))
+    .stroke(egui::Stroke::new(metric::RULE, color::RULE))
     .corner_radius(0.0)
     .min_size(vec2(0.0, metric::KEY_BUTTON_H))
 }
 
 /// Faint `·` separator matching `astrolabe_kit::StatusBar` spacing.
 pub fn status_sep(ui: &mut Ui) {
-    let (r, _) = ui.allocate_exact_size(vec2(16.0, metric::STATUS_BAR - 2.0), Sense::hover());
+    let (r, _) = ui.allocate_exact_size(vec2(metric::GAP, metric::STATUS_BAR - 2.0), Sense::hover());
     theme::paint_job(ui.painter(), r, theme::mono_job("·", font_size::MONO_SMALL, color::FAINT), Align::Center, false);
 }
 
@@ -214,7 +240,7 @@ pub fn status_sep(ui: &mut Ui) {
 pub fn link_menu_widget(label: &str) -> egui::Button<'static> {
     egui::Button::new(
         RichText::new(label.to_ascii_uppercase())
-            .font(FontId::new(font_size::LABEL, theme::mono_family()))
+            .font(FontId::new(font_size::LABEL, theme::ui_family()))
             .extra_letter_spacing(metric::TRACKING)
             .color(color::SECONDARY),
     )

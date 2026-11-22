@@ -14,7 +14,7 @@ use crate::widgets;
 
 const MARGIN: f32 = 14.0;
 const STRIP_H: f32 = 36.0;
-const SECTION_H: f32 = 26.0;
+const SECTION_H: f32 = metric::PANE_HEADER;
 const SECTION_GAP: f32 = 10.0;
 const ROW_H: f32 = 52.0;
 const TAG_ROW_H: f32 = 38.0;
@@ -23,7 +23,7 @@ const ICON: f32 = 32.0;
 const PAD: f32 = 12.0;
 const GAP: f32 = 12.0;
 const INDENT: f32 = 20.0;
-const COL_W: f32 = 76.0;
+const COL_W: f32 = 84.0;
 
 fn folder_kind(f: &Folder) -> &'static str {
     match (f.is_smart(), f.repos.is_empty() && f.exclude.is_empty()) {
@@ -178,10 +178,10 @@ impl ReposPanel {
         let text_l = tile.right() + GAP;
         let text_r = rect.right() - PAD - COL_W * 3.0 - GAP;
         let mid = rect.center().y;
-        let l1 = Rect::from_min_max(pos2(text_l, mid - 17.0), pos2(text_r.max(text_l + 1.0), mid));
-        let l2 = Rect::from_min_max(pos2(text_l, mid + 1.0), pos2(text_r.max(text_l + 1.0), mid + 17.0));
+        let l1 = Rect::from_min_max(pos2(text_l, mid - 20.0), pos2(text_r.max(text_l + 1.0), mid + 1.0));
+        let l2 = Rect::from_min_max(pos2(text_l, mid + 1.0), pos2(text_r.max(text_l + 1.0), mid + 20.0));
         let name_ink = if selected { color::BRONZE } else { color::PARCHMENT };
-        let w = theme::paint_job(&p, l1, theme::sans_job(&folder.name, 14.0, name_ink, true), Align::Min, true);
+        let w = theme::paint_job(&p, l1, theme::sans_job(&folder.name, font_size::TITLE, name_ink, true), Align::Min, true);
         let beside = Rect::from_min_max(pos2(l1.left() + w + 8.0, l1.top() + 0.5), l1.max);
         if beside.width() > 30.0 {
             theme::paint_job(&p, beside, theme::mono_job(folder_kind(folder), font_size::MONO_SMALL, color::FAINT), Align::Min, true);
@@ -190,7 +190,7 @@ impl ReposPanel {
             let c = if self.index.errors.contains_key(at) { color::ERROR } else { color::SECONDARY };
             theme::paint_job(&p, l2, theme::mono_job(&folder.query, font_size::MONO_SMALL, c), Align::Min, true);
         } else {
-            theme::paint_job(&p, l2, theme::sans_job("No query", 12.0, color::FAINT, false), Align::Min, true);
+            theme::paint_job(&p, l2, theme::sans_job("No query", font_size::MONO_SMALL, color::FAINT, false), Align::Min, true);
         }
 
         if resp.clicked() {
@@ -280,7 +280,7 @@ impl ReposPanel {
         }
         let name = Rect::from_min_max(pos2(rect.left() + PAD, rect.top()), pos2(rect.right() - PAD - COL_W, rect.bottom()));
         let job = if manual {
-            theme::sans_job(tag, 13.5, if on { color::BRONZE } else { color::PARCHMENT }, true)
+            theme::sans_job(tag, font_size::BODY, if on { color::BRONZE } else { color::PARCHMENT }, true)
         } else {
             theme::mono_job(tag, font_size::MONO, color::SECONDARY)
         };
@@ -314,7 +314,7 @@ impl ReposPanel {
     }
 
     fn editor_empty(&self, ui: &mut Ui, width: f32, title: &str, meta: &str) {
-        let (rect, _) = ui.allocate_exact_size(vec2(width, 44.0), Sense::hover());
+        let (rect, _) = ui.allocate_exact_size(vec2(width, 46.0), Sense::hover());
         let tile = Rect::from_center_size(pos2(rect.left() + ICON * 0.5, rect.center().y), Vec2::splat(ICON));
         let glyph = title.chars().next().unwrap_or('?').to_ascii_uppercase().to_string();
         widgets::badge_tile(ui.painter(), tile, &glyph, false);
@@ -344,7 +344,7 @@ impl ReposPanel {
         let Some(folder) = self.org.folder(at).cloned() else { return };
         let names = self.org.names(at);
 
-        let (rect, _) = ui.allocate_exact_size(vec2(width, 44.0), Sense::hover());
+        let (rect, _) = ui.allocate_exact_size(vec2(width, 46.0), Sense::hover());
         let tile = Rect::from_center_size(pos2(rect.left() + ICON * 0.5, rect.center().y), Vec2::splat(ICON));
         widgets::folder_glyph_tile(ui.painter(), tile, folder.is_smart(), false);
         let under = match names.len() {
@@ -354,21 +354,48 @@ impl ReposPanel {
         header_text(ui, rect, tile.right() + GAP, &folder.name, &under);
 
         ui.add_space(8.0);
-        ui.allocate_ui_with_layout(vec2(width, metric::KEY_BUTTON_H + 2.0), egui::Layout::left_to_right(Align::Center), |ui| {
-            ui.spacing_mut().item_spacing.x = 6.0;
-            if widgets::action_button(ui, "Rename", true, 0.0).clicked() {
-                clicks.push(Click::StartManageRename);
-            }
-            let (resp, _) = egui::containers::menu::MenuButton::from_button(widgets::menu_button_widget("Move To"))
-                .ui(ui, |ui| self.move_menu(ui, at, clicks));
-            resp.on_hover_text("Move folder position or parent");
-            if widgets::action_button(ui, "New Subfolder", true, 0.0).clicked() {
-                clicks.push(Click::NewFolder { parent: at.to_vec(), smart: false });
-            }
-            if widgets::action_button(ui, "Delete", true, 0.0).clicked() {
-                clicks.push(Click::DeleteFolder(at.to_vec()));
-            }
-        });
+        let btn_gap = 6.0;
+        let single_row_w = widgets::label_button_width(ui, "Rename", 0.0)
+            + widgets::label_button_width(ui, "Move To", 0.0)
+            + widgets::label_button_width(ui, "New Subfolder", 0.0)
+            + widgets::label_button_width(ui, "Delete", 0.0)
+            + btn_gap * 3.0;
+        if single_row_w <= width {
+            ui.allocate_ui_with_layout(vec2(width, metric::KEY_BUTTON_H + 2.0), egui::Layout::left_to_right(Align::Center), |ui| {
+                ui.spacing_mut().item_spacing.x = btn_gap;
+                if widgets::action_button(ui, "Rename", true, 0.0).clicked() {
+                    clicks.push(Click::StartManageRename);
+                }
+                let (resp, _) = egui::containers::menu::MenuButton::from_button(widgets::menu_button_widget("Move To"))
+                    .ui(ui, |ui| self.move_menu(ui, at, clicks));
+                resp.on_hover_text("Move folder position or parent");
+                if widgets::action_button(ui, "New Subfolder", true, 0.0).clicked() {
+                    clicks.push(Click::NewFolder { parent: at.to_vec(), smart: false });
+                }
+                if widgets::action_button(ui, "Delete", true, 0.0).clicked() {
+                    clicks.push(Click::DeleteFolder(at.to_vec()));
+                }
+            });
+        } else {
+            ui.allocate_ui_with_layout(vec2(width, metric::KEY_BUTTON_H + 2.0), egui::Layout::left_to_right(Align::Center), |ui| {
+                ui.spacing_mut().item_spacing.x = btn_gap;
+                if widgets::action_button(ui, "Rename", true, 0.0).clicked() {
+                    clicks.push(Click::StartManageRename);
+                }
+                let (resp, _) = egui::containers::menu::MenuButton::from_button(widgets::menu_button_widget("Move To"))
+                    .ui(ui, |ui| self.move_menu(ui, at, clicks));
+                resp.on_hover_text("Move folder position or parent");
+                if widgets::action_button(ui, "New Subfolder", true, 0.0).clicked() {
+                    clicks.push(Click::NewFolder { parent: at.to_vec(), smart: false });
+                }
+            });
+            ui.add_space(4.0);
+            ui.allocate_ui_with_layout(vec2(width, metric::KEY_BUTTON_H + 2.0), egui::Layout::left_to_right(Align::Center), |ui| {
+                if widgets::action_button(ui, "Delete", true, 0.0).clicked() {
+                    clicks.push(Click::DeleteFolder(at.to_vec()));
+                }
+            });
+        }
         let at_owned = at.to_vec();
         self.name_field(ui, width, move |name| Click::RenameFolder(at_owned.clone(), name), clicks);
 
@@ -519,7 +546,7 @@ impl ReposPanel {
     fn tag_editor(&mut self, ui: &mut Ui, width: f32, tag: &str, clicks: &mut Vec<Click>) {
         let carriers: Vec<usize> =
             (0..self.index.len()).filter(|&i| self.index.manual[i].iter().any(|t| t == tag)).collect();
-        let (rect, _) = ui.allocate_exact_size(vec2(width, 44.0), Sense::hover());
+        let (rect, _) = ui.allocate_exact_size(vec2(width, 46.0), Sense::hover());
         let tile = Rect::from_center_size(pos2(rect.left() + ICON * 0.5, rect.center().y), Vec2::splat(ICON));
         let glyph = tag.chars().next().unwrap_or('#').to_ascii_uppercase().to_string();
         widgets::badge_tile(ui.painter(), tile, &glyph, false);

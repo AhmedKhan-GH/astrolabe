@@ -13,9 +13,9 @@ use crate::widgets;
 
 const MARGIN: f32 = 14.0;
 const STRIP_H: f32 = 36.0;
-const SECTION_H: f32 = 26.0;
+const SECTION_H: f32 = metric::PANE_HEADER;
 const SECTION_GAP: f32 = 10.0;
-const COL_HEADER_H: f32 = 24.0;
+const COL_HEADER_H: f32 = metric::TABLE_HEADER;
 const PAD: f32 = 12.0;
 const GAP: f32 = 12.0;
 const FIELD_W_MIN: f32 = 160.0;
@@ -29,9 +29,9 @@ struct RemoteCols {
 
 fn remote_cols(rect: Rect) -> RemoteCols {
     let narrow = rect.width() < 520.0;
-    let push_w = if narrow { 76.0 } else { 96.0 };
-    let branch_w = if narrow { 78.0 } else { 110.0 };
-    let vis_w = 84.0;
+    let push_w = if narrow { 80.0 } else { 104.0 };
+    let branch_w = if narrow { 84.0 } else { 116.0 };
+    let vis_w = 88.0;
 
     let push_r = rect.right() - PAD;
     let push_l = (push_r - push_w).max(rect.left() + PAD);
@@ -345,9 +345,9 @@ impl ReposPanel {
         match density {
             Density::Comfortable => {
                 let mid = rect.center().y;
-                let l1 = Rect::from_min_max(pos2(text_l, mid - 17.0), pos2(rect.right() - PAD, mid));
-                let l2 = Rect::from_min_max(pos2(text_l, mid + 1.0), pos2(rect.right() - PAD, mid + 17.0));
-                let w = theme::paint_job(&p, l1, theme::sans_job(&repo.name, 14.0, name_ink, true), Align::Min, true);
+                let l1 = Rect::from_min_max(pos2(text_l, mid - 20.0), pos2(rect.right() - PAD, mid + 1.0));
+                let l2 = Rect::from_min_max(pos2(text_l, mid + 1.0), pos2(rect.right() - PAD, mid + 20.0));
+                let w = theme::paint_job(&p, l1, theme::sans_job(&repo.name, font_size::TITLE, name_ink, true), Align::Min, true);
                 let beside = Rect::from_min_max(pos2(l1.left() + w + 8.0, l1.top() + 0.5), l1.max);
                 if !tags.is_empty() && beside.width() > 30.0 {
                     theme::paint_job(&p, beside, theme::mono_job(&tags, font_size::MONO_SMALL, color::FAINT), Align::Min, true);
@@ -506,9 +506,9 @@ impl ReposPanel {
         match density {
             Density::Comfortable => {
                 let mid = rect.center().y;
-                let l1 = Rect::from_min_max(pos2(cols.left.left(), mid - 17.0), pos2(cols.left.right(), mid));
-                let l2 = Rect::from_min_max(pos2(cols.left.left(), mid + 1.0), pos2(cols.left.right(), mid + 17.0));
-                theme::paint_job(&p, l1, theme::sans_job(&repo.name, 14.0, color::PARCHMENT, true), Align::Min, true);
+                let l1 = Rect::from_min_max(pos2(cols.left.left(), mid - 20.0), pos2(cols.left.right(), mid + 1.0));
+                let l2 = Rect::from_min_max(pos2(cols.left.left(), mid + 1.0), pos2(cols.left.right(), mid + 20.0));
+                theme::paint_job(&p, l1, theme::sans_job(&repo.name, font_size::TITLE, color::PARCHMENT, true), Align::Min, true);
                 theme::paint_job(&p, l2, theme::mono_job(&repo.owner, font_size::MONO_SMALL, color::SECONDARY), Align::Min, true);
             }
             Density::Compact => {

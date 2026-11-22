@@ -6,7 +6,7 @@
 
 use astrolabe_kit::{
     CommandBar, IconKind, ShellSpec, SidebarAction, SidebarItem, SidebarRail, SidebarSection, StatusBar, color,
-    masthead,
+    masthead, metric,
 };
 use egui::Ui;
 
@@ -114,8 +114,8 @@ impl eframe::App for AstrolabeApp {
 
         let shell = ShellSpec {
             sidebar_share: 0.16,
-            sidebar_min: 216.0,
-            sidebar_max: 270.0,
+            sidebar_min: metric::SIDEBAR_DEFAULT,
+            sidebar_max: metric::SIDEBAR_MAX,
             ..ShellSpec::default()
         }
         .compute(full);

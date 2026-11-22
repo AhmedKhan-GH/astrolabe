@@ -16,9 +16,9 @@ const ROW_H: f32 = 36.0;
 const FIELD_H: f32 = 24.0;
 const CELL_PAD: f32 = 10.0;
 const COL_GAP: f32 = 14.0;
-const APP_W: f32 = 132.0;
-const REPOS_W: f32 = 60.0;
-const ACTION_W: f32 = 76.0;
+const APP_W: f32 = 144.0;
+const REPOS_W: f32 = 68.0;
+const ACTION_W: f32 = 84.0;
 
 pub(crate) struct WatchedFolders {
     pub(crate) open: bool,

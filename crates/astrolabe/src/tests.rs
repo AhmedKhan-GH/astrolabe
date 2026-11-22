@@ -305,9 +305,10 @@ fn agents_demo_limits_balances_ollama_and_settings_modal() {
 #[test]
 fn offscreen_capture_repos_and_agents_demo_pngs() {
     let cfg = CaptureConfig { size: vec2(1440.0, 900.0), pixels_per_point: 2.0, steps: 5 };
-    let assets_dir = repo_root().join("docs").join("assets");
+    let capture_dir = std::env::var_os("ASTROLABE_CAPTURE_DIR").map(PathBuf::from);
+    let out_dir = capture_dir.clone().unwrap_or_else(|| repo_root().join("docs").join("assets"));
 
-    let repos_path = assets_dir.join("repos-panel.png");
+    let repos_path = out_dir.join("repos-panel.png");
     let repos_out = render_eframe_png(&repos_path, &cfg, |cc| {
         let mut app = AstrolabeApp::new(cc, LaunchOptions::demo(Panel::Repos));
         app.repos.select_by_name("compass-ui");
@@ -316,12 +317,14 @@ fn offscreen_capture_repos_and_agents_demo_pngs() {
     .expect("offscreen wgpu render for repos-panel.png");
     assert_eq!((repos_out.width, repos_out.height), (2880, 1800));
 
-    let agents_path = assets_dir.join("agents-panel.png");
+    let agents_path = out_dir.join("agents-panel.png");
     let agents_out = render_eframe_png(&agents_path, &cfg, |cc| AstrolabeApp::new(cc, LaunchOptions::demo(Panel::Agents)))
         .expect("offscreen wgpu render for agents-panel.png");
     assert_eq!((agents_out.width, agents_out.height), (2880, 1800));
 
-    if let Some(scratch) = scratch_dir() {
+    if capture_dir.is_none()
+        && let Some(scratch) = scratch_dir()
+    {
         std::fs::copy(&repos_path, scratch.join("repos-panel.png")).expect("copy repos-panel.png to scratch");
         std::fs::copy(&agents_path, scratch.join("agents-panel.png")).expect("copy agents-panel.png to scratch");
     }

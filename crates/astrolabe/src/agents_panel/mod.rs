@@ -24,7 +24,7 @@ use crate::widgets;
 pub(crate) const PAD: f32 = 12.0;
 pub(crate) const GAP: f32 = 12.0;
 pub(crate) const ICON: f32 = 22.0;
-pub(crate) const LINE_H: f32 = 18.0;
+pub(crate) const LINE_H: f32 = 19.0;
 pub(crate) const MIN_ROW_H: f32 = 30.0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -315,7 +315,7 @@ impl AgentsPanel {
             ui.horizontal(|ui| {
                 ui.label(
                     egui::RichText::new("API KEY SETTINGS")
-                        .font(egui::FontId::new(font_size::LABEL, theme::mono_family()))
+                        .font(egui::FontId::new(font_size::LABEL, theme::ui_family()))
                         .extra_letter_spacing(astrolabe_kit::metric::TRACKING)
                         .color(color::PARCHMENT),
                 );
@@ -324,7 +324,7 @@ impl AgentsPanel {
             ui.horizontal(|ui| {
                 ui.label(
                     egui::RichText::new("PROVIDER")
-                        .font(egui::FontId::new(font_size::LABEL, theme::mono_family()))
+                        .font(egui::FontId::new(font_size::LABEL, theme::ui_family()))
                         .extra_letter_spacing(astrolabe_kit::metric::TRACKING)
                         .color(color::SECONDARY),
                 );
@@ -354,7 +354,7 @@ impl AgentsPanel {
                 ui.horizontal(|ui| {
                     ui.label(
                         egui::RichText::new("REGION")
-                            .font(egui::FontId::new(font_size::LABEL, theme::mono_family()))
+                            .font(egui::FontId::new(font_size::LABEL, theme::ui_family()))
                             .extra_letter_spacing(astrolabe_kit::metric::TRACKING)
                             .color(color::SECONDARY),
                     );
@@ -481,11 +481,11 @@ impl AgentsPanel {
         self.paint_tile(ui, tile_rect, icon, name);
         let text_l = rect.left() + PAD + ICON + GAP;
         let mid = rect.center().y;
-        let l1 = Rect::from_min_max(pos2(text_l, mid - 9.0), pos2(right.max(text_l + 1.0), mid + 9.0));
+        let l1 = Rect::from_min_max(pos2(text_l, mid - 10.0), pos2(right.max(text_l + 1.0), mid + 10.0));
         let w = theme::paint_job(p, l1, theme::sans_job(name, font_size::BODY, color::PARCHMENT, true), Align::Min, true);
         let beside = Rect::from_min_max(pos2(l1.left() + w + 8.0, l1.top() + 0.5), l1.max);
         if !muted.is_empty() && beside.width() > 24.0 {
-            theme::paint_job(p, beside, theme::sans_job(muted, 11.5, color::FAINT, false), Align::Min, true);
+            theme::paint_job(p, beside, theme::sans_job(muted, font_size::CHIP, color::FAINT, false), Align::Min, true);
         }
     }
 }
@@ -505,7 +505,7 @@ pub(crate) fn line_y(rect: Rect, i: usize, n: usize) -> f32 {
 }
 
 pub(crate) fn row_height(lines: usize) -> f32 {
-    MIN_ROW_H.max(lines as f32 * LINE_H + 6.0)
+    MIN_ROW_H.max(lines as f32 * LINE_H + 4.0)
 }
 
 pub(crate) fn level_color(used: f64) -> Color32 {

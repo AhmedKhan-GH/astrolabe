@@ -13,12 +13,12 @@ use egui::{Align, Color32, CursorIcon, Key as K, Rect, ScrollArea, Sense, Ui, Ve
 use super::{Click, ReposPanel, opt_u32};
 use crate::widgets;
 
-const HEADER_H: f32 = 44.0;
+const HEADER_H: f32 = 46.0;
 const ICON: f32 = 34.0;
 const GAP: f32 = 12.0;
-const FIELD_H: f32 = 22.0;
-const FIELD_LABEL_W: f32 = 112.0;
-const SECTION_H: f32 = 24.0;
+const FIELD_H: f32 = metric::FIELD_ROW;
+const FIELD_LABEL_W: f32 = 128.0;
+const SECTION_H: f32 = metric::PANE_HEADER;
 const SECTION_GAP: f32 = 10.0;
 const CHIP_ROW: f32 = 24.0;
 const STALEST: usize = 8;
@@ -60,27 +60,60 @@ impl ReposPanel {
             view::flags(repo).into_iter().map(|f| (f.word().to_owned(), widgets::flag_tone(f))).collect();
         chip_rows(ui, width, &states, "repo_states", false);
 
-        // Actions.
+        // Actions (wrap onto a second row if the full row exceeds inspector width).
         ui.add_space(8.0);
-        ui.allocate_ui_with_layout(vec2(width, metric::KEY_BUTTON_H + 2.0), egui::Layout::left_to_right(Align::Center), |ui| {
-            ui.spacing_mut().item_spacing.x = 6.0;
-            if let Some(ide) = repo.ide
-                && key_button(ui, "⌘O", ide.name(), true, None).clicked()
-            {
-                clicks.push(Click::Open(repo.id().to_owned()));
+        let mut actions: Vec<(&'static str, String, Option<String>, Option<Click>)> = Vec::new();
+        if let Some(ide) = repo.ide {
+            actions.push(("⌘O", ide.name().to_owned(), None, Some(Click::Open(repo.id().to_owned()))));
+        }
+        actions.push(("⇧⌘F", "Finder".to_owned(), None, Some(Click::Finder(repo.id().to_owned()))));
+        actions.push(("⇧⌘T", "Terminal".to_owned(), None, Some(Click::Terminal(repo.id().to_owned()))));
+        if let Some(url) = repo.stats().and_then(|s| remote::web_url(s, repo.gh.as_ref())) {
+            actions.push(("", "GitHub".to_owned(), Some(url.clone()), Some(Click::Web(url))));
+        }
+        let btn_gap = 6.0;
+        let widths: Vec<f32> = actions.iter().map(|(k, label, _, _)| widgets::key_button_width(ui, k, label)).collect();
+        let mut rows: Vec<Vec<usize>> = Vec::new();
+        let mut cur_row: Vec<usize> = Vec::new();
+        let mut cur_w = 0.0;
+        for (idx, &bw) in widths.iter().enumerate() {
+            let needed = if cur_row.is_empty() { bw } else { cur_w + btn_gap + bw };
+            if !cur_row.is_empty() && needed > width {
+                rows.push(cur_row);
+                cur_row = vec![idx];
+                cur_w = bw;
+            } else {
+                cur_row.push(idx);
+                cur_w = needed;
             }
-            if key_button(ui, "⇧⌘F", "Finder", true, None).clicked() {
-                clicks.push(Click::Finder(repo.id().to_owned()));
+        }
+        if !cur_row.is_empty() {
+            rows.push(cur_row);
+        }
+        for (row_idx, indices) in rows.iter().enumerate() {
+            if row_idx > 0 {
+                ui.add_space(4.0);
             }
-            if key_button(ui, "⇧⌘T", "Terminal", true, None).clicked() {
-                clicks.push(Click::Terminal(repo.id().to_owned()));
-            }
-            if let Some(url) = repo.stats().and_then(|s| remote::web_url(s, repo.gh.as_ref()))
-                && key_button(ui, "", "GitHub", true, None).on_hover_text(&url).clicked()
-            {
-                clicks.push(Click::Web(url));
-            }
-        });
+            ui.allocate_ui_with_layout(
+                vec2(width, metric::KEY_BUTTON_H + 2.0),
+                egui::Layout::left_to_right(Align::Center),
+                |ui| {
+                    ui.spacing_mut().item_spacing.x = btn_gap;
+                    for &idx in indices {
+                        let (key, ref label, ref hover, ref mut click) = actions[idx];
+                        let mut resp = key_button(ui, key, label, true, None);
+                        if let Some(tip) = hover {
+                            resp = resp.on_hover_text(tip);
+                        }
+                        if resp.clicked()
+                            && let Some(ev) = click.take()
+                        {
+                            clicks.push(ev);
+                        }
+                    }
+                },
+            );
+        }
         ui.add_space(4.0);
 
         self.tag_section(ui, width, repo, i, clicks);
@@ -539,8 +572,8 @@ impl ReposPanel {
 pub(super) fn header_text(ui: &Ui, rect: Rect, left: f32, name: &str, under: &str) {
     let p = ui.painter();
     let mid = rect.center().y;
-    let l1 = Rect::from_min_max(pos2(left, mid - 16.0), pos2(rect.right(), mid));
-    let l2 = Rect::from_min_max(pos2(left, mid + 1.0), pos2(rect.right(), mid + 16.0));
+    let l1 = Rect::from_min_max(pos2(left, mid - 20.0), pos2(rect.right(), mid + 1.0));
+    let l2 = Rect::from_min_max(pos2(left, mid + 1.0), pos2(rect.right(), mid + 20.0));
     theme::paint_job(p, l1, theme::sans_job(name, font_size::TITLE, color::PARCHMENT, true), Align::Min, true);
     if !under.is_empty() {
         theme::paint_job(p, l2, theme::mono_job(under, font_size::MONO_SMALL, color::SECONDARY), Align::Min, true);
@@ -632,7 +665,7 @@ impl Fields<'_> {
         let job = if mono {
             theme::mono_job(value, font_size::MONO, c)
         } else {
-            theme::sans_job(value, 12.5, c, false)
+            theme::sans_job(value, font_size::BODY, c, false)
         };
         let w = theme::paint_job(p, v, job, Align::Min, true);
         if w >= v.width() - 1.0 {
@@ -657,8 +690,8 @@ impl Fields<'_> {
         let (rect, resp) = self.ui.allocate_exact_size(vec2(self.width, FIELD_H), Sense::hover());
         let (l, v) = self.split(rect);
         let p = self.ui.painter();
-        theme::paint_job(p, l, theme::sans_job(label, 12.5, color::PARCHMENT, false), Align::Min, true);
-        theme::paint_job(p, v, theme::sans_job(value, 12.5, c, false), Align::Min, true);
+        theme::paint_job(p, l, theme::sans_job(label, font_size::BODY, color::PARCHMENT, false), Align::Min, true);
+        theme::paint_job(p, v, theme::sans_job(value, font_size::BODY, c, false), Align::Min, true);
         resp.on_hover_text(hover);
     }
 
@@ -669,8 +702,8 @@ impl Fields<'_> {
         }
         let (l, v) = self.split(rect);
         let p = self.ui.painter();
-        theme::paint_job(p, l, theme::sans_job(label, 12.5, color::PARCHMENT, true), Align::Min, true);
-        theme::paint_job(p, v, theme::sans_job(value, 12.5, color::SECONDARY, false), Align::Min, true);
+        theme::paint_job(p, l, theme::sans_job(label, font_size::BODY, color::PARCHMENT, true), Align::Min, true);
+        theme::paint_job(p, v, theme::sans_job(value, font_size::BODY, color::SECONDARY, false), Align::Min, true);
         resp.on_hover_cursor(CursorIcon::PointingHand).on_hover_text(hover).clicked()
     }
 
@@ -692,8 +725,8 @@ impl Fields<'_> {
         let name_w = (body.width() * 0.60).clamp(FIELD_LABEL_W, 210.0).min(body.width());
         let l = Rect::from_min_size(body.min, vec2(name_w, body.height()));
         let v = Rect::from_min_max(pos2(body.left() + name_w + 6.0, body.top()), body.max);
-        theme::paint_job(&p, l, theme::sans_job(name, 12.5, color::PARCHMENT, false), Align::Min, true);
-        theme::paint_job(&p, v, theme::sans_job(value, 12.5, color::SECONDARY, false), Align::Min, true);
+        theme::paint_job(&p, l, theme::sans_job(name, font_size::BODY, color::PARCHMENT, false), Align::Min, true);
+        theme::paint_job(&p, v, theme::sans_job(value, font_size::BODY, color::SECONDARY, false), Align::Min, true);
         let ac = if a.hovered() { color::PARCHMENT } else { color::SECONDARY };
         theme::paint_job(&p, action_r, theme::label_job(action, ac), Align::Max, false);
         if a.on_hover_cursor(CursorIcon::PointingHand).clicked() {
@@ -711,15 +744,15 @@ impl Fields<'_> {
             self.ui.painter().rect_filled(rect, 0.0, color::PLATE_HOVER);
         }
         let p = self.ui.painter();
-        let age_r = Rect::from_min_max(pos2(rect.right() - 74.0, rect.top()), rect.max);
+        let age_r = Rect::from_min_max(pos2(rect.right() - 84.0, rect.top()), rect.max);
         let name_r = Rect::from_min_max(rect.min, pos2(age_r.left() - 8.0, rect.bottom()));
-        theme::paint_job(p, name_r, theme::sans_job(name, 12.5, color::PARCHMENT, false), Align::Min, true);
+        theme::paint_job(p, name_r, theme::sans_job(name, font_size::BODY, color::PARCHMENT, false), Align::Min, true);
         theme::paint_job(p, age_r, theme::mono_job(age, font_size::MONO, color::WARN), Align::Max, false);
         resp.on_hover_cursor(CursorIcon::PointingHand).on_hover_text(hover).clicked()
     }
 
     pub(super) fn note(&mut self, text: &str, c: Color32) {
-        let mut job = theme::sans_job(text, 12.0, c, false);
+        let mut job = theme::sans_job(text, font_size::MONO_SMALL, c, false);
         job.wrap.max_width = self.width;
         let galley = self.ui.painter().layout_job(job);
         let (rect, _) = self.ui.allocate_exact_size(vec2(self.width, galley.size().y + 8.0), Sense::hover());
@@ -728,7 +761,7 @@ impl Fields<'_> {
 
     fn wrapped(&mut self, text: &str, c: Color32) {
         let w = self.width - FIELD_LABEL_W;
-        let mut job = theme::sans_job(text, 12.5, c, false);
+        let mut job = theme::sans_job(text, font_size::BODY, c, false);
         job.wrap.max_width = w.max(40.0);
         job.wrap.max_rows = 3;
         let galley = self.ui.painter().layout_job(job);
