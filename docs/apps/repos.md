@@ -19,8 +19,10 @@ The Repos panel has four main areas: a command bar, a sidebar rail, a list pane,
 | Command Bar | `Flat`, `Folder`, `Tag`, `App` | Switch list sections (`⌘1` to `⌘4`). |
 | Command Bar | Filter field | Filter rows with boolean syntax (`⌘F`). |
 | Command Bar | `Save As Smart Folder` | Create a smart folder from a valid filter (`⇧⌘N`). |
+| Command Bar | `Watched Folders` | Toggle the Watched Folders view (`⌘,`). |
 | Command Bar | `Manage`, `Rescan`, `Remotes` | Toggle Manage mode (`⇧⌘M`), rescan (`⌘R`), or check remotes (`⇧⌘R`). |
 | Sidebar Rail | `All Repos`, `Folders`, `Tags` | Choose scope, nest folders, or drop rows to pin or tag. |
+| Sidebar Rail | `Location` | Filter repositories by `Local Only`, `Remote Only`, or `Both`. |
 | Sidebar Rail | `Status`, `Apps`, `Languages`, `Categories` | Filter visible repositories by automatic tags. |
 | List Strip | `Add Query` or query field | Edit a folder rule with 800 ms debounced write to `organize.toml`. |
 | List Strip | `Name`, `Location`, `Recent` | Sort visible rows and flip order on repeat clicks. |
@@ -31,6 +33,18 @@ The Repos panel has four main areas: a command bar, a sidebar rail, a list pane,
 Each list row shows an IDE icon or two-letter monogram, repository name, manual tags, and location path. A double click opens the repository in its assigned IDE. A right click opens actions for the IDE, Finder, Terminal, GitHub, folders, tags, and removal of unreadable entries.
 
 Manage mode switches the workspace panes into a folder and tag editor. The Folders tab supports folder creation, inline rename, drag-and-drop reorder across before, into, and after zones, and a `Move To` menu. Its editor shows live query match counts, pinned and excluded lists, and a searchable `Add Repos` checklist. The Tags tab supports tag creation, rename or merge onto another tag, deletion, and bulk tag or untag actions.
+
+## Watched Folders
+
+![Watched Folders](../assets/watched-folders.png)
+
+The Watched Folders view lists the root folders in `config.toml`, and `Watched Folders` in the command bar or `⌘,` opens it. The `Add` button adds a root folder, and each row has inline controls to edit its category and app. The `Remove` button removes a folder from `config.toml`, and Repos saves each change and starts a rescan.
+
+## Repository Location
+
+![Repository Location](../assets/location.png)
+
+The `Location` sidebar group sits below `All Repos` and has three filters: `Local Only`, `Remote Only`, and `Both`. `Local Only` shows local repositories with no remote, and `Both` shows local repositories with a GitHub remote. `Remote Only` lists GitHub repositories without a local clone in read-only rows with name, owner, visibility, default branch, and last push.
 
 ## Group Modes
 
@@ -60,7 +74,7 @@ The top filter field and smart folder rules share one boolean query grammar. Tex
 | Name Field | `name:value` | Match a substring inside the repository folder name. |
 | Path Field | `path:value` | Match a substring inside the tilde-shortened repository path. |
 
-Repos builds automatic tags directly from repository metadata without manual upkeep. Eight status tags track repository state: `uncommitted`, `unpushed`, `behind`, `stale`, `local-only`, `private`, `public`, and `third-party`. A repository receives `stale` when its latest commit is older than 30 days. Three prefixed tag families record tool and project facts: `app:<ide>`, `lang:<language>`, and `category:<slug>`. Repos detects languages from top-level project marker files or from file extensions at the root and inside `src/`. Manual tags cannot reuse automatic tag names.
+Repos builds automatic tags directly from repository metadata without manual upkeep. Eight status tags track repository state: `uncommitted`, `unpushed`, `behind`, `stale`, `local-only`, `private`, `public`, and `third-party`. A repository receives `stale` when its latest commit is older than 30 days. Four prefixed tag families record tool, location, and project facts: `app:<ide>`, `lang:<language>`, `category:<slug>`, and `location:<scope>`. Repos detects languages from top-level project marker files or from file extensions at the root and inside `src/`. Manual tags cannot reuse automatic tag names.
 
 ## Fields
 
@@ -110,6 +124,7 @@ Keyboard shortcuts operate across the Repos panel while no modal dialog holds fo
 | `⌘F` | Panel | Focus the filter field. |
 | `⌘R` | Panel | Rescan configured roots. |
 | `⇧⌘R` | Panel | Check remote tips with `git ls-remote`. |
+| `⌘,` | Panel | Toggle the Watched Folders view. |
 | `⇧⌘M` | Panel | Toggle Manage mode. |
 | `⌘N` | Panel | Open the New Folder dialog. |
 | `⇧⌘N` | Panel | Open the New Smart Folder dialog from the active filter. |
@@ -118,7 +133,7 @@ Keyboard shortcuts operate across the Repos panel while no modal dialog holds fo
 | `⇧⌘T` | Selected row | Open the selected repository in Terminal. |
 | `⌘T` | Selected row | Focus `Add tag` for the selected repository. |
 | `Up`, `Down` | List | Move row selection across visible sections. |
-| `Escape` | Context | Close Manage mode or Add Repos, deselect, or clear filter. |
+| `Escape` | Context | Close Watched Folders, Manage mode, or Add Repos, deselect, or clear filter. |
 
 ## Demo Mode
 
