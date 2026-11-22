@@ -42,6 +42,11 @@ pub fn repo_monitor_config_file() -> PathBuf {
     repo_monitor_support_dir().join("config.toml")
 }
 
+/// Read-only `organize.toml` path for first-run import of tags and folders.
+pub fn repo_monitor_organize_file() -> PathBuf {
+    repo_monitor_support_dir().join("organize.toml")
+}
+
 /// Expand a leading `~/` (or a lone `~`) to the home folder.
 pub fn expand(path: &str) -> PathBuf {
     if path == "~" {

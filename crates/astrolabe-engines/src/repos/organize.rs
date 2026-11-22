@@ -138,16 +138,38 @@ pub fn parse(text: &str) -> Result<Organize, String> {
     Ok(organize)
 }
 
-/// Read the file. A missing file is an empty `Organize` and no error; the file
-/// is only created by the first save. A file that cannot be read or parsed gives
-/// an empty `Organize` and the reason, prefixed by the path.
+/// Read the file. When `path` is Astrolabe's own tags and folders file and does
+/// not exist yet, the tags and folders of an existing standalone repository
+/// monitor are imported once, read-only, as the settings are in `config::load`.
 pub fn load(path: &Path) -> (Organize, Option<String>) {
+    let import = (path == crate::repos::paths::organize_file())
+        .then(crate::repos::paths::repo_monitor_organize_file);
+    load_or_import(path, import.as_deref())
+}
+
+/// Read the file at `path`. A missing file is an empty `Organize` and no error,
+/// unless `import_path` names a readable, valid tags and folders file: then its
+/// contents are saved to `path` and returned, and `import_path` is not changed.
+/// A file that cannot be read or parsed gives an empty `Organize` and the
+/// reason, prefixed by the path.
+pub fn load_or_import(path: &Path, import_path: Option<&Path>) -> (Organize, Option<String>) {
     match std::fs::read_to_string(path) {
         Ok(text) => match parse(&text) {
             Ok(organize) => (organize, None),
             Err(e) => (Organize::default(), Some(format!("{}: {e}", path.display()))),
         },
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => (Organize::default(), None),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            let imported = import_path
+                .and_then(|source| std::fs::read_to_string(source).ok())
+                .and_then(|text| parse(&text).ok());
+            match imported {
+                Some(organize) => {
+                    let error = save(path, &organize).err();
+                    (organize, error)
+                }
+                None => (Organize::default(), None),
+            }
+        }
         Err(e) => (Organize::default(), Some(format!("{}: {e}", path.display()))),
     }
 }
@@ -735,6 +757,28 @@ exclude = ["~/Creative/old-site"]
         assert!(!dir.path().join("deeper/still/organize.toml.tmp").exists());
         save(&path, &Organize::default()).unwrap();
         assert_eq!(load(&path), (Organize::default(), None));
+    }
+
+    #[test]
+    fn missing_file_imports_tags_and_folders_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("source/organize.toml");
+        save(&source, &rich()).unwrap();
+        let before = std::fs::read_to_string(&source).unwrap();
+
+        let target = dir.path().join("astrolabe/organize.toml");
+        assert_eq!(load_or_import(&target, Some(&source)), (rich(), None));
+        assert!(target.exists(), "the import is saved to Astrolabe's own file");
+        assert_eq!(std::fs::read_to_string(&source).unwrap(), before, "the source is not changed");
+
+        // Astrolabe's own file wins from now on, even if the source changes.
+        save(&source, &Organize::default()).unwrap();
+        assert_eq!(load_or_import(&target, Some(&source)), (rich(), None));
+
+        // No source, or an unreadable one, gives an empty Organize and no file.
+        let other = dir.path().join("other/organize.toml");
+        assert_eq!(load_or_import(&other, Some(&dir.path().join("absent.toml"))), (Organize::default(), None));
+        assert!(!other.exists());
     }
 
     fn stats(remotes: &[(&str, &str)], upstream_remote: Option<&str>) -> Stats {

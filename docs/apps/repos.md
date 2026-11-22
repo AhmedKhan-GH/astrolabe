@@ -42,7 +42,7 @@ The Watched Folders view manages the root folders configured in `~/Library/Appli
 
 Each table row displays the folder path, assigned category, IDE app (`Inferred` or a specific IDE), discovered repository count, and a `Remove` button. Click `Add` to pick a new root folder through the macOS folder dialog, or edit category and app fields inline. Click `Remove` to drop a root folder from `config.toml`, and Repos leaves files on disk unchanged. Every change saves automatically and starts a rescan of configured roots.
 
-On first launch, Astrolabe imports watched folders and skip rules if an existing repository settings file is present. Astrolabe leaves the source file untouched and writes its own `config.toml` under `~/Library/Application Support/Astrolabe/`.
+On first launch, Astrolabe imports watched folders and skip rules if an existing repository settings file is present. It also imports tags and folders from an existing `organize.toml`. Astrolabe leaves the source files untouched and writes its own `config.toml` and `organize.toml` under `~/Library/Application Support/Astrolabe/`.
 
 ## Repository Location
 
