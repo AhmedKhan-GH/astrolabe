@@ -1,0 +1,189 @@
+# yaml-language-server: $schema=schema.json
+prefix: ITM
+title: Items
+order: 2
+summary: This pillar covers durable local indexes, external library connectors, scoped knowledge stores, asset format crates, and persistent work ledgers.
+features:
+  - id: ITM-01
+    title: Repository Query and Tag Engine
+    status: existing
+    scope: core
+    source: repo-monitor
+    source_ref: src/query.rs
+    verdict: port
+    summary: A TOML organization store provides automatic and manual tags, nested and smart folders keyed by remote, boolean query rules, and aggregate totals.
+    depends_on: [OBS-03]
+
+  - id: ITM-02
+    title: Loggia Scoped Knowledge Store
+    status: existing
+    scope: core
+    source: loggia
+    source_ref: knowledge.py
+    verdict: port
+    summary: A scoped JSON store manages typed profile facts, an approval inbox for agent questions, evidence-promoted lessons, CLI helpers, and run statistics.
+    depends_on: []
+
+  - id: ITM-03
+    title: Falcon Library Crate
+    status: existing
+    scope: core
+    source: falcon
+    source_ref: crates/falcon-library
+    verdict: reuse
+    summary: The reusable Rust crate reads and writes Eagle-format libraries with thumbnails, color palettes, metadata parsers, boolean search, smart folders, and undo.
+    depends_on: []
+
+  - id: ITM-04
+    title: Falcon PDF Crate
+    status: existing
+    scope: core
+    source: falcon
+    source_ref: crates/falcon-pdf
+    verdict: reuse
+    summary: The reusable Rust crate renders PDF pages, extracts text and outlines, controls optional layers, and runs full-document search through PDFKit.
+    depends_on: []
+
+  - id: ITM-05
+    title: Falcon CLIP Crate
+    status: existing
+    scope: supporting
+    source: falcon
+    source_ref: crates/falcon-clip
+    verdict: reuse
+    summary: The reusable Rust crate computes on-device image and text CLIP embeddings and stores vectors for local semantic search.
+    depends_on: []
+
+  - id: ITM-06
+    title: Falcon Video Crate
+    status: existing
+    scope: supporting
+    source: falcon
+    source_ref: crates/falcon-video
+    verdict: reuse
+    summary: The reusable Rust crate decodes and plays video through AVFoundation and falls back to FFmpeg when native codecs cannot decode a stream.
+    depends_on: [ITM-07]
+
+  - id: ITM-07
+    title: Falcon FFmpeg Crate
+    status: existing
+    scope: supporting
+    source: falcon
+    source_ref: crates/falcon-ffmpeg
+    verdict: reuse
+    summary: The reusable Rust crate loads LGPL FFmpeg at run time to decode AV1, MKV, and audio streams with frame synchronization.
+    depends_on: []
+
+  - id: ITM-08
+    title: Falcon IFC Crate
+    status: existing
+    scope: peripheral
+    source: falcon
+    source_ref: crates/falcon-ifc
+    verdict: reuse
+    summary: The reusable Rust crate extracts full IFC building geometry through an isolated web-ifc worker process.
+    depends_on: []
+
+  - id: ITM-09
+    title: Derived SQLite and FTS Index
+    status: existing
+    scope: core
+    source: astrolabe-electron
+    source_ref: src/main/db/schema.ts
+    verdict: port
+    summary: A rebuildable local SQLite database with FTS5 indexes documents, source instances, SHA-256 merges, tags, collections, links, and page-anchored annotations.
+    depends_on: []
+
+  - id: ITM-10
+    title: Zotero Connector
+    status: existing
+    scope: core
+    source: astrolabe-electron
+    source_ref: src/main/connectors/zotero/
+    verdict: port
+    summary: The Zotero connector reads personal and group libraries, collections, tags, PDF attachments, and page-anchored highlights and comments into the index.
+    depends_on: [ITM-09]
+
+  - id: ITM-11
+    title: Obsidian Multi-Vault Connector
+    status: existing
+    scope: core
+    source: astrolabe-electron
+    source_ref: src/main/connectors/obsidian/
+    verdict: port
+    summary: The Obsidian connector discovers registered vaults automatically, parses frontmatter and inline tags, indexes markdown note bodies, and extracts wiki-links.
+    depends_on: [ITM-09]
+
+  - id: ITM-12
+    title: Eagle Connector and Library Switcher
+    status: existing
+    scope: core
+    source: astrolabe-electron
+    source_ref: src/main/connectors/eagle/
+    verdict: port
+    summary: The Eagle connector syncs open libraries, lists library history, and coordinates explicit serialized switch-and-sync sweeps across multiple Eagle libraries.
+    depends_on: [ITM-09]
+
+  - id: ITM-13
+    title: Library-Scoped Sync and Ghost Retention
+    status: existing
+    scope: core
+    source: astrolabe-electron
+    source_ref: src/main/index/removals.ts
+    verdict: port
+    summary: Per-library removal sweeps mark unreachable libraries dormant and keep ghost document records so read history and folder membership survive source deletions.
+    depends_on: [ITM-09]
+
+  - id: ITM-14
+    title: Obsidian Wiki-Link Resolution
+    status: existing
+    scope: core
+    source: astrolabe-electron
+    source_ref: src/main/index/links.ts
+    verdict: port
+    summary: A post-sync pass resolves note outlinks and backlinks by exact vault path or unique basename and clears ambiguous or stale targets.
+    depends_on: [ITM-11]
+
+  - id: ITM-15
+    title: Note Rename Healing
+    status: existing
+    scope: core
+    source: astrolabe-electron
+    source_ref: src/main/index/sync.ts
+    verdict: port
+    summary: Content-hash rename hints pair moved notes safely inside one vault, update instance keys in place, and rewrite folder path references.
+    depends_on: [ITM-11, ITM-13, ITM-16]
+
+  - id: ITM-16
+    title: File-Backed Astrolabe Folders
+    status: existing
+    scope: core
+    source: astrolabe-electron
+    source_ref: src/main/lib/folders.ts
+    verdict: port
+    summary: Workspace folder files store nested collections with hash-first member references, rebuild a SQLite mirror, and import external collection trees once.
+    depends_on: [ITM-09]
+
+  - id: ITM-17
+    title: Rust Workspace Index and Connectors
+    status: planned
+    scope: core
+    source: astrolabe
+    summary: A native Rust index ports the SQLite and FTS5 schema, Zotero, Obsidian, and Eagle connectors, rename healing, ghost retention, and folders.
+    depends_on: [ITM-10, ITM-12, ITM-14, ITM-15, RUN-01]
+
+  - id: ITM-18
+    title: Durable Work Ledger
+    status: planned
+    scope: core
+    source: astrolabe
+    summary: A durable local ledger persists active tasks, approved specs, decisions, evidence artifacts, and session handoffs across agent restarts and machines.
+    depends_on: [ITM-02, RUN-02]
+
+  - id: ITM-19
+    title: Falcon Shared Crates Strategy
+    status: decision
+    scope: core
+    source: astrolabe
+    summary: This decision chooses between shared Falcon library crates while Falcon stays standalone or direct Falcon integration as the Astrolabe library tool.
+    depends_on: []

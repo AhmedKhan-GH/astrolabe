@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Astrolabe Roadmap Pillar",
+  "description": "One pillar of the Astrolabe capability registry. Each YAML file under roadmap/ holds one pillar.",
+  "type": "object",
+  "required": ["prefix", "title", "order", "summary", "features"],
+  "additionalProperties": false,
+  "properties": {
+    "prefix": {
+      "description": "Three capital letters that begin the id of every capability in this pillar.",
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "title": {
+      "description": "Declarative Title Case name for the pillar.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 60,
+      "pattern": "^[^:]+$"
+    },
+    "order": {
+      "description": "Display order of the pillar, starting at 1.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "summary": {
+      "description": "One or two sentences on what the pillar covers.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 350
+    },
+    "features": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/feature" }
+    }
+  },
+  "$defs": {
+    "id": {
+      "description": "Pillar prefix, hyphen, and two or three digits. Once published, an id never changes.",
+      "type": "string",
+      "pattern": "^[A-Z]{3}-[0-9]{2,3}$"
+    },
+    "external_source": {
+      "description": "An existing source repository whose capability is cataloged for migration, reuse, or retirement.",
+      "enum": [
+        "repo-monitor",
+        "agent-monitor",
+        "artisan-apps",
+        "loggia",
+        "falcon",
+        "astrolabe-electron"
+      ]
+    },
+    "source": {
+      "description": "Repository or codebase that owns the capability.",
+      "enum": [
+        "astrolabe",
+        "repo-monitor",
+        "agent-monitor",
+        "artisan-apps",
+        "loggia",
+        "falcon",
+        "astrolabe-electron",
+        null
+      ]
+    },
+    "verdict": {
+      "description": "Disposition for an existing external capability: port into Astrolabe, reuse as a crate, or retire.",
+      "enum": ["port", "reuse", "retire", null]
+    },
+    "feature": {
+      "type": "object",
+      "required": ["id", "title", "status", "scope", "summary", "depends_on"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "title": {
+          "description": "Declarative Title Case noun phrase without a colon.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "pattern": "^[^:]+$"
+        },
+        "status": {
+          "description": "shipped: on Astrolabe main. built: implemented in the current Astrolabe foundation wave. existing: implemented in a source repository awaiting port, reuse, or retirement. planned: scheduled for Astrolabe. idea: undecided future item. decision: open question that blocks dependent capabilities.",
+          "enum": ["shipped", "built", "existing", "planned", "idea", "decision"]
+        },
+        "scope": {
+          "description": "Centrality to Astrolabe: core, supporting, or peripheral.",
+          "enum": ["core", "supporting", "peripheral"]
+        },
+        "summary": {
+          "description": "One clear ASD-STE100 sentence on what the capability does.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "depends_on": {
+          "description": "Capability ids that this entry directly requires.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" },
+          "uniqueItems": true
+        },
+        "source": { "$ref": "#/$defs/source" },
+        "source_ref": {
+          "description": "Optional repository-relative crate, directory, or file path inside the source repository.",
+          "type": ["string", "null"],
+          "pattern": "^[A-Za-z0-9._][A-Za-z0-9._/-]*$"
+        },
+        "verdict": { "$ref": "#/$defs/verdict" },
+        "sprint": {
+          "description": "Optional sprint number or point sprint string.",
+          "anyOf": [
+            { "type": "integer", "minimum": 1 },
+            { "type": "string", "pattern": "^[1-9][0-9]*\\.[0-9]+$" },
+            { "type": "null" }
+          ]
+        },
+        "docs": {
+          "description": "Optional docs page path from repository root with optional anchor.",
+          "type": ["string", "null"],
+          "pattern": "^docs/[a-z0-9/_-]+\\.md(#[a-z0-9_-]+)?$"
+        },
+        "branches": {
+          "description": "Optional branches holding built work.",
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Za-z0-9._/-]+$" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "in_progress": {
+          "description": "For built work only: true while work on the capability is still unfinished.",
+          "type": "boolean"
+        },
+        "design": {
+          "description": "Optional design page path from repository root with optional anchor.",
+          "type": ["string", "null"],
+          "pattern": "^design/[a-z0-9/_-]+\\.md(#[a-z0-9_-]+)?$"
+        },
+        "issue": {
+          "description": "Optional GitHub issue number.",
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "draft": {
+          "description": "True when dependencies are a first draft that still needs review.",
+          "type": "boolean"
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "existing" } } },
+          "then": {
+            "required": ["source", "verdict"],
+            "properties": {
+              "source": { "$ref": "#/$defs/external_source" },
+              "verdict": { "enum": ["port", "reuse", "retire"] }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["verdict"],
+            "properties": { "verdict": { "enum": ["port", "reuse", "retire"] } }
+          },
+          "then": {
+            "required": ["source"],
+            "properties": { "source": { "$ref": "#/$defs/external_source" } }
+          }
+        },
+        {
+          "if": {
+            "required": ["in_progress"],
+            "properties": { "in_progress": { "const": true } }
+          },
+          "then": { "properties": { "status": { "const": "built" } } }
+        }
+      ]
+    }
+  }
+}
