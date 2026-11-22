@@ -4,7 +4,7 @@ kind: index
 
 # Apps
 
-Apps are specialized workspaces inside the single Astrolabe application, backed by `astrolabe-engines` and `astrolabe-kit`.
+Apps are built-in workspaces inside the Astrolabe desktop application, powered by `astrolabe-engines` and styled with `astrolabe-kit`.
 
 ```mermaid
 flowchart TB
@@ -12,15 +12,17 @@ flowchart TB
     app -->|hosts| agents[Agents]
     repos -->|calls| engines[astrolabe-engines]
     agents -->|calls| engines
-    engines -->|reads| readers[Live Data Readers]
+    engines -->|reads| sources[Local and Hosted Sources]
 ```
 
-Built-in apps inside Astrolabe share one engine crate and live data readers.
+Built-in workspaces inside Astrolabe share one shell, engine crate, and live data architecture.
 
-## Monitor Consolidation
+## Built-In Workspaces
 
-Astrolabe absorbs the engines of Repo Monitor and Agent Monitor as built-in apps. [Repos](repos.md) tracks local Git repositories, branches, and worktrees inside the host window. [Agents](agents.md) tracks provider subscriptions, rate limits, and active sessions across CLI tools. Standalone Repo Monitor and Agent Monitor retire when Astrolabe matches their features.
+Astrolabe ships with two integrated workspaces accessible from the top of the sidebar rail. [Repos](repos.md) monitors local Git repositories, branches, worktrees, smart folders, **Watched Folders**, and **Repository Location** (`Local Only`, `Remote Only`, and `Both`). [Agents](agents.md) monitors provider quota windows, credit balances, local Ollama model memory, and macOS Keychain API keys.
 
-## Workspace Integration
+Each workspace follows the visual and interaction rules in [UI Principles](../interface/ui-principles.md). Consistent shortcuts, tables, status chips, and inspectors let the user switch between code state and agent capacity inside one window.
 
-When both apps run inside one Rust binary, views share context without a separate protocol layer or daemon. Later views can connect an agent session, its token budget, its repository, and its commits directly in memory.
+## Shared Context
+
+Both workspaces run concurrently inside one native Rust binary while background threads keep snapshots fresh. When the user switches between Repos and Agents, Astrolabe preserves active filters, selection state, and live background polls with zero reload delay.

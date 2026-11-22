@@ -4,7 +4,7 @@ kind: reference
 
 # Repos
 
-Repos inspects local Git repositories, branches, worktrees, and folders inside the Astrolabe workstation.
+Repos inspects local Git repositories, branches, worktrees, smart folders, **Watched Folders**, and **Repository Location** inside the Astrolabe workstation.
 
 ![Repos Panel](../assets/repos-panel.png)
 
@@ -12,7 +12,7 @@ The Repos panel shows the command bar, contextual sidebar, repository list, insp
 
 ## Commands
 
-The Repos panel has four main areas: a command bar, a sidebar rail, a list pane, and an inspector pane. A status bar sits along the bottom edge. Each area holds controls for repository discovery, navigation, and organization.
+The Repos panel contains four workspace regions: a command bar, a sidebar rail, a list pane, and an inspector pane. A persistent status bar sits along the bottom edge. Each region provides focused controls for repository discovery, navigation, and organization.
 
 | Area | Control | Action |
 |---|---|---|
@@ -24,31 +24,37 @@ The Repos panel has four main areas: a command bar, a sidebar rail, a list pane,
 | Sidebar Rail | `All Repos`, `Folders`, `Tags` | Choose scope, nest folders, or drop rows to pin or tag. |
 | Sidebar Rail | `Location` | Filter repositories by `Local Only`, `Remote Only`, or `Both`. |
 | Sidebar Rail | `Status`, `Apps`, `Languages`, `Categories` | Filter visible repositories by automatic tags. |
-| List Strip | `Add Query` or query field | Edit a folder rule with 800 ms debounced write to `organize.toml`. |
+| List Strip | `Add Query` or query field | Edit a folder rule with 800 ms debounced save to `organize.toml`. |
 | List Strip | `Name`, `Location`, `Recent` | Sort visible rows and flip order on repeat clicks. |
 | List Strip | `Compact`, `Comfortable` | Switch between 34 px single-line and 52 px two-line rows. |
 | Status Bar | Left telemetry | Show repository count, active reads, checks, unreadable paths, or errors. |
 | Status Bar | Right telemetry and `Settings` | Show remote check age, watcher state, GitHub quota, and open settings folder. |
 
-Each list row shows an IDE icon or two-letter monogram, repository name, manual tags, and location path. A double click opens the repository in its assigned IDE. A right click opens actions for the IDE, Finder, Terminal, GitHub, folders, tags, and removal of unreadable entries.
+Each list row displays an IDE icon or two-letter monogram, repository name, manual tags, and tilde-shortened path. A double click opens the repository in its assigned IDE. A right click opens actions for the IDE, Finder, Terminal, GitHub, folders, tags, and removal of unreadable entries.
 
-Manage mode switches the workspace panes into a folder and tag editor. The Folders tab supports folder creation, inline rename, drag-and-drop reorder across before, into, and after zones, and a `Move To` menu. Its editor shows live query match counts, pinned and excluded lists, and a searchable `Add Repos` checklist. The Tags tab supports tag creation, rename or merge onto another tag, deletion, and bulk tag or untag actions.
+Manage mode switches the workspace panes into a dedicated folder and tag editor. The Folders tab supports folder creation, inline rename, drag-and-drop reorder across before, into, and after zones, and a `Move To` menu. Its editor shows live query match counts, pinned and excluded lists, and a searchable `Add Repos` checklist. The Tags tab supports tag creation, rename or merge onto another tag, deletion, and bulk tag or untag actions.
 
 ## Watched Folders
 
 ![Watched Folders](../assets/watched-folders.png)
 
-The Watched Folders view lists the root folders in `config.toml`, and `Watched Folders` in the command bar or `⌘,` opens it. The `Add` button adds a root folder, and each row has inline controls to edit its category and app. The `Remove` button removes a folder from `config.toml`, and Repos saves each change and starts a rescan.
+The Watched Folders view manages the root folders configured in `~/Library/Application Support/Astrolabe/config.toml`. Click `Watched Folders` in the command bar or press `⌘,` to toggle the pane.
+
+Each table row displays the folder path, assigned category, IDE app (`Inferred` or a specific IDE), discovered repository count, and a `Remove` button. Click `Add` to pick a new root folder through the macOS folder dialog, or edit category and app fields inline. Click `Remove` to drop a root folder from `config.toml`, and Repos leaves files on disk unchanged. Every change saves automatically and starts a rescan of configured roots.
+
+On first launch, Astrolabe imports watched folders and skip rules if an existing repository settings file is present. Astrolabe leaves the source file untouched and writes its own `config.toml` under `~/Library/Application Support/Astrolabe/`.
 
 ## Repository Location
 
 ![Repository Location](../assets/location.png)
 
-The `Location` sidebar group sits below `All Repos` and has three filters: `Local Only`, `Remote Only`, and `Both`. `Local Only` shows local repositories with no remote, and `Both` shows local repositories with a GitHub remote. `Remote Only` lists GitHub repositories without a local clone in read-only rows with name, owner, visibility, default branch, and last push.
+The `Location` section sits directly below `All Repos` in the sidebar rail and tracks where each repository exists. Three live filters divide the workspace into `Local Only`, `Remote Only`, and `Both` with automatic `location:<scope>` tags and counts.
+
+`Local Only` shows local Git repositories that have no configured remote. `Both` shows local repositories backed by a remote such as GitHub. `Remote Only` lists repositories from the authenticated GitHub account that have no local clone on disk. Remote-only entries appear in read-only rows with repository name, owner, visibility, default branch, and last push time.
 
 ## Group Modes
 
-Four group modes organize visible rows into numbered framed sections inside the list pane. Each section header shows a sequence number, an uppercase title, and a repository count. When a repository belongs to multiple folders or carries multiple manual tags, Repos lists that repository in each section.
+Four group modes organize visible rows into numbered framed sections inside the list pane. Each section header displays a sequence number, an uppercase title, and a repository count. When a repository belongs to multiple folders or carries multiple manual tags, Repos displays it in each section.
 
 | Mode | Shortcut | Section Rule |
 |---|---|---|
@@ -57,11 +63,11 @@ Four group modes organize visible rows into numbered framed sections inside the 
 | `Tag` | `⌘3` | One section per manual tag, plus `No tags`. |
 | `App` | `⌘4` | One section per IDE (`CLion`, `WebStorm`, `PyCharm`, `RustRover`, `GoLand`), plus `No app`. |
 
-Sort controls order rows inside every section by name, path location, or newest commit time. The `Recent` sort puts the newest commit first on the initial click, while `Name` and `Location` sort from A to Z. A second click on the active sort button flips the order. Density toggles switch between `Compact` single-line rows and `Comfortable` two-line rows.
+Sort controls order rows inside every section by name, path location, or newest commit time. The `Recent` sort places the newest commit first on the initial click, while `Name` and `Location` sort from A to Z. A second click on the active sort button flips the order. Density controls switch between `Compact` single-line rows and `Comfortable` two-line rows.
 
 ## Query Syntax
 
-The top filter field and smart folder rules share one boolean query grammar. Text match is case-insensitive, and an empty query matches all repositories. Operator precedence runs from highest to lowest: parentheses, negation, conjunction, and disjunction. A parse error shows inline red feedback beside the field.
+The top filter field and smart folder rules share one boolean query grammar. Text match is case-insensitive, and an empty query matches all repositories. Operator precedence runs from highest to lowest: parentheses, negation, conjunction, and disjunction. Parse errors display inline red feedback beside the field.
 
 | Construct | Syntax | Behavior |
 |---|---|---|
@@ -74,13 +80,15 @@ The top filter field and smart folder rules share one boolean query grammar. Tex
 | Name Field | `name:value` | Match a substring inside the repository folder name. |
 | Path Field | `path:value` | Match a substring inside the tilde-shortened repository path. |
 
-Repos builds automatic tags directly from repository metadata without manual upkeep. Eight status tags track repository state: `uncommitted`, `unpushed`, `behind`, `stale`, `local-only`, `private`, `public`, and `third-party`. A repository receives `stale` when its latest commit is older than 30 days. Four prefixed tag families record tool, location, and project facts: `app:<ide>`, `lang:<language>`, `category:<slug>`, and `location:<scope>`. Repos detects languages from top-level project marker files or from file extensions at the root and inside `src/`. Manual tags cannot reuse automatic tag names.
+Repos generates automatic tags directly from repository metadata without manual upkeep. Eight status tags record repository state: `uncommitted`, `unpushed`, `behind`, `stale`, `local-only`, `private`, `public`, and `third-party`. A repository receives `stale` when its latest commit is older than 30 days.
+
+Four prefixed tag families capture tool, location, and project facts: `app:<ide>`, `lang:<language>`, `category:<slug>`, and `location:<scope>`. Repos detects languages from top-level project marker files or file extensions at the root and inside `src/`. Manual tags cannot reuse automatic tag names.
 
 ## Fields
 
-The right pane switches between `Totals` and `Inspector` views. When no repository holds selection, the pane shows `Totals` for the active sidebar scope and filter. Clickable attention chips at the top append `local-only`, `uncommitted`, `unpushed`, or `behind` to the filter. When a folder is active, `Totals` also lists its query, pinned entries, and excluded entries with `Remove` and `Restore` actions.
+The right pane switches between `Totals` and `Inspector` views based on row selection. When no repository holds selection, the pane shows `Totals` for the active sidebar scope and filter. Clickable attention chips at the top append `local-only`, `uncommitted`, `unpushed`, or `behind` to the filter. When a folder is active, `Totals` also displays its query, pinned entries, and excluded entries with `Remove` and `Restore` controls.
 
-When a repository holds selection, the pane shows the `Inspector` view. Its header shows the icon, repository name, assigned IDE, category, status flag chips, and launch buttons for the IDE, Finder, Terminal, and GitHub. Conditional sections appear only when stashes, linked worktrees, submodules, or sibling copies exist.
+When a repository holds selection, the pane displays the `Inspector` view. Its header shows the icon, repository name, assigned IDE, category, status chips, and launch buttons for the IDE, Finder, Terminal, and GitHub. Conditional sections appear only when stashes, linked worktrees, submodules, or sibling copies exist.
 
 | View | Section | Fields |
 |---|---|---|
@@ -101,7 +109,7 @@ When a repository holds selection, the pane shows the `Inspector` view. Its head
 
 ## Status Flags
 
-Repos evaluates every read repository into ordered status flags with the most urgent state first. Each flag maps to a single semantic tone from [UI Principles](../interface/ui-principles.md). A repository that reads cleanly with no attention flags receives `IN SYNC`.
+Repos evaluates every read repository into ordered status flags with the most urgent state first. Each flag maps to one semantic tone from [UI Principles](../interface/ui-principles.md). A repository that reads cleanly with no attention flags receives `IN SYNC`.
 
 | Flag | Tone | Condition |
 |---|---|---|
@@ -116,7 +124,7 @@ Repos evaluates every read repository into ordered status flags with the most ur
 
 ## Keys
 
-Keyboard shortcuts operate across the Repos panel while no modal dialog holds focus. Selection and launch shortcuts act on the highlighted repository row. Escape closes the active subview, clears focus, deselects a row, or clears the top filter.
+Keyboard shortcuts operate across the Repos panel while no modal dialog holds focus. Selection and launch shortcuts act on the highlighted repository row. `Escape` closes the active subview, clears focus, deselects a row, or clears the top filter.
 
 | Key | Scope | Action |
 |---|---|---|
@@ -143,4 +151,4 @@ Start Astrolabe with `--demo` to open the Repos panel with synthetic data. Pass 
 astrolabe --demo --panel repos
 ```
 
-Demo mode loads 11 deterministic repositories under `/demo/workspaces/` at a fixed timestamp and runs an idle engine. The fixture covers all eight status flags, smart folders, nested subfolders, manual tags, stashes, a worktree, a submodule, sibling copies, and an unreadable entry. Demo mode keeps all edits in memory and makes zero reads or writes to real repositories, configuration files, external apps, or the network.
+Demo mode loads 11 deterministic repositories under `/demo/workspaces/` at a fixed timestamp and starts an idle engine. The fixture covers all eight status flags, smart folders, nested subfolders, manual tags, stashes, a worktree, a submodule, sibling copies, and an unreadable entry. Demo mode keeps all edits in memory and performs zero reads or writes against real repositories, configuration files, external apps, or the network.
