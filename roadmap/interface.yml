@@ -7,7 +7,7 @@ features:
   - id: INT-01
     title: Astrolabe Kit
     status: shipped
-    priority: core
+    scope: core
     docs: docs/interface/ui-principles.md
     summary: The shared UI kit provides the mineral palette, typography tokens, shell chrome, data tables, summary tiles, and status chips.
     depends_on: []
@@ -15,7 +15,7 @@ features:
   - id: INT-02
     title: Application Shell and Navigation
     status: shipped
-    priority: core
+    scope: core
     docs: docs/architecture/architecture.md
     summary: The native desktop shell hosts the command bar, sidebar rail, panel switcher, status bar, and keyboard shortcuts.
     depends_on: [INT-01]
@@ -23,7 +23,7 @@ features:
   - id: INT-03
     title: Repos Workspace, Watched Folders, and Repository Location
     status: shipped
-    priority: core
+    scope: core
     docs: docs/apps/repos.md
     summary: The Repos workspace provides a three-pane view, location filters, inline watched-folder controls, a repository inspector, and quick IDE, Finder, and Terminal actions.
     depends_on: [INT-02, ITM-01]
@@ -31,7 +31,7 @@ features:
   - id: INT-04
     title: Agents Workspace and Keychain Settings
     status: shipped
-    priority: core
+    scope: core
     docs: docs/apps/agents.md
     summary: The Agents workspace displays quota bars, reset timers, an Ollama memory table, installed tools, and a modal for macOS Keychain keys.
     depends_on: [INT-02, OBS-03, OBS-04, OBS-05, OBS-06]
@@ -39,27 +39,27 @@ features:
   - id: INT-05
     title: Overview
     status: planned
-    priority: core
+    scope: core
     summary: The Overview panel summarizes active repositories, agent runs, quota alerts, and recent knowledge activity in one home view.
-    depends_on: [INT-06, INT-07, INT-08]
+    depends_on: [INT-04, INT-06, INT-07]
 
   - id: INT-06
     title: Loose Ends
     status: planned
-    priority: core
+    scope: core
     summary: The Loose Ends view surfaces uncommitted work, unpushed branches, stale worktrees, and unfinished drafts across tracked projects.
     depends_on: [INT-03, ITM-04, OBS-07]
 
   - id: INT-07
     title: Needs You
     status: planned
-    priority: core
+    scope: core
     summary: The Needs You queue collects blocked agent workflows, review checkpoints, and open human decisions in one action list.
     depends_on: [INT-02, OBS-07, RUN-04]
 
   - id: INT-08
     title: Machine
     status: planned
-    priority: core
+    scope: peripheral
     summary: The Machine panel displays host memory, Ollama GPU and KV cache usage, active Linux VMs, and remote host capacity.
     depends_on: [INT-04, OBS-08, OBS-09]

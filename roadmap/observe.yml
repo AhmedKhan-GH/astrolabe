@@ -7,7 +7,7 @@ features:
   - id: OBS-01
     title: Repository Discovery and Live Watch
     status: shipped
-    priority: core
+    scope: core
     docs: docs/apps/repos.md
     summary: Read-only discovery finds Git repositories under watched folders, tracks file changes live, applies skip rules, and imports saved folder settings on first launch.
     depends_on: []
@@ -15,7 +15,7 @@ features:
   - id: OBS-02
     title: Local Git and Remote Status Engine
     status: shipped
-    priority: core
+    scope: core
     docs: docs/apps/repos.md
     summary: Background workers inspect branches, uncommitted files, stashes, worktrees, submodules, remote divergence, GitHub visibility, account repository lists, and Repository Location state.
     depends_on: [OBS-01]
@@ -23,7 +23,7 @@ features:
   - id: OBS-03
     title: CLI Quota and Probe Runner
     status: shipped
-    priority: core
+    scope: core
     docs: docs/apps/agents.md
     summary: An isolated PTY runner reads usage screens for Claude, Kimi, and Antigravity and parses Codex rollout limits from local session files.
     depends_on: []
@@ -31,7 +31,7 @@ features:
   - id: OBS-04
     title: Provider Quota API Adapters
     status: shipped
-    priority: core
+    scope: core
     docs: docs/apps/agents.md
     summary: Read-only HTTP adapters fetch account quotas and credit balances for GLM, ZCode, Mistral, MiniMax, DeepSeek, and Xiaomi with macOS Keychain keys.
     depends_on: []
@@ -39,7 +39,7 @@ features:
   - id: OBS-05
     title: Local Ollama Memory Monitor
     status: shipped
-    priority: core
+    scope: core
     docs: docs/apps/agents.md
     summary: A five-second poller reads loaded Ollama models, GPU residency, memory pressure, and KV cache estimates with a ten-minute timeline.
     depends_on: []
@@ -47,7 +47,7 @@ features:
   - id: OBS-06
     title: Installed Agent Tool Discovery
     status: shipped
-    priority: supporting
+    scope: core
     docs: docs/apps/agents.md
     summary: Background discovery detects local agent CLIs and desktop apps, checks tool versions and sign-in state, and loads native or bundled icons.
     depends_on: []
@@ -55,20 +55,20 @@ features:
   - id: OBS-07
     title: GitHub Observation
     status: planned
-    priority: core
+    scope: core
     summary: A GitHub observer tracks pull requests, review state, open issues, workflow runs, and release checks across tracked repositories.
     depends_on: [OBS-02]
 
   - id: OBS-08
     title: Machine Resource Telemetry
     status: planned
-    priority: core
+    scope: peripheral
     summary: Host telemetry measures physical memory, CPU load, GPU pressure, active Linux VMs, and remote host health for capacity views.
     depends_on: [OBS-05, RUN-03, RUN-05]
 
   - id: OBS-09
     title: Remote Host Observation
     status: planned
-    priority: core
+    scope: peripheral
     summary: Remote observers stream live repository, local model, and process state from connected Linux and macOS hosts into Astrolabe.
     depends_on: [OBS-02, OBS-05, RUN-05]

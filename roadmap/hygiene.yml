@@ -7,7 +7,7 @@ features:
   - id: HYG-01
     title: Deterministic Demo Mode
     status: shipped
-    priority: supporting
+    scope: supporting
     docs: docs/development/development-basics.md
     summary: The --demo flag loads isolated synthetic snapshots for Repos and Agents without local disk, Keychain, or network access.
     depends_on: [INT-03, INT-04]
@@ -15,7 +15,7 @@ features:
   - id: HYG-02
     title: Offscreen UI Snapshot and Interaction Harness
     status: shipped
-    priority: supporting
+    scope: supporting
     docs: docs/development/development-basics.md
     summary: Headless egui_kittest suites verify keyboard, filter, and panel interactions and render offscreen PNG captures without desktop windows.
     depends_on: [HYG-01]
@@ -23,7 +23,7 @@ features:
   - id: HYG-03
     title: macOS Application Bundle Builder
     status: shipped
-    priority: supporting
+    scope: supporting
     docs: docs/development/development-basics.md
     summary: The bundle script compiles the release binary, generates the application icon, writes Info.plist, and signs Astrolabe.app for macOS.
     depends_on: [INT-03, INT-04]
@@ -31,7 +31,7 @@ features:
   - id: HYG-04
     title: Documentation and Roadmap Verification
     status: shipped
-    priority: supporting
+    scope: supporting
     docs: docs/development/development-basics.md
     summary: Automated scripts check documentation headings, validate roadmap schema and dependencies, and run strict MkDocs builds.
     depends_on: []

@@ -7,7 +7,7 @@ features:
   - id: ITM-01
     title: Repository Query, Tag, and Smart Folder Engine
     status: shipped
-    priority: core
+    scope: core
     docs: docs/apps/repos.md
     summary: A TOML store manages automatic and manual tags, nested folders, boolean smart-folder queries, and remote-keyed repository organization.
     depends_on: [OBS-02]
@@ -15,20 +15,20 @@ features:
   - id: ITM-02
     title: Knowledge and Asset Index
     status: planned
-    priority: core
+    scope: core
     summary: A rebuildable local SQLite and FTS5 index unifies documents, notes, media assets, page annotations, and cross-application links.
     depends_on: []
 
   - id: ITM-03
     title: Reference, Note, and Media Connectors
     status: planned
-    priority: core
+    scope: core
     summary: Native connectors index Zotero libraries, Markdown note vaults with wiki-link resolution, and media asset libraries while native files stay authoritative.
     depends_on: [ITM-02, RUN-01]
 
   - id: ITM-04
     title: Cross-Application Collections
     status: planned
-    priority: core
+    scope: core
     summary: Workspace collections group repositories, papers, notes, and media assets by content hash and stable identifiers across tools.
     depends_on: [ITM-01, ITM-03]

@@ -7,7 +7,7 @@ features:
   - id: RUN-01
     title: Background Service
     status: planned
-    priority: core
+    scope: core
     docs: docs/architecture/architecture.md
     summary: A persistent local daemon runs watchers, index syncs, quota probes, and supervised workflows while the main window stays closed.
     depends_on: []
@@ -15,27 +15,27 @@ features:
   - id: RUN-02
     title: Agent Launcher
     status: planned
-    priority: core
+    scope: core
     summary: The workspace launcher starts interactive or background agents in selected repositories with scoped context and environment presets.
     depends_on: [OBS-02, OBS-06, RUN-01]
 
   - id: RUN-03
     title: Managed Linux VMs
     status: planned
-    priority: core
+    scope: core
     summary: Astrolabe manages isolated Linux VMs with reproducible images, controlled filesystem mounts, and explicit CPU and memory budgets.
     depends_on: [RUN-01]
 
   - id: RUN-04
     title: Agent Workflows in Managed Linux VMs
     status: planned
-    priority: core
+    scope: core
     summary: Multi-step agent workflows execute inside isolated Linux VMs with automated verification checks and human approval gates before external actions.
     depends_on: [RUN-02, RUN-03]
 
   - id: RUN-05
     title: Remote Hosts
     status: planned
-    priority: core
+    scope: peripheral
     summary: Encrypted host connections manage remote execution and live sessions across remote Linux and macOS machines.
     depends_on: [RUN-01]

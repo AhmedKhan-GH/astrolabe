@@ -42,7 +42,7 @@
     },
     "feature": {
       "type": "object",
-      "required": ["id", "title", "status", "priority", "summary"],
+      "required": ["id", "title", "status", "scope", "summary", "depends_on"],
       "additionalProperties": false,
       "properties": {
         "id": { "$ref": "#/$defs/id" },
@@ -57,9 +57,9 @@
           "description": "shipped: available in Astrolabe today. planned: scheduled for a future Astrolabe release.",
           "enum": ["shipped", "planned"]
         },
-        "priority": {
-          "description": "Centrality to Astrolabe: core or supporting.",
-          "enum": ["core", "supporting"]
+        "scope": {
+          "description": "Role on the product path. core: primary workstation capability or direct dependency. supporting: engineering, test, bundle, or verification tooling. peripheral: extended multi-host or capacity capability.",
+          "enum": ["core", "supporting", "peripheral"]
         },
         "summary": {
           "description": "One clear ASD-STE100 sentence on what the feature does.",
@@ -68,17 +68,29 @@
           "maxLength": 300
         },
         "depends_on": {
-          "description": "Optional feature ids that this entry directly requires.",
+          "description": "Feature ids that this entry directly requires. Each id forms a graph edge.",
           "type": "array",
           "items": { "$ref": "#/$defs/id" },
           "uniqueItems": true
         },
         "docs": {
-          "description": "Optional page-level docs path from repository root without an anchor fragment.",
+          "description": "Docs path from the repository root with an optional heading anchor. Required for shipped features.",
           "type": ["string", "null"],
-          "pattern": "^docs/[a-z0-9/_-]+\\.md$"
+          "pattern": "^docs/[a-z0-9/_-]+\\.md(#[a-z0-9_-]+)?$"
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["status"],
+            "properties": { "status": { "const": "shipped" } }
+          },
+          "then": {
+            "required": ["docs"],
+            "properties": { "docs": { "type": "string" } }
+          }
+        }
+      ]
     }
   }
 }
