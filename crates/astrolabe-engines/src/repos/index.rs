@@ -70,6 +70,7 @@ impl Index {
         let mut vocab: HashSet<String> = sets.iter().flatten().cloned().collect();
         vocab.extend(org.all_tags());
         vocab.extend(tags::STATUS.iter().map(|s| s.to_string()));
+        vocab.extend(tags::LOCATION.iter().map(|s| s.to_string()));
 
         let manual_counts = org
             .all_tags()
@@ -242,11 +243,14 @@ mod tests {
         assert_eq!(index.manual[0], ["northstar", "product"]);
         assert_eq!(index.manual[1], ["northstar"]);
         assert!(index.has_tag(0, "uncommitted") && index.has_tag(0, "private") && index.has_tag(0, "lang:rust"));
-        assert!(index.has_tag(1, "local-only") && !index.has_tag(1, "uncommitted"));
+        assert!(index.has_tag(0, "location:both") && index.has_tag(2, "location:both"));
+        assert!(index.has_tag(1, "local-only") && index.has_tag(1, "location:local-only") && !index.has_tag(1, "uncommitted"));
         assert_eq!(index.locations[0], "~/Code");
         assert_eq!(index.paths[2], "~/Research/gamma");
         assert_eq!(index.manual_counts, vec![("northstar".to_string(), 2), ("product".to_string(), 1)]);
         assert_eq!(index.auto_counts.get("category:research"), Some(&3));
+        assert_eq!(index.auto_counts.get("location:both"), Some(&2));
+        assert_eq!(index.auto_counts.get("location:local-only"), Some(&1));
         assert_eq!(index.auto_counts.get("uncommitted"), Some(&1));
         assert_eq!(index.auto_counts.get("behind"), None);
     }
@@ -256,12 +260,15 @@ mod tests {
         let (repos, org) = sample();
         let index = Index::build(&repos, &org, SystemTime::UNIX_EPOCH);
         assert!(index.is_tag("northstar") && index.is_tag("behind") && index.is_tag("lang:haskell"));
+        assert!(index.is_tag("location:local-only") && index.is_tag("location:remote-only") && index.is_tag("location:both"));
         assert!(!index.is_tag("gam"));
         assert_eq!(index.matching_text("northstar -product"), [false, true, false]);
         assert_eq!(index.matching_text("gam"), [false, false, true]);
         assert_eq!(index.matching_text("research"), [false, false, true]);
         assert_eq!(index.matching_text("behind"), [false, false, false]);
         assert_eq!(index.matching_text("uncommitted OR local-only"), [true, true, false]);
+        assert_eq!(index.matching_text("location:both"), [true, false, true]);
+        assert_eq!(index.matching_text("location:local-only"), [false, true, false]);
         assert_eq!(index.matching_text("(a"), [false, false, false]);
     }
 

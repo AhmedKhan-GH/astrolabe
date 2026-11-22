@@ -1,0 +1,34 @@
+[
+  {
+    "id": 900101,
+    "name": "Sextant-Core",
+    "full_name": "Northstar-Labs/Sextant-Core",
+    "private": true,
+    "owner": { "login": "Northstar-Labs", "id": 7001, "type": "Organization" },
+    "html_url": "https://github.com/Northstar-Labs/Sextant-Core",
+    "default_branch": "main",
+    "visibility": "private",
+    "pushed_at": "2026-11-18T10:31:40Z"
+  },
+  {
+    "id": 900102,
+    "name": "orbit-scheduler",
+    "full_name": "northstar-labs/orbit-scheduler",
+    "private": false,
+    "owner": { "login": "northstar-labs", "id": 7001, "type": "Organization" },
+    "html_url": "https://github.com/northstar-labs/orbit-scheduler",
+    "default_branch": "trunk",
+    "visibility": "public",
+    "pushed_at": "2026-11-17T08:15:00Z"
+  },
+  {
+    "id": 900103,
+    "name": "empty-draft",
+    "full_name": "example-org/empty-draft",
+    "private": true,
+    "owner": { "login": "example-org", "id": 7002, "type": "Organization" },
+    "html_url": "https://github.com/example-org/empty-draft",
+    "default_branch": "main",
+    "pushed_at": null
+  }
+]

@@ -75,26 +75,26 @@ pub struct RateLimit {
     pub reset: Option<SystemTime>,
 }
 
-const API: &str = "https://api.github.com";
+pub(super) const API: &str = "https://api.github.com";
 const API_PREFIX: &str = "https://api.github.com/";
 
 // ---- transport seam ---------------------------------------------------------
 
 /// What the client needs from one HTTP response.
-struct RawResponse {
-    status: u16,
-    etag: Option<String>,
-    remaining: Option<u32>,
+pub(super) struct RawResponse {
+    pub(super) status: u16,
+    pub(super) etag: Option<String>,
+    pub(super) remaining: Option<u32>,
     /// `X-RateLimit-Limit`.
-    limit: Option<u32>,
+    pub(super) limit: Option<u32>,
     /// `X-RateLimit-Reset`, unix seconds.
-    reset: Option<u64>,
+    pub(super) reset: Option<u64>,
     /// `Retry-After`, seconds.
-    retry_after: Option<u64>,
-    body: String,
+    pub(super) retry_after: Option<u64>,
+    pub(super) body: String,
 }
 
-trait Transport: Send + Sync {
+pub(super) trait Transport: Send + Sync {
     /// `Err` is a transport failure (offline, timeout, TLS); HTTP statuses are `Ok`.
     /// `token` is sent as a bearer token; only api.github.com URLs come here.
     fn get(&self, url: &str, etag: Option<&str>, token: Option<&str>) -> Result<RawResponse, String>;
@@ -288,11 +288,11 @@ struct LimitState {
     authed: bool,
 }
 
-fn now_secs() -> u64 {
+pub(super) fn now_secs() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
 
-fn at(secs: u64) -> SystemTime {
+pub(super) fn at(secs: u64) -> SystemTime {
     UNIX_EPOCH + Duration::from_secs(secs)
 }
 
@@ -324,12 +324,52 @@ impl GitHub {
         Self::with_transport(cache_dir, Box::new(UreqTransport::new()))
     }
 
-    fn with_transport(cache_dir: PathBuf, transport: Box<dyn Transport>) -> Self {
+    pub(super) fn with_transport(cache_dir: PathBuf, transport: Box<dyn Transport>) -> Self {
         let limit = std::fs::read_to_string(cache_dir.join("rate_limit.json"))
             .ok()
             .and_then(|s| serde_json::from_str(&s).ok())
             .unwrap_or_default();
         GitHub { cache_dir, transport, limit: Mutex::new(limit), token: RwLock::new(None), token_source: gh_token }
+    }
+
+    pub(super) fn cache_dir(&self) -> &Path {
+        &self.cache_dir
+    }
+
+    pub(super) fn current_token(&self) -> Option<String> {
+        self.token.read().unwrap().clone()
+    }
+
+    #[cfg(test)]
+    pub(super) fn set_token_source(&mut self, source: fn() -> Option<String>) {
+        self.token_source = source;
+    }
+
+    #[cfg(test)]
+    pub(super) fn set_token(&self, token: Option<String>) {
+        *self.token.write().unwrap() = token;
+    }
+
+    pub(super) fn rate_limited_reset(&self, authed: bool) -> Option<u64> {
+        let known = *self.limit.lock().unwrap();
+        if let (Some(0), Some(reset)) = (known.remaining, known.reset)
+            && reset > now_secs()
+            && known.authed == authed
+        {
+            Some(reset)
+        } else {
+            None
+        }
+    }
+
+    pub(super) fn current_reset(&self) -> Option<u64> {
+        self.limit.lock().unwrap().reset
+    }
+
+    pub(super) fn get_raw(&self, url: &str, etag: Option<&str>, token: Option<&str>) -> Result<RawResponse, String> {
+        let resp = self.transport.get(url, etag, token)?;
+        self.record_limit(&resp, token.is_some());
+        Ok(resp)
     }
 
     /// Ask `gh` for its token again, so a login or logout counts from the next check.
@@ -472,7 +512,7 @@ impl GitHub {
     }
 
     /// Best effort: a cache that cannot be written must not fail a fetch.
-    fn write_json<V: Serialize>(&self, path: &Path, value: &V) {
+    pub(super) fn write_json<V: Serialize>(&self, path: &Path, value: &V) {
         if let Ok(bytes) = serde_json::to_vec_pretty(value) {
             let _ = write_atomic(path, &bytes);
         }

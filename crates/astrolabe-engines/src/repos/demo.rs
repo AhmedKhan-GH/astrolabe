@@ -11,8 +11,8 @@ use super::engine::Msg;
 use super::github::RateLimit;
 use super::index::Index;
 use super::model::{
-    Changes, Commit, Config, CopyDiff, Discovery, Found, GhRepo, Head, Ide, IdeSource, Remote, RemoteCheck, Root,
-    Stash, Stats, Submodule, SubmoduleState, THIRD_PARTY, Tip, Worktree,
+    Changes, Commit, Config, CopyDiff, Discovery, Found, GhListedRepo, GhRepo, Head, Ide, IdeSource, Remote,
+    RemoteCheck, Root, Stash, Stats, Submodule, SubmoduleState, THIRD_PARTY, Tip, Worktree,
 };
 use super::organize::{Folder, Organize};
 use super::state::State;
@@ -429,6 +429,19 @@ pub fn demo_data_at(now: SystemTime) -> DemoData {
         b: p("rust/sextant-core-mirror"),
         counts: Some((1, 2)),
     }]));
+    state.apply(Msg::GitHubList(vec![
+        // Cloned locally (matched against local remotes and excluded from remote_only).
+        listed_repo("northstar-labs", "sextant-core", true, "private", "main", Some(ago(35 * MIN))),
+        listed_repo("northstar-labs", "compass-ui", true, "private", "main", Some(ago(2 * HOUR))),
+        listed_repo("northstar-labs", "harbor-proxy", false, "public", "main", Some(ago(3 * DAY))),
+        listed_repo("northstar-labs", "lantern-cli", true, "private", "main", Some(ago(15 * HOUR))),
+        listed_repo("example-org", "solstice-docs", false, "public", "main", Some(ago(90 * DAY))),
+        // Remote-only repositories (no local clone on this Mac).
+        listed_repo("northstar-labs", "orbit-scheduler", true, "private", "main", Some(ago(3 * HOUR))),
+        listed_repo("northstar-labs", "beacon-telemetry", false, "public", "main", Some(ago(2 * DAY))),
+        listed_repo("cobalt-systems", "kestrel-proto", true, "internal", "trunk", Some(ago(11 * DAY))),
+        listed_repo("example-org", "astrolabe-spec", false, "public", "main", Some(ago(48 * DAY))),
+    ]));
     state.settle();
 
     let mut organize = Organize::default();
@@ -486,6 +499,27 @@ fn found_repo(path: PathBuf, root: usize, ide: Option<Ide>, ide_source: IdeSourc
     Found { path, git_dir, root, ide, ide_source, langs: langs.iter().map(|s| (*s).to_owned()).collect() }
 }
 
+fn listed_repo(
+    owner: &str,
+    name: &str,
+    private: bool,
+    visibility: &str,
+    default_branch: &str,
+    pushed_at: Option<SystemTime>,
+) -> GhListedRepo {
+    let full_name = format!("{owner}/{name}");
+    GhListedRepo {
+        html_url: format!("https://github.com/{full_name}"),
+        full_name,
+        name: name.to_owned(),
+        owner: owner.to_owned(),
+        private,
+        visibility: visibility.to_owned(),
+        default_branch: default_branch.to_owned(),
+        pushed_at,
+    }
+}
+
 fn base_stats(now: SystemTime) -> Stats {
     Stats {
         head: Head::Branch("main".into()),
@@ -526,6 +560,9 @@ mod tests {
         let b = demo_data();
         assert_eq!(a, b);
         assert_eq!(a.state.repos.len(), 11);
+        assert_eq!(a.state.remote_only.len(), 4);
+        assert_eq!(a.index.auto_counts.get("location:local-only"), Some(&2));
+        assert_eq!(a.index.auto_counts.get("location:both"), Some(&7));
         assert!(a.state.discovered);
         assert_eq!(a.state.unreadable().len(), 1);
         assert_eq!(a.state.groups.len(), 1);

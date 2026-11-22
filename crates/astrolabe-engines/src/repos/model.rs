@@ -315,6 +315,19 @@ pub struct GhRepo {
     pub default_branch: String,
 }
 
+/// One repository returned by `GET /user/repos` for the authenticated account.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GhListedRepo {
+    pub full_name: String,
+    pub name: String,
+    pub owner: String,
+    pub private: bool,
+    pub visibility: String,
+    pub default_branch: String,
+    pub pushed_at: Option<SystemTime>,
+    pub html_url: String,
+}
+
 /// How a repository stands against its remote.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Relation {

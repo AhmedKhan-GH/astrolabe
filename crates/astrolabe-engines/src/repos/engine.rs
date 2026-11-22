@@ -9,8 +9,9 @@ use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant, SystemTime};
 
-use super::github::{GitHub, RateLimit};
-use super::model::{Config, CopyDiff, Discovery, Found, GhRepo, Relation, RemoteCheck, Repo, Stats};
+use super::github::{GitHub, Origin, RateLimit};
+use super::github_list::LIST_MAX_AGE;
+use super::model::{Config, CopyDiff, Discovery, Found, GhListedRepo, GhRepo, Relation, RemoteCheck, Repo, Stats};
 use super::watch::{WatchEvent, WatchedRepo, Watcher};
 use super::{config, discover, git, paths, related, remote};
 
@@ -22,6 +23,8 @@ const DISCOVER_EVERY: Duration = Duration::from_secs(600);
 const CONFIG_POLL: Duration = Duration::from_secs(3);
 /// GitHub answers younger than this are used without a request.
 const GITHUB_MAX_AGE: Duration = Duration::from_secs(6 * 3600);
+/// Authenticated GitHub account list is refreshed at most every 15 minutes.
+const GITHUB_LIST_EVERY: Duration = LIST_MAX_AGE;
 /// Copies are compared once reads have been quiet this long.
 const COPIES_QUIET: Duration = Duration::from_millis(1500);
 
@@ -44,10 +47,17 @@ pub enum Msg {
     Stats(PathBuf, Box<Result<Stats, String>>),
     Check(PathBuf, RemoteCheck),
     GitHub(String, GhRepo),
+    GitHubList(Vec<GhListedRepo>),
     Copies(Vec<CopyDiff>),
     Rate(RateLimit),
     Busy { reading: usize, checking: usize },
     Watching(Result<(), String>),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum GhReq {
+    Repo(String),
+    List,
 }
 
 enum Event {
@@ -225,8 +235,9 @@ struct Coordinator {
     watched: Vec<WatchedRepo>,
     reads: Arc<Queue<()>>,
     checks: Arc<Queue<LsJob>>,
-    gh_tx: Sender<String>,
+    gh_tx: Sender<GhReq>,
     gh_asked: HashSet<String>,
+    last_github_list: Option<Instant>,
     /// HEAD pairs already compared, and the results.
     copies: HashMap<(PathBuf, PathBuf), (String, String)>,
     copy_results: Vec<CopyDiff>,
@@ -238,6 +249,7 @@ struct Coordinator {
     next_discover: Instant,
     next_remote_sweep: Instant,
     next_config_poll: Instant,
+    next_github_list: Instant,
     busy: (usize, usize),
 }
 
@@ -287,7 +299,7 @@ impl Coordinator {
         config_file: PathBuf,
         reads: Arc<Queue<()>>,
         checks: Arc<Queue<LsJob>>,
-        gh_tx: Sender<String>,
+        gh_tx: Sender<GhReq>,
     ) -> Coordinator {
         let now = Instant::now();
         Coordinator {
@@ -307,6 +319,7 @@ impl Coordinator {
             checks,
             gh_tx,
             gh_asked: HashSet::new(),
+            last_github_list: None,
             copies: HashMap::new(),
             copy_results: Vec::new(),
             copies_due: None,
@@ -317,6 +330,7 @@ impl Coordinator {
             next_discover: now + DISCOVER_EVERY,
             next_remote_sweep: now + Duration::from_secs(remote_minutes(5)),
             next_config_poll: now + CONFIG_POLL,
+            next_github_list: now + GITHUB_LIST_EVERY,
             busy: (usize::MAX, usize::MAX),
         }
     }
@@ -325,6 +339,7 @@ impl Coordinator {
         self.load_config();
         self.start_watcher();
         self.discover();
+        self.request_github_list();
         loop {
             let wait = self.next_deadline().saturating_duration_since(Instant::now());
             match rx.recv_timeout(wait) {
@@ -338,7 +353,12 @@ impl Coordinator {
     }
 
     fn next_deadline(&self) -> Instant {
-        let mut t = self.next_full_read.min(self.next_discover).min(self.next_remote_sweep).min(self.next_config_poll);
+        let mut t = self
+            .next_full_read
+            .min(self.next_discover)
+            .min(self.next_remote_sweep)
+            .min(self.next_config_poll)
+            .min(self.next_github_list);
         if let Some(due) = self.copies_due {
             t = t.min(due);
         }
@@ -347,7 +367,13 @@ impl Coordinator {
 
     fn handle(&mut self, event: Event) {
         match event {
-            Event::Cmd(Cmd::Rescan) => self.discover(),
+            Event::Cmd(Cmd::Rescan) => {
+                if self.config_changed() {
+                    self.load_config();
+                    self.start_watcher();
+                }
+                self.discover();
+            }
             Event::Cmd(Cmd::CheckRemotes(None)) => self.check_all(),
             Event::Cmd(Cmd::CheckRemotes(Some(path))) => self.check(&path),
             Event::Cmd(Cmd::RemoveRepo(path)) => {
@@ -405,6 +431,10 @@ impl Coordinator {
         if now >= self.next_remote_sweep {
             self.next_remote_sweep = now + self.remote_interval();
             self.check_all();
+        }
+        if now >= self.next_github_list {
+            self.next_github_list = now + GITHUB_LIST_EVERY;
+            self.request_github_list();
         }
         if self.copies_due.is_some_and(|t| now >= t) && !self.copies_running {
             self.copies_due = None;
@@ -607,8 +637,18 @@ impl Coordinator {
             return;
         };
         if self.gh_asked.insert(slug.to_lowercase()) {
-            let _ = self.gh_tx.send(slug);
+            let _ = self.gh_tx.send(GhReq::Repo(slug));
         }
+    }
+
+    fn request_github_list(&mut self) {
+        let now = Instant::now();
+        if self.last_github_list.is_some_and(|t| now.saturating_duration_since(t) < GITHUB_LIST_EVERY) {
+            return;
+        }
+        self.last_github_list = Some(now);
+        self.next_github_list = now + GITHUB_LIST_EVERY;
+        let _ = self.gh_tx.send(GhReq::List);
     }
 
     // ---- copies
@@ -682,36 +722,52 @@ fn modified(path: &Path) -> Option<SystemTime> {
     std::fs::metadata(path).and_then(|m| m.modified()).ok()
 }
 
-/// The GitHub thread: one slug at a time, answered from the cache while
-/// young. The rate limit is read once a batch is through.
-fn spawn_github(cache_dir: PathBuf, out: Out) -> Sender<String> {
-    let (tx, rx) = mpsc::channel::<String>();
+/// The GitHub thread: repository queries and account listing, answered from
+/// the cache while young. The rate limit is read once a batch that hit the
+/// network is through.
+fn spawn_github(cache_dir: PathBuf, out: Out) -> Sender<GhReq> {
+    let (tx, rx) = mpsc::channel::<GhReq>();
     std::thread::Builder::new()
         .name("repo-github".into())
         .spawn(move || {
             let gh = GitHub::new(cache_dir);
             let mut token_at: Option<Instant> = None;
-            let mut pending: VecDeque<String> = VecDeque::new();
+            let mut pending: VecDeque<GhReq> = VecDeque::new();
+            let mut batch_touched_network = false;
             loop {
                 if pending.is_empty() {
                     match rx.recv() {
-                        Ok(slug) => pending.push_back(slug),
+                        Ok(req) => pending.push_back(req),
                         Err(_) => return,
                     }
                 }
                 pending.extend(rx.try_iter());
-                if token_at.is_none_or(|t| t.elapsed() > Duration::from_secs(1800)) {
+                if token_at.is_none_or(|t| t.elapsed() > GITHUB_LIST_EVERY) {
                     gh.refresh_token();
                     token_at = Some(Instant::now());
                 }
-                let Some(slug) = pending.pop_front() else { continue };
-                if let Ok(fetched) = gh.repo(&slug, GITHUB_MAX_AGE) {
-                    out.send(Msg::GitHub(slug.to_lowercase(), fetched.value));
+                let Some(req) = pending.pop_front() else { continue };
+                match req {
+                    GhReq::Repo(slug) => {
+                        batch_touched_network = true;
+                        if let Ok(fetched) = gh.repo(&slug, GITHUB_MAX_AGE) {
+                            out.send(Msg::GitHub(slug.to_lowercase(), fetched.value));
+                        }
+                    }
+                    GhReq::List => {
+                        if let Ok(fetched) = gh.user_repos(GITHUB_LIST_EVERY) {
+                            if gh.has_token() && fetched.origin != Origin::Cache {
+                                batch_touched_network = true;
+                            }
+                            out.send(Msg::GitHubList(fetched.value));
+                        }
+                    }
                 }
                 pending.extend(rx.try_iter());
-                if pending.is_empty() {
+                if pending.is_empty() && batch_touched_network {
                     gh.refresh_limit();
                     out.send(Msg::Rate(gh.rate()));
+                    batch_touched_network = false;
                 }
             }
         })
@@ -882,5 +938,61 @@ mod tests {
         engine.send(Cmd::CheckRemotes(None));
         assert_eq!(cmds.try_recv().unwrap(), Cmd::Rescan);
         assert_eq!(cmds.try_recv().unwrap(), Cmd::CheckRemotes(None));
+    }
+
+    #[test]
+    fn rescan_reloads_changed_config_and_restarts_watcher_before_discover() {
+        let (_dir, file, config, _) = fixture();
+        let extra_dir = tempfile::tempdir().unwrap();
+        let extra_root = std::fs::canonicalize(extra_dir.path()).unwrap();
+        let added_repo = extra_root.join("fresh-root-repo");
+        std::fs::create_dir_all(added_repo.join(".git")).unwrap();
+
+        let (ev, ev_rx) = mpsc::channel();
+        let (tx, output) = mpsc::channel();
+        let (gh, _gh_rx) = mpsc::channel();
+        let mut c =
+            Coordinator::with_queues(ev, Out { tx, notify: Arc::new(|| {}) }, file.clone(), Queue::new(), Queue::new(), gh);
+        c.config = config;
+        c.config_stamp = modified(&file);
+
+        // Edit config.toml to add the second root and force a distinct mtime.
+        let mut text = std::fs::read_to_string(&file).unwrap();
+        text.push_str(&format!("\n[[root]]\npath = {:?}\ncategory = 'Added'\n", extra_root.to_str().unwrap()));
+        std::fs::write(&file, &text).unwrap();
+        if modified(&file) == c.config_stamp {
+            c.config_stamp = Some(SystemTime::UNIX_EPOCH);
+        }
+
+        c.handle(Event::Cmd(Cmd::Rescan));
+        assert_eq!(c.config.roots.len(), 2);
+        assert_eq!(c.config_stamp, modified(&file));
+
+        let messages: Vec<_> = output.try_iter().collect();
+        assert!(messages.iter().any(|m| matches!(m, Msg::Config(cfg, None) if cfg.roots.len() == 2)));
+        assert!(messages.iter().any(|m| matches!(m, Msg::Watching(_))));
+
+        // The spawned discovery pass uses the newly reloaded config.
+        let Event::Discovered(discovery) = ev_rx.recv_timeout(Duration::from_secs(5)).expect("discovery event") else {
+            panic!("expected Event::Discovered");
+        };
+        assert!(discovery.repos.iter().any(|f| f.path == added_repo));
+    }
+
+    #[test]
+    fn github_list_is_requested_at_most_once_per_15_minutes() {
+        let (_dir, file, config, _) = fixture();
+        let (ev, _) = mpsc::channel();
+        let (tx, _) = mpsc::channel();
+        let (gh_tx, gh_rx) = mpsc::channel();
+        let mut c = Coordinator::with_queues(ev, Out { tx, notify: Arc::new(|| {}) }, file, Queue::new(), Queue::new(), gh_tx);
+        c.config = config;
+
+        c.request_github_list();
+        assert_eq!(gh_rx.try_recv().ok(), Some(GhReq::List));
+
+        // Calling again immediately is throttled by the 15-minute window.
+        c.request_github_list();
+        assert!(gh_rx.try_recv().is_err());
     }
 }

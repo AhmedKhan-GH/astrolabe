@@ -56,6 +56,11 @@ pub fn copy_key(url: &RemoteUrl) -> String {
     format!("{}/{}", url.host, url.path).to_lowercase()
 }
 
+/// Canonical lowercase `github.com/{full_name}` key for a GitHub repository slug.
+pub fn github_copy_key(full_name: &str) -> String {
+    format!("github.com/{}", full_name.trim().trim_matches('/')).to_lowercase()
+}
+
 /// How the repository stands against its main remote.
 pub fn relation(stats: &Stats, gh: Option<&GhRepo>) -> Relation {
     let Some(remote) = stats.main_remote() else {
@@ -180,6 +185,8 @@ mod tests {
         let key = |u: &str| copy_key(&parse_url(u).unwrap());
         assert_eq!(key("git@GitHub.com:Foo/Bar.git"), "github.com/foo/bar");
         assert_eq!(key("https://github.com/foo/bar"), key("git@github.com:Foo/Bar.git"));
+        assert_eq!(github_copy_key("Northstar-Labs/Sextant-Core"), "github.com/northstar-labs/sextant-core");
+        assert_eq!(github_copy_key(" /Foo/Bar/ "), "github.com/foo/bar");
     }
 
     #[test]

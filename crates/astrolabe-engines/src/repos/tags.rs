@@ -14,8 +14,18 @@ use super::model::{Relation, Repo, THIRD_PARTY, tag_slug};
 pub const STATUS: [&str; 8] =
     ["uncommitted", "unpushed", "behind", "stale", "local-only", "private", "public", "third-party"];
 
+/// Automatic tag for repositories on this Mac with no remote.
+pub const LOCATION_LOCAL_ONLY: &str = "location:local-only";
+/// Automatic tag for GitHub repositories with no local clone.
+pub const LOCATION_REMOTE_ONLY: &str = "location:remote-only";
+/// Automatic tag for local clones of GitHub repositories.
+pub const LOCATION_BOTH: &str = "location:both";
+
+/// Location automatic tags, in the order the sidebar lists them.
+pub const LOCATION: [&str; 3] = [LOCATION_LOCAL_ONLY, LOCATION_REMOTE_ONLY, LOCATION_BOTH];
+
 /// The prefixes of the automatic tags that carry a value.
-pub const PREFIXES: [&str; 3] = ["app:", "lang:", "category:"];
+pub const PREFIXES: [&str; 4] = ["app:", "lang:", "category:", "location:"];
 
 /// Days since the last commit after which a repository is stale.
 pub const STALE_DAYS: u64 = 30;
@@ -26,15 +36,15 @@ const MAX_GUESSED: usize = 3;
 /// The most folder entries looked at per folder when guessing from extensions.
 const MAX_ENTRIES: usize = 500;
 
-/// Whether a tag is automatic: one of [`STATUS`], or starting with one of
-/// [`PREFIXES`]. Manual tags never take these names.
+/// Whether a tag is automatic: one of [`STATUS`], one of [`LOCATION`], or
+/// starting with one of [`PREFIXES`]. Manual tags never take these names.
 pub fn is_automatic(tag: &str) -> bool {
-    STATUS.contains(&tag) || PREFIXES.iter().any(|p| tag.starts_with(p))
+    STATUS.contains(&tag) || LOCATION.contains(&tag) || PREFIXES.iter().any(|p| tag.starts_with(p))
 }
 
 /// The automatic tags of a repository, in this order: `app:`, then `lang:` (in
-/// `found.langs` order), then `category:`, then the [`STATUS`] words that apply,
-/// in `STATUS` order.
+/// `found.langs` order), then `category:`, then `location:` when applicable,
+/// then the [`STATUS`] words that apply, in `STATUS` order.
 pub fn automatic(repo: &Repo, now: SystemTime) -> Vec<String> {
     let mut tags = Vec::new();
     if let Some(ide) = repo.ide {
@@ -42,6 +52,11 @@ pub fn automatic(repo: &Repo, now: SystemTime) -> Vec<String> {
     }
     tags.extend(repo.found.langs.iter().map(|l| format!("lang:{l}")));
     tags.push(format!("category:{}", tag_slug(&repo.category)));
+    match repo.relation {
+        Relation::LocalOnly => tags.push(LOCATION_LOCAL_ONLY.to_owned()),
+        Relation::Private | Relation::Public | Relation::GitHub => tags.push(LOCATION_BOTH.to_owned()),
+        Relation::OtherHost(_) => {}
+    }
     let applies = |word: &str| match word {
         "uncommitted" => repo.stats().is_some_and(|s| s.has_uncommitted()),
         "unpushed" => repo.stats().is_some() && repo.unpushed() > 0,
@@ -231,6 +246,7 @@ mod tests {
                 "lang:rust",
                 "lang:python",
                 "category:products-and-tools",
+                "location:both",
                 "uncommitted",
                 "unpushed",
                 "behind",
@@ -240,7 +256,10 @@ mod tests {
         );
         r.category = THIRD_PARTY.into();
         r.relation = Relation::Public;
-        assert_eq!(automatic(&r, now())[4..], ["uncommitted", "unpushed", "behind", "stale", "public", "third-party"]);
+        assert_eq!(
+            automatic(&r, now())[4..],
+            ["location:both", "uncommitted", "unpushed", "behind", "stale", "public", "third-party"]
+        );
     }
 
     #[test]
@@ -248,15 +267,21 @@ mod tests {
         let mut r = repo("Research", Relation::LocalOnly, None);
         r.ide = Some(Ide::CLion);
         r.found.langs = vec!["cpp".into()];
-        assert_eq!(automatic(&r, now()), ["app:clion", "lang:cpp", "category:research", "local-only"]);
+        assert_eq!(
+            automatic(&r, now()),
+            ["app:clion", "lang:cpp", "category:research", "location:local-only", "local-only"]
+        );
         r.stats = Some(Err("broken".into()));
-        assert_eq!(automatic(&r, now()), ["app:clion", "lang:cpp", "category:research", "local-only"]);
+        assert_eq!(
+            automatic(&r, now()),
+            ["app:clion", "lang:cpp", "category:research", "location:local-only", "local-only"]
+        );
     }
 
     #[test]
     fn github_relation_has_no_visibility() {
         let r = repo("Research", Relation::GitHub, Some(stats()));
-        assert_eq!(automatic(&r, now()), ["category:research"]);
+        assert_eq!(automatic(&r, now()), ["category:research", "location:both"]);
         let r = repo("Research", Relation::OtherHost("git.overleaf.com".into()), Some(stats()));
         assert_eq!(automatic(&r, now()), ["category:research"]);
     }
@@ -266,7 +291,7 @@ mod tests {
         let mut s = stats();
         s.unpushed = Some(5);
         let r = repo("Research", Relation::LocalOnly, Some(s));
-        assert_eq!(automatic(&r, now()), ["category:research", "local-only"]);
+        assert_eq!(automatic(&r, now()), ["category:research", "location:local-only", "local-only"]);
     }
 
     #[test]
@@ -276,16 +301,16 @@ mod tests {
             s.last_commit = Some(commit(at(days) - Duration::from_secs(secs)));
             automatic(&repo("Research", Relation::Private, Some(s)), now())
         };
-        assert_eq!(tags(30, 0), ["category:research", "private"]);
-        assert_eq!(tags(29, 0), ["category:research", "private"]);
-        assert_eq!(tags(30, 1), ["category:research", "stale", "private"]);
-        assert_eq!(tags(31, 0), ["category:research", "stale", "private"]);
+        assert_eq!(tags(30, 0), ["category:research", "location:both", "private"]);
+        assert_eq!(tags(29, 0), ["category:research", "location:both", "private"]);
+        assert_eq!(tags(30, 1), ["category:research", "location:both", "stale", "private"]);
+        assert_eq!(tags(31, 0), ["category:research", "location:both", "stale", "private"]);
     }
 
     #[test]
     fn no_commits_is_not_stale() {
         let r = repo("Research", Relation::Private, Some(stats()));
-        assert_eq!(automatic(&r, now()), ["category:research", "private"]);
+        assert_eq!(automatic(&r, now()), ["category:research", "location:both", "private"]);
     }
 
     #[test]
@@ -293,24 +318,27 @@ mod tests {
         let mut s = stats();
         s.behind = Some(3);
         let r = repo("Research", Relation::Private, Some(s));
-        assert_eq!(automatic(&r, now()), ["category:research", "behind", "private"]);
+        assert_eq!(automatic(&r, now()), ["category:research", "location:both", "behind", "private"]);
 
         let mut r = repo("Research", Relation::Private, Some(stats()));
         r.check = Some(RemoteCheck { at: now(), tip: Tip::Moved { remote_sha: "b".repeat(40) } });
-        assert_eq!(automatic(&r, now()), ["category:research", "behind", "private"]);
+        assert_eq!(automatic(&r, now()), ["category:research", "location:both", "behind", "private"]);
         r.check = Some(RemoteCheck { at: now(), tip: Tip::Same });
-        assert_eq!(automatic(&r, now()), ["category:research", "private"]);
+        assert_eq!(automatic(&r, now()), ["category:research", "location:both", "private"]);
     }
 
     #[test]
     fn automatic_names() {
-        for tag in ["app:x", "lang:x", "category:x"] {
+        for tag in ["app:x", "lang:x", "category:x", "location:local-only", "location:remote-only", "location:both"] {
             assert!(is_automatic(tag), "{tag}");
         }
         for tag in STATUS {
             assert!(is_automatic(tag), "{tag}");
         }
-        for tag in ["northstar", "application", "language", "app", "lang", "categories"] {
+        for tag in LOCATION {
+            assert!(is_automatic(tag), "{tag}");
+        }
+        for tag in ["northstar", "application", "language", "app", "lang", "categories", "location"] {
             assert!(!is_automatic(tag), "{tag}");
         }
     }

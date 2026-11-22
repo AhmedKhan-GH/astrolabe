@@ -9,9 +9,10 @@ use std::time::SystemTime;
 use serde::{Deserialize, Serialize};
 
 use super::index::Index;
-use super::model::{Changes, Config, Ide, Relation, Repo, Tip, tag_slug};
+use super::model::{Changes, Config, GhListedRepo, Ide, Relation, Repo, Tip, tag_slug};
 use super::organize::{Folder, Organize};
-use super::query::Query;
+use super::query::{Facts, Query};
+use super::tags;
 
 /// What the sidebar has chosen.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -267,6 +268,72 @@ pub fn shown(
     rows
 }
 
+struct RemoteItem<'a> {
+    repo: &'a GhListedRepo,
+    location: String,
+}
+
+impl<'a> RemoteItem<'a> {
+    fn new(repo: &'a GhListedRepo) -> Self {
+        let location = if repo.full_name.is_empty() {
+            format!("{}/{}", repo.owner, repo.name)
+        } else if !repo.full_name.to_lowercase().contains(&repo.owner.to_lowercase()) {
+            format!("{} {}", repo.owner, repo.full_name)
+        } else {
+            repo.full_name.clone()
+        };
+        RemoteItem { repo, location }
+    }
+}
+
+impl Facts for RemoteItem<'_> {
+    fn has_tag(&self, tag: &str) -> bool {
+        if tag == tags::LOCATION_REMOTE_ONLY {
+            return true;
+        }
+        if self.repo.visibility.eq_ignore_ascii_case(tag) {
+            return true;
+        }
+        match tag {
+            "private" => self.repo.private,
+            "public" => !self.repo.private,
+            _ => false,
+        }
+    }
+
+    fn name(&self) -> &str {
+        &self.repo.name
+    }
+
+    fn location(&self) -> &str {
+        &self.location
+    }
+}
+
+fn is_remote_tag(word: &str) -> bool {
+    matches!(word, "private" | "public" | "internal" | tags::LOCATION_REMOTE_ONLY)
+}
+
+/// Filter and sort remote-only GitHub repositories by query (name, owner,
+/// visibility) and sort order, returning indices into `repos`.
+pub fn remote_only_shown(repos: &[GhListedRepo], filter: &Query, sort: Sort, desc: bool) -> Vec<usize> {
+    let all = filter.is_all();
+    let mut rows: Vec<usize> = (0..repos.len())
+        .filter(|&i| all || filter.matches(&RemoteItem::new(&repos[i]), &is_remote_tag))
+        .collect();
+    rows.sort_by(|&a, &b| {
+        let ord = match sort {
+            Sort::Name => repos[a].name.to_lowercase().cmp(&repos[b].name.to_lowercase()),
+            Sort::Location => repos[a].full_name.to_lowercase().cmp(&repos[b].full_name.to_lowercase()),
+            Sort::Recent => repos[a].pushed_at.cmp(&repos[b].pushed_at),
+        };
+        let ord = if desc { ord.reverse() } else { ord };
+        ord.then_with(|| repos[a].name.to_lowercase().cmp(&repos[b].name.to_lowercase()))
+            .then_with(|| repos[a].full_name.to_lowercase().cmp(&repos[b].full_name.to_lowercase()))
+    });
+    rows
+}
+
 /// Group the filtered and sorted rows into non-empty display sections. A
 /// repository in several folders or with several tags appears in each section.
 #[allow(clippy::too_many_arguments)]
@@ -343,9 +410,15 @@ pub fn sections(
     out
 }
 
-/// How a tag reads in the UI: an app or category by its own name, a language
-/// without its prefix, other tags as they are.
+/// How a tag reads in the UI: location tags, an app or category by its own
+/// name, a language without its prefix, other tags as they are.
 pub fn tag_label(config: &Config, tag: &str) -> String {
+    match tag {
+        tags::LOCATION_LOCAL_ONLY => return "Local Only".to_owned(),
+        tags::LOCATION_REMOTE_ONLY => return "Remote Only".to_owned(),
+        tags::LOCATION_BOTH => return "Both".to_owned(),
+        _ => {}
+    }
     if let Some(app) = tag.strip_prefix("app:") {
         let ide = Ide::ALL.into_iter().find(|i| i.name().eq_ignore_ascii_case(app));
         return ide.map_or_else(|| app.to_owned(), |i| i.name().to_owned());
@@ -524,6 +597,58 @@ mod tests {
         assert_eq!(tag_label(&cfg, "app:rustrover"), "RustRover");
         assert_eq!(tag_label(&cfg, "lang:rust"), "rust");
         assert_eq!(tag_label(&cfg, "category:products-and-tools"), "Products and tools");
+        assert_eq!(tag_label(&cfg, "location:local-only"), "Local Only");
+        assert_eq!(tag_label(&cfg, "location:remote-only"), "Remote Only");
+        assert_eq!(tag_label(&cfg, "location:both"), "Both");
         assert_eq!(tag_label(&cfg, "uncommitted"), "uncommitted");
+    }
+
+    #[test]
+    fn remote_only_filtering_and_sorting() {
+        let t = |secs: u64| SystemTime::UNIX_EPOCH + Duration::from_secs(secs);
+        let repos = vec![
+            GhListedRepo {
+                full_name: "northstar-labs/orbit-scheduler".into(),
+                name: "orbit-scheduler".into(),
+                owner: "northstar-labs".into(),
+                private: true,
+                visibility: "private".into(),
+                default_branch: "main".into(),
+                pushed_at: Some(t(300)),
+                html_url: "https://github.com/northstar-labs/orbit-scheduler".into(),
+            },
+            GhListedRepo {
+                full_name: "cobalt-systems/kestrel-proto".into(),
+                name: "kestrel-proto".into(),
+                owner: "cobalt-systems".into(),
+                private: true,
+                visibility: "internal".into(),
+                default_branch: "trunk".into(),
+                pushed_at: Some(t(100)),
+                html_url: "https://github.com/cobalt-systems/kestrel-proto".into(),
+            },
+            GhListedRepo {
+                full_name: "example-org/astrolabe-spec".into(),
+                name: "astrolabe-spec".into(),
+                owner: "example-org".into(),
+                private: false,
+                visibility: "public".into(),
+                default_branch: "main".into(),
+                pushed_at: None,
+                html_url: "https://github.com/example-org/astrolabe-spec".into(),
+            },
+        ];
+
+        assert_eq!(remote_only_shown(&repos, &Query::All, Sort::Name, false), vec![2, 1, 0]);
+        assert_eq!(remote_only_shown(&repos, &Query::All, Sort::Location, false), vec![1, 2, 0]);
+        assert_eq!(remote_only_shown(&repos, &Query::All, Sort::Recent, true), vec![0, 1, 2]);
+        assert_eq!(remote_only_shown(&repos, &Query::All, Sort::Recent, false), vec![2, 1, 0]);
+
+        assert_eq!(remote_only_shown(&repos, &query::parse("orbit").unwrap(), Sort::Name, false), vec![0]);
+        assert_eq!(remote_only_shown(&repos, &query::parse("cobalt-systems").unwrap(), Sort::Name, false), vec![1]);
+        assert_eq!(remote_only_shown(&repos, &query::parse("public").unwrap(), Sort::Name, false), vec![2]);
+        assert_eq!(remote_only_shown(&repos, &query::parse("internal").unwrap(), Sort::Name, false), vec![1]);
+        assert_eq!(remote_only_shown(&repos, &query::parse("private").unwrap(), Sort::Name, false), vec![1, 0]);
+        assert_eq!(remote_only_shown(&repos, &query::parse("-private").unwrap(), Sort::Name, false), vec![2]);
     }
 }
