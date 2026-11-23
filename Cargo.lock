@@ -3605,8 +3605,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "sternbild-tokens"
-version = "1.1.0"
-source = "git+https://github.com/AhmedKhan-GH/organization?tag=design-v1.1.0#679429bc51da0122cc7d201dbd85b9107f5d6538"
+version = "2.0.0"
 
 [[package]]
 name = "strict-num"

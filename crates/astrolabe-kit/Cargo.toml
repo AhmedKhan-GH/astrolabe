@@ -15,7 +15,7 @@ egui.workspace = true
 eframe = { workspace = true, optional = true }
 egui_kittest = { workspace = true, optional = true }
 image.workspace = true
-sternbild-tokens = { git = "https://github.com/AhmedKhan-GH/organization", tag = "design-v1.1.0" }
+sternbild-tokens = { git = "https://github.com/AhmedKhan-GH/organization", tag = "design-v2.0.0" }
 
 [dev-dependencies]
 eframe.workspace = true
